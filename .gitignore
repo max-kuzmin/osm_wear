@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+build/
+dist/
+.expo/
+.expo-shared/
+
+# Misc
+.DS_Store
+*.pem
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Android
+android/app/build/
+android/app/.gradle/
+android/.gradle/
+android/local.properties
+
+# iOS
+ios/Pods/
+ios/Podfile.lock
+
+# Expo
+.expo-shared/
