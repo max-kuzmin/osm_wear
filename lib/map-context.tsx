@@ -4,8 +4,14 @@
  */
 
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
-import * as Location from 'expo-location';
-import { GPXData } from './gpx-parser';
+import { Platform } from 'react-native';
+import { GPXData, type GPXTrack } from './gpx-parser';
+
+// Only import Location on native platforms
+let Location: typeof import('expo-location') | null = null;
+if (Platform.OS !== 'web') {
+  Location = require('expo-location');
+}
 
 export interface MapState {
   // Current location
@@ -19,20 +25,24 @@ export interface MapState {
   locationPermission: 'granted' | 'denied' | 'undetermined';
 
   // Map view
+  latitude: number;
+  longitude: number;
+  zoomLevel: number;
   mapRegion: {
     latitude: number;
     longitude: number;
     latitudeDelta: number;
     longitudeDelta: number;
   };
-  zoomLevel: number;
 
   // Offline tiles
+  selectedRegionId: string | null;
   selectedRegion: string | null;
   downloadingRegion: string | null;
   downloadProgress: number;
 
   // GPX files
+  gpxTracks: GPXTrack[];
   loadedGPX: GPXData | null;
   gpxFileName: string | null;
   gpxError: string | null;
@@ -48,9 +58,12 @@ export type MapAction =
   | { type: 'SET_LOCATION_PERMISSION'; payload: MapState['locationPermission'] }
   | { type: 'SET_MAP_REGION'; payload: MapState['mapRegion'] }
   | { type: 'SET_ZOOM_LEVEL'; payload: number }
+  | { type: 'UPDATE_MAP_STATE'; payload: Partial<MapState> }
   | { type: 'SET_SELECTED_REGION'; payload: string | null }
+  | { type: 'SET_SELECTED_REGION_ID'; payload: string | null }
   | { type: 'SET_DOWNLOADING_REGION'; payload: string | null }
   | { type: 'SET_DOWNLOAD_PROGRESS'; payload: number }
+  | { type: 'SET_GPX_TRACKS'; payload: GPXTrack[] }
   | { type: 'SET_LOADED_GPX'; payload: { data: GPXData; fileName: string } }
   | { type: 'CLEAR_GPX' }
   | { type: 'SET_GPX_ERROR'; payload: string }
@@ -61,16 +74,20 @@ const initialState: MapState = {
   currentLocation: null,
   locationError: null,
   locationPermission: 'undetermined',
+  latitude: 51.5074,
+  longitude: -0.1278,
+  zoomLevel: 13,
   mapRegion: {
     latitude: 51.5074,
     longitude: -0.1278,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   },
-  zoomLevel: 13,
+  selectedRegionId: null,
   selectedRegion: null,
   downloadingRegion: null,
   downloadProgress: 0,
+  gpxTracks: [],
   loadedGPX: null,
   gpxFileName: null,
   gpxError: null,
@@ -90,12 +107,18 @@ function mapReducer(state: MapState, action: MapAction): MapState {
       return { ...state, mapRegion: action.payload };
     case 'SET_ZOOM_LEVEL':
       return { ...state, zoomLevel: action.payload };
+    case 'UPDATE_MAP_STATE':
+      return { ...state, ...action.payload };
     case 'SET_SELECTED_REGION':
       return { ...state, selectedRegion: action.payload };
+    case 'SET_SELECTED_REGION_ID':
+      return { ...state, selectedRegionId: action.payload };
     case 'SET_DOWNLOADING_REGION':
       return { ...state, downloadingRegion: action.payload };
     case 'SET_DOWNLOAD_PROGRESS':
       return { ...state, downloadProgress: action.payload };
+    case 'SET_GPX_TRACKS':
+      return { ...state, gpxTracks: action.payload };
     case 'SET_LOADED_GPX':
       return {
         ...state,
@@ -104,7 +127,7 @@ function mapReducer(state: MapState, action: MapAction): MapState {
         gpxError: null,
       };
     case 'CLEAR_GPX':
-      return { ...state, loadedGPX: null, gpxFileName: null, gpxError: null };
+      return { ...state, loadedGPX: null, gpxFileName: null, gpxError: null, gpxTracks: [] };
     case 'SET_GPX_ERROR':
       return { ...state, gpxError: action.payload };
     case 'SET_LOADING':
@@ -118,7 +141,10 @@ function mapReducer(state: MapState, action: MapAction): MapState {
 
 interface MapContextType {
   state: MapState;
+  mapState: MapState;
   dispatch: React.Dispatch<MapAction>;
+  updateMapState: (updates: Partial<MapState>) => void;
+  currentLocation: MapState['currentLocation'];
   requestLocationPermission: () => Promise<void>;
   startLocationTracking: () => Promise<void>;
   stopLocationTracking: () => void;
@@ -128,16 +154,21 @@ const MapContext = createContext<MapContextType | undefined>(undefined);
 
 export function MapProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(mapReducer, initialState);
-  const locationSubscriptionRef = React.useRef<Location.LocationSubscription | null>(null);
+  const locationSubscriptionRef = React.useRef<any>(null);
 
   const requestLocationPermission = useCallback(async () => {
+    if (!Location || Platform.OS === 'web') {
+      dispatch({ type: 'SET_LOCATION_PERMISSION', payload: 'granted' });
+      return;
+    }
+
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await Location!.requestForegroundPermissionsAsync();
       dispatch({ type: 'SET_LOCATION_PERMISSION', payload: status as any });
 
       if (status === 'granted') {
         // Get initial location
-        const location = await Location.getCurrentPositionAsync({});
+        const location = await Location!.getCurrentPositionAsync({});
         dispatch({
           type: 'SET_LOCATION',
           payload: {
@@ -156,18 +187,22 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startLocationTracking = useCallback(async () => {
+    if (!Location || Platform.OS === 'web') {
+      return;
+    }
+
     try {
       // Check if permission is already granted
-      const { status } = await Location.getForegroundPermissionsAsync();
+      const { status } = await Location!.getForegroundPermissionsAsync();
       if (status !== 'granted') {
         await requestLocationPermission();
         return;
       }
 
       // Subscribe to location updates
-      locationSubscriptionRef.current = await Location.watchPositionAsync(
+      locationSubscriptionRef.current = await Location!.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
+          accuracy: (Location as any).Accuracy.High,
           timeInterval: 5000, // Update every 5 seconds
           distanceInterval: 10, // Or when moved 10 meters
         },
@@ -202,9 +237,16 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
     };
   }, [stopLocationTracking]);
 
+  const updateMapState = useCallback((updates: Partial<MapState>) => {
+    dispatch({ type: 'UPDATE_MAP_STATE', payload: updates });
+  }, []);
+
   const value: MapContextType = {
     state,
+    mapState: state,
     dispatch,
+    updateMapState,
+    currentLocation: state.currentLocation,
     requestLocationPermission,
     startLocationTracking,
     stopLocationTracking,
@@ -217,6 +259,14 @@ export function useMap() {
   const context = useContext(MapContext);
   if (!context) {
     throw new Error('useMap must be used within a MapProvider');
+  }
+  return context;
+}
+
+export function useMapContext() {
+  const context = useContext(MapContext);
+  if (!context) {
+    throw new Error('useMapContext must be used within a MapProvider');
   }
   return context;
 }
