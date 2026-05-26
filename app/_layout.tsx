@@ -1,12 +1,12 @@
 import "@/global.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform } from "react-native";
-import "@/lib/_core/nativewind-pressable";
+
 import { ThemeProvider } from "@/lib/theme-provider";
 import {
   SafeAreaFrameContext,
@@ -16,8 +16,6 @@ import {
 } from "react-native-safe-area-context";
 import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
-import { trpc, createTRPCClient } from "@/lib/trpc";
-import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { MapProvider } from "@/lib/map-context";
 import { initializePMTilesProtocol } from "@/lib/pmtiles-protocol";
 import { initializeCacheDirectory } from "@/lib/download-manager";
@@ -33,46 +31,11 @@ export default function RootLayout() {
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
 
-  const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
-  const [frame, setFrame] = useState<Rect>(initialFrame);
-
-  // Initialize Manus runtime for cookie injection from parent container
-  useEffect(() => {
-    initManusRuntime();
-  }, []);
-
   // Initialize PMTiles protocol and cache directory
   useEffect(() => {
     initializePMTilesProtocol();
     initializeCacheDirectory();
   }, []);
-
-  const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
-    setInsets(metrics.insets);
-    setFrame(metrics.frame);
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    const unsubscribe = subscribeSafeAreaInsets(handleSafeAreaUpdate);
-    return () => unsubscribe();
-  }, [handleSafeAreaUpdate]);
-
-  // Create clients once and reuse them
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            // Disable automatic refetching on window focus for mobile
-            refetchOnWindowFocus: false,
-            // Retry failed requests once
-            retry: 1,
-          },
-        },
-      }),
-  );
-  const [trpcClient] = useState(() => createTRPCClient());
 
   // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
@@ -90,18 +53,12 @@ export default function RootLayout() {
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <MapProvider>
-        <trpc.Provider client={trpcClient} queryClient={queryClient}>
-          <QueryClientProvider client={queryClient}>
-          {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
-          {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
-          {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="oauth/callback" />
-          </Stack>
-          <StatusBar style="auto" />
-          </QueryClientProvider>
-        </trpc.Provider>
+        {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
+        {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+        <StatusBar style="auto" />
       </MapProvider>
     </GestureHandlerRootView>
   );
@@ -112,8 +69,8 @@ export default function RootLayout() {
     return (
       <ThemeProvider>
         <SafeAreaProvider initialMetrics={providerInitialMetrics}>
-          <SafeAreaFrameContext.Provider value={frame}>
-            <SafeAreaInsetsContext.Provider value={insets}>
+          <SafeAreaFrameContext.Provider value={initialFrame}>
+            <SafeAreaInsetsContext.Provider value={initialInsets}>
               {content}
             </SafeAreaInsetsContext.Provider>
           </SafeAreaFrameContext.Provider>
