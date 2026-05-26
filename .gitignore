@@ -1,43 +1,32 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Testing
-coverage/
-
-# Production
+# Gradle
+.gradle/
 build/
-dist/
-.expo/
-.expo-shared/
+**/build/
+local.properties
 
-# Misc
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
 .DS_Store
-*.pem
+
+# Keystore files (never commit these!)
+*.jks
+*.keystore
+release.properties
+
+# Generated files
+app/src/main/assets/
+app/src/main/res/raw/
+
+# Test results
+test-results/
+lint-results/
+
+# APK output
+*.apk
+*.aab
 
 # Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Android
-android/app/build/
-android/app/.gradle/
-android/.gradle/
-android/local.properties
-
-# iOS
-ios/Pods/
-ios/Podfile.lock
-
-# Expo
-.expo-shared/
+*.log

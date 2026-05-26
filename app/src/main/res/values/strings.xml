@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OSM Wear</string>
+    <string name="title_map">Map</string>
+    <string name="title_download">Download Maps</string>
+    <string name="title_gpx">GPX Tracks</string>
+    <string name="action_zoom_in">Zoom In</string>
+    <string name="action_zoom_out">Zoom Out</string>
+    <string name="action_my_location">My Location</string>
+    <string name="action_download">Download</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_import">Import GPX</string>
+    <string name="status_downloading">Downloading…</string>
+    <string name="status_no_maps">No offline maps.\nDownload a region first.</string>
+    <string name="status_no_gpx">No GPX tracks.\nImport a GPX file.</string>
+    <string name="status_gps_searching">Searching for GPS…</string>
+    <string name="permission_location_rationale">Location permission is required to show your current position on the map.</string>
+</resources>
