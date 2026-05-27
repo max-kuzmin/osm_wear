@@ -12,7 +12,9 @@ import androidx.wear.compose.material3.*
 fun MenuScreen(
     onNavigateToMap: () -> Unit,
     onNavigateToDownload: () -> Unit,
-    onNavigateToGpx: () -> Unit
+    onNavigateToGpx: () -> Unit,
+    onNavigateToRecord: () -> Unit,
+    onNavigateToNavigation: () -> Unit
 ) {
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -52,6 +54,24 @@ fun MenuScreen(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("📍  GPX Tracks") },
                 secondaryLabel = { Text("Import & manage tracks") }
+            )
+        }
+
+        item {
+            Chip(
+                onClick = onNavigateToRecord,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("⏺  Record Track") },
+                secondaryLabel = { Text("Record GPS track") }
+            )
+        }
+
+        item {
+            Chip(
+                onClick = onNavigateToNavigation,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("🧭  Navigate") },
+                secondaryLabel = { Text("Turn-by-turn guidance") }
             )
         }
     }

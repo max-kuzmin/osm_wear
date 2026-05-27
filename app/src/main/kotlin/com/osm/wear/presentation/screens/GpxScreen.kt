@@ -20,17 +20,17 @@ import com.osm.wear.domain.model.GpxTrack
 import kotlin.math.roundToInt
 
 @Composable
-fun GpxScreen(viewModel: MapViewModel) {
+fun GpxScreen(
+    viewModel: MapViewModel,
+    onNavigate: () -> Unit = {}
+) {
     val tracks by viewModel.gpxTracks.collectAsStateWithLifecycle()
 
-    // File picker launcher for GPX files
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                viewModel.importGpxFromUri(uri)
-            }
+            result.data?.data?.let { uri -> viewModel.importGpxFromUri(uri) }
         }
     }
 
@@ -45,10 +45,7 @@ fun GpxScreen(viewModel: MapViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "GPX Tracks",
-                    style = MaterialTheme.typography.titleSmall
-                )
+                Text("GPX Tracks", style = MaterialTheme.typography.titleSmall)
                 CompactButton(
                     onClick = {
                         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -56,7 +53,8 @@ fun GpxScreen(viewModel: MapViewModel) {
                             type = "*/*"
                             putExtra(
                                 Intent.EXTRA_MIME_TYPES,
-                                arrayOf("application/gpx+xml", "application/xml", "text/xml", "text/plain")
+                                arrayOf("application/gpx+xml", "application/xml",
+                                        "text/xml", "text/plain")
                             )
                         }
                         launcher.launch(intent)
@@ -71,9 +69,7 @@ fun GpxScreen(viewModel: MapViewModel) {
         if (tracks.isEmpty()) {
             item {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -89,7 +85,11 @@ fun GpxScreen(viewModel: MapViewModel) {
                 GpxTrackItem(
                     track = track,
                     onToggleVisibility = { viewModel.toggleGpxTrackVisibility(track.id) },
-                    onDelete = { viewModel.deleteGpxTrack(track.id) }
+                    onDelete = { viewModel.deleteGpxTrack(track.id) },
+                    onNavigate = {
+                        viewModel.startNavigation(track)
+                        onNavigate()
+                    }
                 )
             }
         }
@@ -100,63 +100,67 @@ fun GpxScreen(viewModel: MapViewModel) {
 private fun GpxTrackItem(
     track: GpxTrack,
     onToggleVisibility: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onNavigate: () -> Unit
 ) {
-    val distanceStr = formatDistance(track.distanceMeters)
-
     Card(
         onClick = onToggleVisibility,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = track.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = if (track.isVisible) Color.White else Color.Gray
-                )
-                Text(
-                    text = "${track.points.size} pts · $distanceStr",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.Gray
-                )
+        Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = track.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = if (track.isVisible) Color.White else Color.Gray
+                    )
+                    Text(
+                        text = "${track.points.size} pts · ${formatDistance(track.distanceMeters)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Visibility toggle
+                    CompactButton(
+                        onClick = onToggleVisibility,
+                        modifier = Modifier.size(24.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (track.isVisible) Color(0xFF2196F3) else Color.DarkGray
+                        )
+                    ) {
+                        Text(if (track.isVisible) "●" else "○",
+                             style = MaterialTheme.typography.labelSmall)
+                    }
+
+                    // Delete
+                    CompactButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(24.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B0000))
+                    ) {
+                        Text("✕", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
 
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.height(4.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                // Visibility toggle
-                CompactButton(
-                    onClick = onToggleVisibility,
-                    modifier = Modifier.size(24.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (track.isVisible) Color(0xFF2196F3) else Color.DarkGray
-                    )
-                ) {
-                    Text(
-                        if (track.isVisible) "●" else "○",
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-
-                // Delete button
-                CompactButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(24.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF8B0000)
-                    )
-                ) {
-                    Text("✕", style = MaterialTheme.typography.labelSmall)
-                }
+            // Navigate button — full width at the bottom of the card
+            CompactButton(
+                onClick = onNavigate,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B5E20))
+            ) {
+                Text("🧭 Navigate", style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -164,5 +168,5 @@ private fun GpxTrackItem(
 
 private fun formatDistance(meters: Double): String = when {
     meters >= 1000 -> "${"%.1f".format(meters / 1000)} km"
-    else -> "${meters.roundToInt()} m"
+    else           -> "${meters.roundToInt()} m"
 }

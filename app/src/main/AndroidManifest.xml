@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
 
     <!-- GPS & Location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -17,6 +18,9 @@
 
     <!-- Keep screen on while navigating -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Vibration for turn-by-turn navigation alarms -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Wear OS specific -->
     <uses-feature android:name="android.hardware.type.watch" />

@@ -7,12 +7,8 @@ import android.location.Location
 import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
+import com.google.android.gms.location.*
+import com.osm.wear.domain.model.GpsBatteryMode
 import com.osm.wear.domain.model.UserLocation
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -20,9 +16,14 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 
 /**
- * Provides GPS location updates using Android's FusedLocationProviderClient.
+ * Provides GPS location updates using FusedLocationProviderClient.
  *
- * On Wear OS / Galaxy Watch 7, GPS is built-in and works standalone.
+ * Battery strategy (controlled by [GpsBatteryMode]):
+ *  POWER_SAVE    – 10 s / 20 m  – idle map browsing, minimal drain
+ *  BALANCED      – 5 s  / 5 m   – normal use (default)
+ *  HIGH_ACCURACY – 1 s  / 0 m   – active recording or navigation
+ *
+ * On Wear OS / Galaxy Watch 7 GPS is built-in and works standalone.
  */
 class LocationRepository(private val context: Context) {
 
@@ -35,52 +36,53 @@ class LocationRepository(private val context: Context) {
 
     /**
      * Emits GPS location updates as a cold [Flow].
-     * Requires [Manifest.permission.ACCESS_FINE_LOCATION] to be granted.
+     * The [mode] parameter controls accuracy vs. battery trade-off.
      */
-    fun locationUpdates(
-        intervalMs: Long = 3_000L,
-        minUpdateDistanceMeters: Float = 2f
-    ): Flow<UserLocation> = callbackFlow {
-        if (!hasLocationPermission()) {
-            close(SecurityException("Location permission not granted"))
-            return@callbackFlow
-        }
+    fun locationFlow(mode: GpsBatteryMode = GpsBatteryMode.BALANCED): Flow<UserLocation> =
+        callbackFlow {
+            if (!hasLocationPermission()) {
+                close(SecurityException("Location permission not granted"))
+                return@callbackFlow
+            }
 
-        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
-            .setMinUpdateDistanceMeters(minUpdateDistanceMeters)
-            .setWaitForAccurateLocation(false)
-            .build()
+            val priority = when (mode) {
+                GpsBatteryMode.HIGH_ACCURACY -> Priority.PRIORITY_HIGH_ACCURACY
+                GpsBatteryMode.BALANCED      -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+                GpsBatteryMode.POWER_SAVE    -> Priority.PRIORITY_LOW_POWER
+            }
 
-        val callback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                result.lastLocation?.let { loc ->
-                    val userLocation = loc.toUserLocation()
-                    Log.d(TAG, "Location update: ${userLocation.latitude}, ${userLocation.longitude}")
-                    trySend(userLocation)
+            val request = LocationRequest.Builder(priority, mode.intervalMs)
+                .setMinUpdateIntervalMillis(mode.intervalMs / 2)
+                .setMinUpdateDistanceMeters(mode.minDisplacementM)
+                // Batch updates to reduce CPU wake-ups on Wear OS
+                .setMaxUpdateDelayMillis(mode.intervalMs * 2)
+                .setWaitForAccurateLocation(false)
+                .build()
+
+            val callback = object : LocationCallback() {
+                override fun onLocationResult(result: LocationResult) {
+                    result.lastLocation?.let { loc ->
+                        trySend(loc.toUserLocation())
+                        Log.d(TAG, "[${mode.label}] ${loc.latitude}, ${loc.longitude} acc=${loc.accuracy}m")
+                    }
                 }
             }
-        }
 
-        fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
-        Log.d(TAG, "Started location updates")
+            fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            Log.d(TAG, "Started location updates – mode=${mode.label}")
 
-        awaitClose {
-            fusedClient.removeLocationUpdates(callback)
-            Log.d(TAG, "Stopped location updates")
-        }
-    }.catch { e ->
-        Log.e(TAG, "Location error", e)
-    }
+            awaitClose {
+                fusedClient.removeLocationUpdates(callback)
+                Log.d(TAG, "Stopped location updates – mode=${mode.label}")
+            }
+        }.catch { e -> Log.e(TAG, "Location error", e) }
 
-    /** Returns the last known location immediately (may be null or stale). */
+    /** One-shot last known location (no active GPS, battery-free). */
     suspend fun getLastKnownLocation(): UserLocation? {
         if (!hasLocationPermission()) return null
         return try {
-            val task = fusedClient.lastLocation
-            // Use a simple blocking approach since this is called from a coroutine
             var result: Location? = null
-            task.addOnSuccessListener { result = it }
-            // Give it a moment to resolve
+            fusedClient.lastLocation.addOnSuccessListener { result = it }
             kotlinx.coroutines.delay(500)
             result?.toUserLocation()
         } catch (e: Exception) {
@@ -90,10 +92,11 @@ class LocationRepository(private val context: Context) {
     }
 
     private fun Location.toUserLocation() = UserLocation(
-        latitude = latitude,
+        latitude  = latitude,
         longitude = longitude,
-        accuracy = accuracy,
-        bearing = if (hasBearing()) bearing else null,
+        accuracy  = accuracy,
+        bearing   = if (hasBearing()) bearing else null,
+        speed     = if (hasSpeed()) speed else null,
         timestamp = time
     )
 

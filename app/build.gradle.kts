@@ -59,7 +59,14 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
+
+    // Splash screen
+    implementation(libs.androidx.core.splashscreen)
+
+    // Google Play Services — FusedLocationProviderClient
+    implementation(libs.play.services.location)
 
     // Compose BOM
     implementation(platform(libs.androidx.compose.bom))

@@ -15,4 +15,28 @@
     <string name="status_no_gpx">No GPX tracks.\nImport a GPX file.</string>
     <string name="status_gps_searching">Searching for GPS…</string>
     <string name="permission_location_rationale">Location permission is required to show your current position on the map.</string>
+
+    <!-- Recording -->
+    <string name="record_track">Record Track</string>
+    <string name="start_recording">Start Recording</string>
+    <string name="pause_recording">Pause</string>
+    <string name="resume_recording">Resume</string>
+    <string name="stop_save">Stop &amp; Save</string>
+    <string name="cancel_recording">Cancel</string>
+    <string name="recording_active">Recording…</string>
+    <string name="recording_paused">Paused</string>
+
+    <!-- Navigation -->
+    <string name="navigate">Navigate</string>
+    <string name="stop_navigation">Stop Nav</string>
+    <string name="arrived">Arrived!</string>
+    <string name="off_track">Off track</string>
+    <string name="remaining">Remaining</string>
+    <string name="no_navigation">No navigation active</string>
+    <string name="select_gpx_hint">Select a GPX track and tap Navigate</string>
+
+    <!-- GPS Modes -->
+    <string name="gps_high_accuracy">High Accuracy</string>
+    <string name="gps_balanced">Balanced</string>
+    <string name="gps_low_power">Low Power</string>
 </resources>

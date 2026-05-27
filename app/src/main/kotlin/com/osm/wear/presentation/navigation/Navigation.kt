@@ -5,17 +5,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
-import com.osm.wear.presentation.screens.DownloadScreen
-import com.osm.wear.presentation.screens.GpxScreen
-import com.osm.wear.presentation.screens.MapScreen
-import com.osm.wear.presentation.screens.MapViewModel
-import com.osm.wear.presentation.screens.MenuScreen
+import com.osm.wear.presentation.screens.*
 
 object Routes {
-    const val MENU = "menu"
-    const val MAP = "map"
-    const val DOWNLOAD = "download"
-    const val GPX = "gpx"
+    const val MAP        = "map"
+    const val MENU       = "menu"
+    const val DOWNLOAD   = "download"
+    const val GPX        = "gpx"
+    const val RECORD     = "record"
+    const val NAVIGATION = "navigation"
 }
 
 @Composable
@@ -36,16 +34,33 @@ fun OsmWearNavGraph() {
         }
         composable(Routes.MENU) {
             MenuScreen(
-                onNavigateToMap = { navController.navigate(Routes.MAP) },
+                onNavigateToMap      = { navController.popBackStack(Routes.MAP, false) },
                 onNavigateToDownload = { navController.navigate(Routes.DOWNLOAD) },
-                onNavigateToGpx = { navController.navigate(Routes.GPX) }
+                onNavigateToGpx      = { navController.navigate(Routes.GPX) },
+                onNavigateToRecord   = { navController.navigate(Routes.RECORD) },
+                onNavigateToNavigation = { navController.navigate(Routes.NAVIGATION) }
             )
         }
         composable(Routes.DOWNLOAD) {
             DownloadScreen(viewModel = viewModel)
         }
         composable(Routes.GPX) {
-            GpxScreen(viewModel = viewModel)
+            GpxScreen(
+                viewModel = viewModel,
+                onNavigate = { navController.navigate(Routes.NAVIGATION) }
+            )
+        }
+        composable(Routes.RECORD) {
+            RecordScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Routes.NAVIGATION) {
+            NavigationScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }
