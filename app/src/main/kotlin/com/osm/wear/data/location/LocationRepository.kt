@@ -48,7 +48,7 @@ class LocationRepository(private val context: Context) {
             val priority = when (mode) {
                 GpsBatteryMode.HIGH_ACCURACY -> Priority.PRIORITY_HIGH_ACCURACY
                 GpsBatteryMode.BALANCED      -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
-                GpsBatteryMode.POWER_SAVE    -> Priority.PRIORITY_LOW_POWER
+                GpsBatteryMode.LOW_POWER     -> Priority.PRIORITY_LOW_POWER
             }
 
             val request = LocationRequest.Builder(priority, mode.intervalMs)
@@ -95,8 +95,8 @@ class LocationRepository(private val context: Context) {
         latitude  = latitude,
         longitude = longitude,
         accuracy  = accuracy,
-        bearing   = if (hasBearing()) bearing else null,
-        speed     = if (hasSpeed()) speed else null,
+        bearing   = if (hasBearing()) bearing else 0f,
+        speed     = if (hasSpeed()) speed else 0f,
         timestamp = time
     )
 

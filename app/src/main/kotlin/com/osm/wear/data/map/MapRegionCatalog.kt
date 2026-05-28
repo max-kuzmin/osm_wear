@@ -3,270 +3,95 @@ package com.osm.wear.data.map
 import com.osm.wear.domain.model.MapRegion
 
 /**
- * Catalog of downloadable map regions from the official Mapsforge download server.
- * Base URL: https://download.mapsforge.org/maps/v5/
- *
- * Maps are in .map format (Mapsforge v5), compatible with mapsforge-map-android.
+ * Catalogue of downloadable Mapsforge map regions.
+ * Download URLs point to https://download.mapsforge.org/maps/v5/
+ * which serves free OpenStreetMap-derived .map files.
  */
 object MapRegionCatalog {
 
-    private const val BASE_URL = "https://download.mapsforge.org/maps/v5"
+    private const val BASE = "https://download.mapsforge.org/maps/v5"
 
-    val regions: List<MapRegion> = listOf(
+    private fun r(id: String, name: String, continent: String, path: String, sizeMb: Int) =
+        MapRegion(
+            id          = id,
+            name        = name,
+            continent   = continent,
+            downloadUrl = "$BASE/$path",
+            fileSizeMb  = sizeMb,
+            fileName    = path.substringAfterLast('/')
+        )
 
-        // ── Europe ────────────────────────────────────────────────────────────
-        MapRegion(
-            id = "europe/germany",
-            name = "Germany",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/germany.map",
-            fileSizeBytes = 700_000_000L
-        ),
-        MapRegion(
-            id = "europe/france",
-            name = "France",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/france.map",
-            fileSizeBytes = 600_000_000L
-        ),
-        MapRegion(
-            id = "europe/great-britain",
-            name = "Great Britain",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/great-britain.map",
-            fileSizeBytes = 500_000_000L
-        ),
-        MapRegion(
-            id = "europe/italy",
-            name = "Italy",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/italy.map",
-            fileSizeBytes = 450_000_000L
-        ),
-        MapRegion(
-            id = "europe/spain",
-            name = "Spain",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/spain.map",
-            fileSizeBytes = 400_000_000L
-        ),
-        MapRegion(
-            id = "europe/netherlands",
-            name = "Netherlands",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/netherlands.map",
-            fileSizeBytes = 120_000_000L
-        ),
-        MapRegion(
-            id = "europe/poland",
-            name = "Poland",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/poland.map",
-            fileSizeBytes = 280_000_000L
-        ),
-        MapRegion(
-            id = "europe/austria",
-            name = "Austria",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/austria.map",
-            fileSizeBytes = 150_000_000L
-        ),
-        MapRegion(
-            id = "europe/switzerland",
-            name = "Switzerland",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/switzerland.map",
-            fileSizeBytes = 130_000_000L
-        ),
-        MapRegion(
-            id = "europe/sweden",
-            name = "Sweden",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/sweden.map",
-            fileSizeBytes = 300_000_000L
-        ),
-        MapRegion(
-            id = "europe/norway",
-            name = "Norway",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/norway.map",
-            fileSizeBytes = 250_000_000L
-        ),
-        MapRegion(
-            id = "europe/ukraine",
-            name = "Ukraine",
-            continent = "Europe",
-            downloadUrl = "$BASE_URL/europe/ukraine.map",
-            fileSizeBytes = 320_000_000L
-        ),
-
-        // ── Asia ──────────────────────────────────────────────────────────────
-        MapRegion(
-            id = "asia/japan",
-            name = "Japan",
-            continent = "Asia",
-            downloadUrl = "$BASE_URL/asia/japan.map",
-            fileSizeBytes = 700_000_000L
-        ),
-        MapRegion(
-            id = "asia/china",
-            name = "China",
-            continent = "Asia",
-            downloadUrl = "$BASE_URL/asia/china.map",
-            fileSizeBytes = 1_200_000_000L
-        ),
-        MapRegion(
-            id = "asia/india",
-            name = "India",
-            continent = "Asia",
-            downloadUrl = "$BASE_URL/asia/india.map",
-            fileSizeBytes = 800_000_000L
-        ),
-        MapRegion(
-            id = "asia/south-korea",
-            name = "South Korea",
-            continent = "Asia",
-            downloadUrl = "$BASE_URL/asia/south-korea.map",
-            fileSizeBytes = 180_000_000L
-        ),
-        MapRegion(
-            id = "asia/thailand",
-            name = "Thailand",
-            continent = "Asia",
-            downloadUrl = "$BASE_URL/asia/thailand.map",
-            fileSizeBytes = 200_000_000L
-        ),
-        MapRegion(
-            id = "asia/indonesia",
-            name = "Indonesia",
-            continent = "Asia",
-            downloadUrl = "$BASE_URL/asia/indonesia.map",
-            fileSizeBytes = 400_000_000L
-        ),
-
-        // ── North America ─────────────────────────────────────────────────────
-        MapRegion(
-            id = "north-america/us-northeast",
-            name = "USA Northeast",
-            continent = "North America",
-            downloadUrl = "$BASE_URL/north-america/us-northeast.map",
-            fileSizeBytes = 350_000_000L
-        ),
-        MapRegion(
-            id = "north-america/us-south",
-            name = "USA South",
-            continent = "North America",
-            downloadUrl = "$BASE_URL/north-america/us-south.map",
-            fileSizeBytes = 400_000_000L
-        ),
-        MapRegion(
-            id = "north-america/us-midwest",
-            name = "USA Midwest",
-            continent = "North America",
-            downloadUrl = "$BASE_URL/north-america/us-midwest.map",
-            fileSizeBytes = 350_000_000L
-        ),
-        MapRegion(
-            id = "north-america/us-west",
-            name = "USA West",
-            continent = "North America",
-            downloadUrl = "$BASE_URL/north-america/us-west.map",
-            fileSizeBytes = 450_000_000L
-        ),
-        MapRegion(
-            id = "north-america/canada",
-            name = "Canada",
-            continent = "North America",
-            downloadUrl = "$BASE_URL/north-america/canada.map",
-            fileSizeBytes = 600_000_000L
-        ),
-        MapRegion(
-            id = "north-america/mexico",
-            name = "Mexico",
-            continent = "North America",
-            downloadUrl = "$BASE_URL/north-america/mexico.map",
-            fileSizeBytes = 300_000_000L
-        ),
-
-        // ── South America ─────────────────────────────────────────────────────
-        MapRegion(
-            id = "south-america/brazil",
-            name = "Brazil",
-            continent = "South America",
-            downloadUrl = "$BASE_URL/south-america/brazil.map",
-            fileSizeBytes = 700_000_000L
-        ),
-        MapRegion(
-            id = "south-america/argentina",
-            name = "Argentina",
-            continent = "South America",
-            downloadUrl = "$BASE_URL/south-america/argentina.map",
-            fileSizeBytes = 350_000_000L
-        ),
+    val all: List<MapRegion> = listOf(
 
         // ── Africa ────────────────────────────────────────────────────────────
-        MapRegion(
-            id = "africa/south-africa",
-            name = "South Africa",
-            continent = "Africa",
-            downloadUrl = "$BASE_URL/africa/south-africa.map",
-            fileSizeBytes = 250_000_000L
-        ),
-        MapRegion(
-            id = "africa/egypt",
-            name = "Egypt",
-            continent = "Africa",
-            downloadUrl = "$BASE_URL/africa/egypt.map",
-            fileSizeBytes = 150_000_000L
-        ),
+        r("africa/egypt",           "Egypt",           "Africa",        "africa/egypt.map",                    120),
+        r("africa/kenya",           "Kenya",           "Africa",        "africa/kenya.map",                     80),
+        r("africa/morocco",         "Morocco",         "Africa",        "africa/morocco.map",                   90),
+        r("africa/nigeria",         "Nigeria",         "Africa",        "africa/nigeria.map",                   95),
+        r("africa/south-africa",    "South Africa",    "Africa",        "africa/south-africa.map",             200),
 
-        // ── Australia & Oceania ───────────────────────────────────────────────
-        MapRegion(
-            id = "australia-oceania/australia",
-            name = "Australia",
-            continent = "Oceania",
-            downloadUrl = "$BASE_URL/australia-oceania/australia.map",
-            fileSizeBytes = 500_000_000L
-        ),
-        MapRegion(
-            id = "australia-oceania/new-zealand",
-            name = "New Zealand",
-            continent = "Oceania",
-            downloadUrl = "$BASE_URL/australia-oceania/new-zealand.map",
-            fileSizeBytes = 100_000_000L
-        ),
+        // ── Asia ──────────────────────────────────────────────────────────────
+        r("asia/china",             "China",           "Asia",          "asia/china.map",                      850),
+        r("asia/india",             "India",           "Asia",          "asia/india.map",                      480),
+        r("asia/indonesia",         "Indonesia",       "Asia",          "asia/indonesia.map",                  310),
+        r("asia/japan",             "Japan",           "Asia",          "asia/japan.map",                      560),
+        r("asia/south-korea",       "South Korea",     "Asia",          "asia/south-korea.map",                130),
+        r("asia/thailand",          "Thailand",        "Asia",          "asia/thailand.map",                   120),
+        r("asia/vietnam",           "Vietnam",         "Asia",          "asia/vietnam.map",                     90),
+
+        // ── Oceania ───────────────────────────────────────────────────────────
+        r("australia-oceania/australia",  "Australia",   "Oceania",     "australia-oceania/australia.map",     420),
+        r("australia-oceania/new-zealand","New Zealand", "Oceania",     "australia-oceania/new-zealand.map",    80),
+
+        // ── Europe ────────────────────────────────────────────────────────────
+        r("europe/austria",         "Austria",         "Europe",        "europe/austria.map",                  130),
+        r("europe/belgium",         "Belgium",         "Europe",        "europe/belgium.map",                   75),
+        r("europe/croatia",         "Croatia",         "Europe",        "europe/croatia.map",                   55),
+        r("europe/czech-republic",  "Czech Republic",  "Europe",        "europe/czech-republic.map",           120),
+        r("europe/denmark",         "Denmark",         "Europe",        "europe/denmark.map",                   65),
+        r("europe/finland",         "Finland",         "Europe",        "europe/finland.map",                  130),
+        r("europe/france",          "France",          "Europe",        "europe/france.map",                   560),
+        r("europe/germany",         "Germany",         "Europe",        "europe/germany.map",                  560),
+        r("europe/great-britain",   "Great Britain",   "Europe",        "europe/great-britain.map",            380),
+        r("europe/greece",          "Greece",          "Europe",        "europe/greece.map",                   100),
+        r("europe/hungary",         "Hungary",         "Europe",        "europe/hungary.map",                   80),
+        r("europe/ireland",         "Ireland",         "Europe",        "europe/ireland.map",                   55),
+        r("europe/italy",           "Italy",           "Europe",        "europe/italy.map",                    430),
+        r("europe/netherlands",     "Netherlands",     "Europe",        "europe/netherlands.map",              120),
+        r("europe/norway",          "Norway",          "Europe",        "europe/norway.map",                   160),
+        r("europe/poland",          "Poland",          "Europe",        "europe/poland.map",                   280),
+        r("europe/portugal",        "Portugal",        "Europe",        "europe/portugal.map",                  80),
+        r("europe/romania",         "Romania",         "Europe",        "europe/romania.map",                  130),
+        r("europe/spain",           "Spain",           "Europe",        "europe/spain.map",                    380),
+        r("europe/sweden",          "Sweden",          "Europe",        "europe/sweden.map",                   220),
+        r("europe/switzerland",     "Switzerland",     "Europe",        "europe/switzerland.map",              110),
+        r("europe/turkey",          "Turkey",          "Europe",        "europe/turkey.map",                   240),
+        r("europe/ukraine",         "Ukraine",         "Europe",        "europe/ukraine.map",                  230),
+
+        // ── North America ─────────────────────────────────────────────────────
+        r("north-america/canada",   "Canada",          "North America", "north-america/canada.map",            650),
+        r("north-america/mexico",   "Mexico",          "North America", "north-america/mexico.map",            280),
+        r("north-america/us-midwest","USA Midwest",    "North America", "north-america/us-midwest.map",        280),
+        r("north-america/us-northeast","USA Northeast","North America", "north-america/us-northeast.map",      240),
+        r("north-america/us-pacific","USA Pacific",    "North America", "north-america/us-pacific.map",        310),
+        r("north-america/us-south", "USA South",       "North America", "north-america/us-south.map",          350),
+        r("north-america/us-west",  "USA West",        "North America", "north-america/us-west.map",           280),
 
         // ── Russia ────────────────────────────────────────────────────────────
-        MapRegion(
-            id = "russia/russia-european",
-            name = "Russia (European)",
-            continent = "Russia",
-            downloadUrl = "$BASE_URL/russia/russia-european.map",
-            fileSizeBytes = 600_000_000L
-        ),
-        MapRegion(
-            id = "russia/russia-asian",
-            name = "Russia (Asian)",
-            continent = "Russia",
-            downloadUrl = "$BASE_URL/russia/russia-asian.map",
-            fileSizeBytes = 500_000_000L
-        )
+        r("russia/russia-european", "Russia (European)","Russia",       "russia/russia-european.map",          600),
+        r("russia/russia-asian",    "Russia (Asian)",   "Russia",       "russia/russia-asian.map",             500),
+
+        // ── South America ─────────────────────────────────────────────────────
+        r("south-america/argentina","Argentina",       "South America", "south-america/argentina.map",         230),
+        r("south-america/brazil",   "Brazil",          "South America", "south-america/brazil.map",            680),
+        r("south-america/chile",    "Chile",           "South America", "south-america/chile.map",              90),
+        r("south-america/colombia", "Colombia",        "South America", "south-america/colombia.map",           90),
+        r("south-america/peru",     "Peru",            "South America", "south-america/peru.map",               90)
     )
 
-    /** Returns all unique continent names in order. */
-    val continents: List<String> get() = regions.map { it.continent }.distinct()
+    /** Unique continent names in display order. */
+    val continents: List<String> get() = all.map { it.continent }.distinct()
 
-    /** Returns regions filtered by continent. */
-    fun byContinent(continent: String): List<MapRegion> =
-        regions.filter { it.continent == continent }
-
-    /** Finds a region by its ID. */
-    fun findById(id: String): MapRegion? = regions.find { it.id == id }
-
-    /** Formats file size to a human-readable string. */
-    fun formatSize(bytes: Long): String = when {
-        bytes >= 1_000_000_000L -> "%.1f GB".format(bytes / 1_000_000_000.0)
-        bytes >= 1_000_000L     -> "%.0f MB".format(bytes / 1_000_000.0)
-        else                    -> "%.0f KB".format(bytes / 1_000.0)
-    }
+    /** Find a region by its id. */
+    fun findById(id: String): MapRegion? = all.find { it.id == id }
 }

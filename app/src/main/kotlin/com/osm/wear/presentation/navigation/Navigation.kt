@@ -8,58 +8,61 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.osm.wear.presentation.screens.*
 
 object Routes {
-    const val MAP        = "map"
-    const val MENU       = "menu"
-    const val DOWNLOAD   = "download"
-    const val GPX        = "gpx"
-    const val RECORD     = "record"
-    const val NAVIGATION = "navigation"
+    const val MAP              = "map"
+    const val SETTINGS         = "settings"
+    const val REGIONS          = "regions"
+    const val DOWNLOAD_CATALOG = "download_catalog"
+    const val GPX_FILES        = "gpx_files"
 }
 
 @Composable
 fun OsmWearNavGraph() {
     val navController = rememberSwipeDismissableNavController()
-    // Single shared ViewModel across all screens
-    val viewModel: MapViewModel = viewModel()
+    val vm: MapViewModel = viewModel()
 
     SwipeDismissableNavHost(
         navController = navController,
         startDestination = Routes.MAP
     ) {
         composable(Routes.MAP) {
-            MapScreen(
-                viewModel = viewModel,
-                onOpenMenu = { navController.navigate(Routes.MENU) }
+            MainMapScreen(
+                vm = vm,
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) }
             )
         }
-        composable(Routes.MENU) {
-            MenuScreen(
-                onNavigateToMap      = { navController.popBackStack(Routes.MAP, false) },
-                onNavigateToDownload = { navController.navigate(Routes.DOWNLOAD) },
-                onNavigateToGpx      = { navController.navigate(Routes.GPX) },
-                onNavigateToRecord   = { navController.navigate(Routes.RECORD) },
-                onNavigateToNavigation = { navController.navigate(Routes.NAVIGATION) }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
+                vm = vm,
+                onOpenRegions     = { navController.navigate(Routes.REGIONS) },
+                onOpenGpxFiles    = { navController.navigate(Routes.GPX_FILES) },
+                onStartNavigation = {
+                    vm.startNavigation()
+                    navController.popBackStack(Routes.MAP, false)
+                },
+                onStopNavigation  = { vm.stopNavigation() },
+                onBack            = { navController.popBackStack() }
             )
         }
-        composable(Routes.DOWNLOAD) {
-            DownloadScreen(viewModel = viewModel)
-        }
-        composable(Routes.GPX) {
-            GpxScreen(
-                viewModel = viewModel,
-                onNavigate = { navController.navigate(Routes.NAVIGATION) }
+        composable(Routes.REGIONS) {
+            RegionsScreen(
+                vm = vm,
+                onOpenDownloadCatalog = { navController.navigate(Routes.DOWNLOAD_CATALOG) },
+                onRegionSelected      = { navController.popBackStack(Routes.MAP, false) },
+                onBack                = { navController.popBackStack() }
             )
         }
-        composable(Routes.RECORD) {
-            RecordScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+        composable(Routes.DOWNLOAD_CATALOG) {
+            DownloadCatalogScreen(
+                vm = vm,
+                onDownloadComplete = { navController.popBackStack(Routes.REGIONS, false) },
+                onBack             = { navController.popBackStack() }
             )
         }
-        composable(Routes.NAVIGATION) {
-            NavigationScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+        composable(Routes.GPX_FILES) {
+            GpxFilesScreen(
+                vm = vm,
+                onGpxSelected = { navController.popBackStack(Routes.MAP, false) },
+                onBack        = { navController.popBackStack() }
             )
         }
     }

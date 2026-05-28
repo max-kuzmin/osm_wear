@@ -1,222 +1,220 @@
 package com.osm.wear.data.navigation
 
-import com.osm.wear.data.recording.TrackRecorder.Companion.haversineM
-import com.osm.wear.domain.model.*
+import android.content.Context
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.util.Log
+import com.osm.wear.domain.model.GpxFile
+import com.osm.wear.domain.model.GpxPoint
+import com.osm.wear.domain.model.NavigationState
+import com.osm.wear.domain.model.NavigationWaypoint
+import com.osm.wear.domain.model.UserLocation
 import kotlin.math.*
 
 /**
- * Pure-function navigation engine.
+ * Computes turn-by-turn navigation from a [GpxFile] and the user's [UserLocation].
  *
- * Responsibilities:
- *  1. Pre-process a [GpxTrack] into a list of [NavigationWaypoint]s (turns).
- *  2. Given the current [UserLocation], compute the updated [NavigationState].
+ * A waypoint is classified as a "turn" when the bearing change between the incoming
+ * and outgoing segments exceeds [TURN_THRESHOLD_DEG].
  *
- * Turn detection uses a bearing-change threshold:
- *  < 15°  → STRAIGHT
- *  15–45° → slight turn (treated as STRAIGHT for simplicity)
- *  45–90° → TURN_LEFT / TURN_RIGHT
- *  > 90°  → SHARP_LEFT / SHARP_RIGHT
- *  > 150° → U_TURN
+ * Alarms (vibration + beep) fire when the user is within [ALARM_RADIUS_M] of a turn
+ * and that turn has not yet been alerted.
  */
-object NavigationEngine {
+class NavigationEngine(context: Context) {
 
-    /** Minimum bearing change (degrees) to classify a point as a turn waypoint. */
-    private const val TURN_THRESHOLD_DEG = 30.0
+    companion object {
+        private const val TAG               = "NavigationEngine"
+        private const val TURN_THRESHOLD_DEG = 25.0  // degrees of bearing change = "turn"
+        private const val ALARM_RADIUS_M     = 30.0  // metres – fire alarm when within this distance
+        private const val OFF_TRACK_M        = 80.0  // metres – warn when this far from track
+    }
 
-    /** Distance ahead (metres) at which the alarm fires before a turn. */
-    const val ALARM_DISTANCE_M = 30.0
+    // ── Alarm hardware ────────────────────────────────────────────────────────
 
-    /** Snap-to-track radius (metres) — beyond this the user is "off track". */
-    const val OFF_TRACK_RADIUS_M = 50.0
+    @Suppress("DEPRECATION")
+    private val vibrator: Vibrator? = if (android.os.Build.VERSION.SDK_INT >= 31) {
+        (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)
+            ?.defaultVibrator
+    } else {
+        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    }
 
-    // ── Build waypoints ───────────────────────────────────────────────────────
+    private val toneGen: ToneGenerator? = try {
+        ToneGenerator(AudioManager.STREAM_ALARM, 90)
+    } catch (e: Exception) {
+        Log.w(TAG, "ToneGenerator unavailable", e)
+        null
+    }
+
+    // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * Converts a [GpxTrack] into a list of [NavigationWaypoint]s.
-     * Only points with a significant bearing change are included as turns,
-     * plus explicit START and ARRIVE waypoints.
+     * Builds a list of [NavigationWaypoint]s from a [GpxFile].
+     * Call once when navigation starts; pass the result into [NavigationState].
      */
-    fun buildWaypoints(track: GpxTrack): List<NavigationWaypoint> {
-        val pts = track.points
+    fun buildWaypoints(gpxFile: GpxFile): List<NavigationWaypoint> {
+        val pts = gpxFile.trackPoints
         if (pts.size < 2) return emptyList()
 
-        val waypoints = mutableListOf<NavigationWaypoint>()
-        var cumDist = 0.0
+        return pts.mapIndexed { i, point ->
+            val bearingIn  = if (i > 0) bearingDeg(pts[i - 1], point) else 0f
+            val bearingOut = if (i < pts.size - 1) bearingDeg(point, pts[i + 1]) else bearingIn
+            val distToNext = if (i < pts.size - 1)
+                haversineM(point, pts[i + 1]).toFloat() else 0f
 
-        // Compute per-segment bearings and distances
-        val bearings = DoubleArray(pts.size - 1) { i ->
-            bearing(pts[i].latitude, pts[i].longitude, pts[i + 1].latitude, pts[i + 1].longitude)
-        }
-        val segDists = DoubleArray(pts.size - 1) { i ->
-            haversineM(pts[i].latitude, pts[i].longitude, pts[i + 1].latitude, pts[i + 1].longitude)
-        }
+            val isTurn = i > 0 && i < pts.size - 1 &&
+                    angleDiff(bearingIn, bearingOut) >= TURN_THRESHOLD_DEG
 
-        // START
-        waypoints.add(
             NavigationWaypoint(
-                index = 0,
-                point = pts.first(),
-                bearingIn = bearings[0],
-                bearingOut = bearings[0],
-                turnDirection = TurnDirection.START,
-                distanceFromStart = 0.0,
-                distanceToNext = segDists[0]
+                index           = i,
+                point           = point,
+                bearingToNext   = bearingOut,
+                distanceToNextM = distToNext,
+                isTurn          = isTurn
             )
+        }
+    }
+
+    /**
+     * Updates [state] based on the user's new [location].
+     * Fires alarms when a turn waypoint is reached.
+     */
+    fun update(state: NavigationState, location: UserLocation): NavigationState {
+        if (!state.isActive || state.waypoints.isEmpty()) return state
+
+        val userPt = GpxPoint(location.latitude, location.longitude)
+
+        // Find nearest waypoint ahead of current position
+        val nearestIdx = findNearestWaypointIndex(
+            state.waypoints, userPt, state.currentWaypointIndex
         )
 
-        // Intermediate turns
-        for (i in 1 until pts.size - 1) {
-            cumDist += segDists[i - 1]
-            val bIn  = bearings[i - 1]
-            val bOut = bearings[i]
-            val delta = bearingDelta(bIn, bOut)
+        // Off-track check
+        val distToTrack = distToNearestSegment(
+            state.gpxFile!!.trackPoints, userPt
+        )
+        val isOffTrack = distToTrack > OFF_TRACK_M
 
-            if (abs(delta) >= TURN_THRESHOLD_DEG) {
-                waypoints.add(
-                    NavigationWaypoint(
-                        index = i,
-                        point = pts[i],
-                        bearingIn = bIn,
-                        bearingOut = bOut,
-                        turnDirection = classifyTurn(delta),
-                        distanceFromStart = cumDist,
-                        distanceToNext = segDists[i]
-                    )
+        // Next TURN waypoint at or after nearestIdx
+        val nextTurnWp = state.waypoints
+            .drop(nearestIdx)
+            .firstOrNull { it.isTurn }
+
+        val distToNextTurn = nextTurnWp
+            ?.let { haversineM(userPt, it.point).toFloat() } ?: 0f
+        val bearingToNext  = nextTurnWp
+            ?.let { bearingDeg(userPt, it.point) } ?: 0f
+        val totalRemaining = haversineM(userPt, state.waypoints.last().point).toFloat()
+
+        // Alarm when approaching a turn
+        var lastAlerted = state.lastAlertedWaypointIndex
+        if (nextTurnWp != null &&
+            nextTurnWp.index != lastAlerted &&
+            distToNextTurn <= ALARM_RADIUS_M
+        ) {
+            fireAlarm()
+            lastAlerted = nextTurnWp.index
+            Log.d(TAG, "Alarm fired at waypoint ${nextTurnWp.index}")
+        }
+
+        // Destination reached
+        val distToEnd = haversineM(userPt, state.waypoints.last().point)
+        if (distToEnd < ALARM_RADIUS_M && nearestIdx >= state.waypoints.size - 2) {
+            fireAlarm()
+            Log.d(TAG, "Destination reached")
+            return state.copy(isActive = false)
+        }
+
+        return state.copy(
+            currentWaypointIndex     = nearestIdx,
+            distanceToNextTurnM      = distToNextTurn,
+            bearingToNextTurn        = bearingToNext,
+            totalRemainingM          = totalRemaining,
+            isOffTrack               = isOffTrack,
+            lastAlertedWaypointIndex = lastAlerted
+        )
+    }
+
+    fun release() { toneGen?.release() }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private fun findNearestWaypointIndex(
+        waypoints: List<NavigationWaypoint>,
+        user: GpxPoint,
+        fromIndex: Int
+    ): Int {
+        var bestIdx  = fromIndex
+        var bestDist = Double.MAX_VALUE
+        val end = minOf(fromIndex + 50, waypoints.size)
+        for (i in fromIndex until end) {
+            val d = haversineM(user, waypoints[i].point)
+            if (d < bestDist) { bestDist = d; bestIdx = i }
+        }
+        return bestIdx
+    }
+
+    private fun distToNearestSegment(track: List<GpxPoint>, user: GpxPoint): Double {
+        var min = Double.MAX_VALUE
+        for (i in 0 until track.size - 1) {
+            val d = pointToSegmentDist(user, track[i], track[i + 1])
+            if (d < min) min = d
+        }
+        return min
+    }
+
+    private fun pointToSegmentDist(p: GpxPoint, a: GpxPoint, b: GpxPoint): Double {
+        val ab = haversineM(a, b)
+        if (ab < 1.0) return haversineM(p, a)
+        val ap = haversineM(a, p)
+        val bp = haversineM(b, p)
+        val cosA = (ab * ab + ap * ap - bp * bp) / (2 * ab * ap)
+        val t = (ap * cosA).coerceIn(0.0, ab) / ab
+        val projLat = a.lat + t * (b.lat - a.lat)
+        val projLon = a.lon + t * (b.lon - a.lon)
+        return haversineM(p, GpxPoint(projLat, projLon))
+    }
+
+    private fun fireAlarm() {
+        try {
+            vibrator?.vibrate(
+                VibrationEffect.createWaveform(
+                    longArrayOf(0, 200, 100, 200, 100, 400),
+                    intArrayOf(0, 255, 0, 255, 0, 255),
+                    -1
                 )
-            }
-        }
-
-        // ARRIVE
-        cumDist += segDists.takeLast(1).sum()
-        waypoints.add(
-            NavigationWaypoint(
-                index = pts.size - 1,
-                point = pts.last(),
-                bearingIn = bearings.last(),
-                bearingOut = bearings.last(),
-                turnDirection = TurnDirection.ARRIVE,
-                distanceFromStart = cumDist,
-                distanceToNext = 0.0
             )
-        )
-
-        return waypoints
+        } catch (e: Exception) { Log.w(TAG, "Vibration failed", e) }
+        try {
+            toneGen?.startTone(ToneGenerator.TONE_PROP_BEEP2, 600)
+        } catch (e: Exception) { Log.w(TAG, "Beep failed", e) }
     }
 
-    // ── Update navigation state ───────────────────────────────────────────────
+    // ── Math ──────────────────────────────────────────────────────────────────
 
-    /**
-     * Recomputes [NavigationState] given the current [UserLocation].
-     *
-     * Advances [nextWaypointIndex] when the user passes a waypoint.
-     */
-    fun update(current: NavigationState, location: UserLocation): NavigationState {
-        if (current.isFinished) return current
-
-        val waypoints = current.waypoints
-        var nextIdx = current.nextWaypointIndex
-
-        // Advance past waypoints the user has already passed
-        while (nextIdx < waypoints.size) {
-            val wp = waypoints[nextIdx]
-            val distToWp = haversineM(
-                location.latitude, location.longitude,
-                wp.point.latitude, wp.point.longitude
-            )
-            if (distToWp < ALARM_DISTANCE_M * 0.5) {
-                nextIdx++
-            } else break
-        }
-
-        if (nextIdx >= waypoints.size) {
-            return current.copy(
-                nextWaypointIndex = waypoints.size - 1,
-                distanceToNextM = 0.0,
-                distanceRemainingM = 0.0,
-                isFinished = true
-            )
-        }
-
-        val nextWp = waypoints[nextIdx]
-        val distToNext = haversineM(
-            location.latitude, location.longitude,
-            nextWp.point.latitude, nextWp.point.longitude
-        )
-
-        // Remaining distance = dist to next wp + cumulative dist from next wp to end
-        val lastWp = waypoints.last()
-        val distRemaining = distToNext +
-                (lastWp.distanceFromStart - nextWp.distanceFromStart)
-
-        // Off-track: distance from user to nearest segment
-        val offTrack = distanceToTrack(location, current.track)
-
-        return current.copy(
-            nextWaypointIndex = nextIdx,
-            distanceToNextM = distToNext,
-            distanceRemainingM = distRemaining,
-            offTrackM = offTrack
-        )
+    private fun haversineM(a: GpxPoint, b: GpxPoint): Double {
+        val r    = 6_371_000.0
+        val dLat = Math.toRadians(b.lat - a.lat)
+        val dLon = Math.toRadians(b.lon - a.lon)
+        val h    = sin(dLat / 2).pow(2) +
+                cos(Math.toRadians(a.lat)) * cos(Math.toRadians(b.lat)) * sin(dLon / 2).pow(2)
+        return r * 2 * atan2(sqrt(h), sqrt(1 - h))
     }
 
-    // ── Geometry helpers ──────────────────────────────────────────────────────
-
-    /** Bearing from (lat1,lon1) to (lat2,lon2) in degrees [0, 360). */
-    fun bearing(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val dLon = Math.toRadians(lon2 - lon1)
-        val lat1R = Math.toRadians(lat1)
-        val lat2R = Math.toRadians(lat2)
-        val y = sin(dLon) * cos(lat2R)
-        val x = cos(lat1R) * sin(lat2R) - sin(lat1R) * cos(lat2R) * cos(dLon)
-        return (Math.toDegrees(atan2(y, x)) + 360) % 360
+    private fun bearingDeg(from: GpxPoint, to: GpxPoint): Float {
+        val dLon = Math.toRadians(to.lon - from.lon)
+        val lat1 = Math.toRadians(from.lat)
+        val lat2 = Math.toRadians(to.lat)
+        val y    = sin(dLon) * cos(lat2)
+        val x    = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
+        return ((Math.toDegrees(atan2(y, x)) + 360) % 360).toFloat()
     }
 
-    /**
-     * Signed bearing delta in (-180, 180].
-     * Positive = right turn, negative = left turn.
-     */
-    private fun bearingDelta(from: Double, to: Double): Double {
-        var d = to - from
-        while (d > 180) d -= 360
-        while (d < -180) d += 360
-        return d
-    }
-
-    private fun classifyTurn(delta: Double): TurnDirection = when {
-        delta > 150  -> TurnDirection.U_TURN
-        delta > 90   -> TurnDirection.SHARP_RIGHT
-        delta > 30   -> TurnDirection.TURN_RIGHT
-        delta < -150 -> TurnDirection.U_TURN
-        delta < -90  -> TurnDirection.SHARP_LEFT
-        delta < -30  -> TurnDirection.TURN_LEFT
-        else         -> TurnDirection.STRAIGHT
-    }
-
-    /** Minimum distance (metres) from [location] to any segment of [track]. */
-    private fun distanceToTrack(location: UserLocation, track: GpxTrack): Double {
-        val pts = track.points
-        if (pts.size < 2) return Double.MAX_VALUE
-        var minDist = Double.MAX_VALUE
-        for (i in 0 until pts.size - 1) {
-            val d = pointToSegmentDistance(
-                location.latitude, location.longitude,
-                pts[i].latitude, pts[i].longitude,
-                pts[i + 1].latitude, pts[i + 1].longitude
-            )
-            if (d < minDist) minDist = d
-        }
-        return minDist
-    }
-
-    private fun pointToSegmentDistance(
-        px: Double, py: Double,
-        ax: Double, ay: Double,
-        bx: Double, by: Double
-    ): Double {
-        val abx = bx - ax; val aby = by - ay
-        val apx = px - ax; val apy = py - ay
-        val t = ((apx * abx + apy * aby) / (abx * abx + aby * aby)).coerceIn(0.0, 1.0)
-        val cx = ax + t * abx; val cy = ay + t * aby
-        return haversineM(px, py, cx, cy)
+    private fun angleDiff(a: Float, b: Float): Double {
+        val diff = abs(a - b) % 360.0
+        return if (diff > 180.0) 360.0 - diff else diff
     }
 }

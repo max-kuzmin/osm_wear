@@ -3,10 +3,9 @@ package com.osm.wear.data.gpx
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import com.osm.wear.domain.model.GpxTrack
-import com.osm.wear.domain.model.TrackPoint
+import com.osm.wear.domain.model.GpxFile
+import com.osm.wear.domain.model.GpxPoint
 import io.ticofab.androidgpxparser.parser.GPXParser
-import io.ticofab.androidgpxparser.parser.domain.Gpx
 import io.ticofab.androidgpxparser.parser.domain.TrackPoint as GpxTrackPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,152 +16,128 @@ import org.xmlpull.v1.XmlPullParserException
 import java.io.File
 import java.io.IOException
 import java.util.UUID
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
+import kotlin.math.*
 
 /**
  * Manages GPX file import, parsing, and storage.
- *
- * GPX files are copied to app's private storage: [Context.getFilesDir]/gpx/
+ * Files are stored in [Context.getFilesDir]/gpx/.
+ * Exposes a [StateFlow] of [GpxFile] objects matching the new domain model.
  */
 class GpxRepository(private val context: Context) {
 
     private val gpxDir: File get() = File(context.filesDir, "gpx").also { it.mkdirs() }
     private val parser = GPXParser()
 
-    private val _tracks = MutableStateFlow<List<GpxTrack>>(emptyList())
-    val tracks: StateFlow<List<GpxTrack>> = _tracks.asStateFlow()
+    private val _files = MutableStateFlow<List<GpxFile>>(emptyList())
+    val files: StateFlow<List<GpxFile>> = _files.asStateFlow()
 
-    init {
-        // Load existing GPX files on startup
-        loadStoredTracks()
-    }
+    init { loadStoredFiles() }
 
-    /** Imports a GPX file from a content URI (e.g. from file picker). */
-    suspend fun importFromUri(uri: Uri): Result<GpxTrack> = withContext(Dispatchers.IO) {
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /** Imports a GPX file from a content URI (file picker). */
+    suspend fun importFromUri(uri: Uri): Result<GpxFile> = withContext(Dispatchers.IO) {
         try {
-            val inputStream = context.contentResolver.openInputStream(uri)
-                ?: return@withContext Result.failure(IOException("Cannot open URI: $uri"))
-
-            // Determine file name
             val fileName = getFileNameFromUri(uri) ?: "track_${System.currentTimeMillis()}.gpx"
             val destFile = File(gpxDir, fileName)
-
-            // Copy to private storage
-            inputStream.use { input ->
-                destFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                destFile.outputStream().use { input.copyTo(it) }
+            } ?: return@withContext Result.failure(IOException("Cannot open URI: $uri"))
+            parseGpxFile(destFile).also { result ->
+                if (result.isSuccess) addOrReplace(result.getOrThrow())
             }
-
-            // Parse the copied file
-            parseGpxFile(destFile)
-                .also { result ->
-                    if (result.isSuccess) {
-                        val updated = _tracks.value.toMutableList()
-                        updated.add(result.getOrThrow())
-                        _tracks.value = updated
-                    }
-                }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to import GPX from URI: $uri", e)
+            Log.e(TAG, "Failed to import GPX from URI", e)
             Result.failure(e)
         }
     }
 
-    /** Imports a GPX file from a local file path. */
-    suspend fun importFromFile(file: File): Result<GpxTrack> = withContext(Dispatchers.IO) {
+    /** Imports a GPX file from a local [File]. */
+    suspend fun importFromFile(file: File): Result<GpxFile> = withContext(Dispatchers.IO) {
         try {
             val destFile = File(gpxDir, file.name)
-            if (file.canonicalPath != destFile.canonicalPath) {
-                file.copyTo(destFile, overwrite = true)
-            }
+            if (file.canonicalPath != destFile.canonicalPath) file.copyTo(destFile, overwrite = true)
             parseGpxFile(destFile).also { result ->
-                if (result.isSuccess) {
-                    val updated = _tracks.value.toMutableList()
-                    // Replace if already exists
-                    val existing = updated.indexOfFirst { it.filePath == destFile.path }
-                    if (existing >= 0) updated[existing] = result.getOrThrow()
-                    else updated.add(result.getOrThrow())
-                    _tracks.value = updated
-                }
+                if (result.isSuccess) addOrReplace(result.getOrThrow())
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to import GPX file: ${file.path}", e)
+            Log.e(TAG, "Failed to import GPX file", e)
             Result.failure(e)
         }
     }
 
-    /** Deletes a GPX track from storage and state. */
-    suspend fun deleteTrack(trackId: String) = withContext(Dispatchers.IO) {
-        val track = _tracks.value.find { it.id == trackId } ?: return@withContext
-        File(track.filePath).delete()
-        _tracks.value = _tracks.value.filter { it.id != trackId }
-        Log.d(TAG, "Deleted GPX track: ${track.name}")
+    /** Deletes a GPX file from storage and state. */
+    suspend fun deleteFile(fileId: String) = withContext(Dispatchers.IO) {
+        val gpx = _files.value.find { it.id == fileId } ?: return@withContext
+        File(gpx.filePath).delete()
+        _files.value = _files.value.filter { it.id != fileId }
     }
 
-    /** Toggles the visibility of a GPX track on the map. */
-    fun setTrackVisibility(trackId: String, visible: Boolean) {
-        _tracks.value = _tracks.value.map { track ->
-            if (track.id == trackId) track.copy(isVisible = visible) else track
-        }
+    /** Sets the active GPX file (only one can be active at a time). */
+    fun setActive(fileId: String) {
+        _files.value = _files.value.map { it.copy(isActive = it.id == fileId) }
     }
 
-    // ── Private helpers ────────────────────────────────────────────────────────
-
-    private fun loadStoredTracks() {
-        val files = gpxDir.listFiles()?.filter { it.extension == "gpx" } ?: return
-        val loaded = files.mapNotNull { file ->
-            parseGpxFile(file).getOrNull()
-        }
-        _tracks.value = loaded
-        Log.d(TAG, "Loaded ${loaded.size} GPX tracks from storage")
+    /** Clears the active GPX file. */
+    fun clearActive() {
+        _files.value = _files.value.map { it.copy(isActive = false) }
     }
 
-    private fun parseGpxFile(file: File): Result<GpxTrack> {
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private fun addOrReplace(gpx: GpxFile) {
+        val current = _files.value.toMutableList()
+        val idx = current.indexOfFirst { it.filePath == gpx.filePath }
+        if (idx >= 0) current[idx] = gpx else current.add(gpx)
+        _files.value = current
+    }
+
+    private fun loadStoredFiles() {
+        val loaded = gpxDir.listFiles()
+            ?.filter { it.extension == "gpx" }
+            ?.mapNotNull { parseGpxFile(it).getOrNull() }
+            ?: emptyList()
+        _files.value = loaded
+        Log.d(TAG, "Loaded ${loaded.size} GPX files from storage")
+    }
+
+    private fun parseGpxFile(file: File): Result<GpxFile> {
         return try {
-            val gpx: Gpx? = file.inputStream().use { parser.parse(it) }
-                ?: return Result.failure(IOException("Failed to parse GPX: ${file.name}"))
+            val gpx = file.inputStream().use { parser.parse(it) }
+                ?: return Result.failure(IOException("Failed to parse: ${file.name}"))
 
-            val allPoints = mutableListOf<TrackPoint>()
-            var trackName = file.nameWithoutExtension
+            val points = mutableListOf<GpxPoint>()
+            var name = file.nameWithoutExtension
 
-            // Extract track points from tracks
-            gpx!!.tracks?.forEach { track ->
-                if (track.trackName != null) trackName = track.trackName
-                track.trackSegments?.forEach { segment ->
-                    segment.trackPoints?.forEach { pt ->
-                        allPoints.add(pt.toTrackPoint())
-                    }
+            gpx.tracks?.forEach { track ->
+                if (!track.trackName.isNullOrBlank()) name = track.trackName
+                track.trackSegments?.forEach { seg ->
+                    seg.trackPoints?.forEach { pt -> points.add(pt.toGpxPoint()) }
                 }
             }
 
-            // Also extract route points if no track points
-            if (allPoints.isEmpty()) {
+            if (points.isEmpty()) {
                 gpx.routes?.forEach { route ->
-                    if (route.routeName != null) trackName = route.routeName
+                    if (!route.routeName.isNullOrBlank()) name = route.routeName
                     route.routePoints?.forEach { pt ->
-                        allPoints.add(TrackPoint(pt.latitude, pt.longitude, pt.elevation))
+                        points.add(GpxPoint(pt.latitude, pt.longitude, pt.elevation ?: 0.0))
                     }
                 }
             }
 
-            if (allPoints.isEmpty()) {
-                return Result.failure(IllegalArgumentException("GPX file has no track points: ${file.name}"))
-            }
+            if (points.isEmpty())
+                return Result.failure(IllegalArgumentException("No track points in ${file.name}"))
 
-            val distance = calculateDistance(allPoints)
+            val distKm = calculateDistanceKm(points)
 
             Result.success(
-                GpxTrack(
+                GpxFile(
                     id = UUID.randomUUID().toString(),
-                    name = trackName,
+                    name = name,
                     filePath = file.absolutePath,
-                    points = allPoints,
-                    distanceMeters = distance,
-                    isVisible = true
+                    trackPoints = points,
+                    totalDistanceKm = distKm,
+                    isActive = false
                 )
             )
         } catch (e: IOException) {
@@ -174,45 +149,38 @@ class GpxRepository(private val context: Context) {
         }
     }
 
-    private fun GpxTrackPoint.toTrackPoint() = TrackPoint(
-        latitude = latitude,
-        longitude = longitude,
-        elevation = elevation,
-        timestamp = time?.millis
+    private fun GpxTrackPoint.toGpxPoint() = GpxPoint(
+        lat = latitude,
+        lon = longitude,
+        ele = elevation ?: 0.0,
+        time = time?.millis ?: 0L
     )
 
-    /** Calculates total track distance in meters using Haversine formula. */
-    private fun calculateDistance(points: List<TrackPoint>): Double {
+    private fun calculateDistanceKm(points: List<GpxPoint>): Double {
         if (points.size < 2) return 0.0
         var total = 0.0
         for (i in 1 until points.size) {
-            total += haversineMeters(
-                points[i - 1].latitude, points[i - 1].longitude,
-                points[i].latitude, points[i].longitude
-            )
+            total += haversineM(points[i - 1], points[i])
         }
-        return total
+        return total / 1000.0
     }
 
-    private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val r = 6_371_000.0 // Earth radius in meters
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-        val a = sin(dLat / 2).let { it * it } +
-                cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+    private fun haversineM(a: GpxPoint, b: GpxPoint): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(b.lat - a.lat)
+        val dLon = Math.toRadians(b.lon - a.lon)
+        val h = sin(dLat / 2).let { it * it } +
+                cos(Math.toRadians(a.lat)) * cos(Math.toRadians(b.lat)) *
                 sin(dLon / 2).let { it * it }
-        return r * 2 * atan2(sqrt(a), sqrt(1 - a))
+        return r * 2 * atan2(sqrt(h), sqrt(1 - h))
     }
 
-    private fun getFileNameFromUri(uri: Uri): String? {
-        return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+    private fun getFileNameFromUri(uri: Uri): String? =
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val col = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
             cursor.moveToFirst()
-            if (nameIndex >= 0) cursor.getString(nameIndex) else null
+            if (col >= 0) cursor.getString(col) else null
         }
-    }
 
-    companion object {
-        private const val TAG = "GpxRepository"
-    }
+    companion object { private const val TAG = "GpxRepository" }
 }

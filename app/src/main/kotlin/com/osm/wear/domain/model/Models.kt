@@ -1,129 +1,90 @@
 package com.osm.wear.domain.model
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Map regions
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Map Region ──────────────────────────────────────────────────────────────
 
 data class MapRegion(
-    val id: String,
+    val id: String,          // e.g. "europe/germany"
     val name: String,
     val continent: String,
     val downloadUrl: String,
-    val fileSizeBytes: Long,
-    val status: RegionStatus = RegionStatus.NOT_DOWNLOADED
+    val fileSizeMb: Int,
+    val fileName: String     // e.g. "germany.map"
 )
 
-enum class RegionStatus {
-    NOT_DOWNLOADED, DOWNLOADING, DOWNLOADED, ERROR
+data class DownloadedRegion(
+    val region: MapRegion,
+    val filePath: String,
+    val fileSizeMb: Int,
+    val isActive: Boolean
+)
+
+sealed class DownloadState {
+    object Idle : DownloadState()
+    data class Downloading(
+        val region: MapRegion,
+        val progressPercent: Int,
+        val downloadedMb: Float
+    ) : DownloadState()
+    data class Failed(val region: MapRegion, val error: String) : DownloadState()
 }
 
-data class DownloadProgress(
-    val regionId: String,
-    val bytesDownloaded: Long,
-    val totalBytes: Long,
-    val status: RegionStatus
-) {
-    val percent: Int get() = if (totalBytes > 0) ((bytesDownloaded * 100) / totalBytes).toInt() else 0
-}
+// ─── GPX ─────────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GPX tracks (imported)
-// ─────────────────────────────────────────────────────────────────────────────
-
-data class GpxTrack(
+data class GpxFile(
     val id: String,
     val name: String,
     val filePath: String,
-    val points: List<TrackPoint>,
-    val distanceMeters: Double,
-    val isVisible: Boolean = true
+    val trackPoints: List<GpxPoint>,
+    val totalDistanceKm: Double,
+    val isActive: Boolean
 )
 
-data class TrackPoint(
-    val latitude: Double,
-    val longitude: Double,
-    val elevation: Double? = null,
-    val timestamp: Long? = null
+data class GpxPoint(
+    val lat: Double,
+    val lon: Double,
+    val ele: Double = 0.0,
+    val time: Long = 0L
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GPS location
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Navigation ──────────────────────────────────────────────────────────────
 
-data class UserLocation(
-    val latitude: Double,
-    val longitude: Double,
-    val accuracy: Float,
-    val bearing: Float? = null,
-    val speed: Float? = null,          // m/s
-    val timestamp: Long = System.currentTimeMillis()
+data class NavigationWaypoint(
+    val index: Int,
+    val point: GpxPoint,
+    val bearingToNext: Float,
+    val distanceToNextM: Float,
+    val isTurn: Boolean
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GPS battery mode
-// ─────────────────────────────────────────────────────────────────────────────
+data class NavigationState(
+    val isActive: Boolean = false,
+    val gpxFile: GpxFile? = null,
+    val waypoints: List<NavigationWaypoint> = emptyList(),
+    val currentWaypointIndex: Int = 0,
+    val distanceToNextTurnM: Float = 0f,
+    val bearingToNextTurn: Float = 0f,
+    val totalRemainingM: Float = 0f,
+    val isOffTrack: Boolean = false,
+    val lastAlertedWaypointIndex: Int = -1
+)
 
-/**
- * Controls the trade-off between GPS accuracy and battery consumption.
- *
- * POWER_SAVE  – 10 s interval, 20 m displacement filter → minimal drain
- * BALANCED    – 5 s interval,  5 m displacement filter  → default
- * HIGH        – 1 s interval,  0 m displacement filter  → navigation / recording
- */
+// ─── GPS ─────────────────────────────────────────────────────────────────────
+
 enum class GpsBatteryMode(
     val intervalMs: Long,
     val minDisplacementM: Float,
     val label: String
 ) {
-    POWER_SAVE(10_000L, 20f, "Power Save"),
+    HIGH_ACCURACY(1_000L, 0f, "High Accuracy"),
     BALANCED(5_000L, 5f, "Balanced"),
-    HIGH_ACCURACY(1_000L, 0f, "High Accuracy")
+    LOW_POWER(30_000L, 100f, "Low Power")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GPX track recording
-// ─────────────────────────────────────────────────────────────────────────────
-
-enum class RecordingState { IDLE, RECORDING, PAUSED }
-
-data class RecordingSession(
-    val id: String,
-    val startedAt: Long,
-    val points: List<TrackPoint>,
-    val state: RecordingState,
-    val distanceMeters: Double
-)
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Turn-by-turn navigation
-// ─────────────────────────────────────────────────────────────────────────────
-
-enum class TurnDirection {
-    STRAIGHT, TURN_LEFT, TURN_RIGHT, SHARP_LEFT, SHARP_RIGHT,
-    U_TURN, ARRIVE, START
-}
-
-data class NavigationWaypoint(
-    val index: Int,
-    val point: TrackPoint,
-    /** Bearing from previous point to this one (0–360°, 0 = North). */
-    val bearingIn: Double,
-    /** Bearing from this point to next point. */
-    val bearingOut: Double,
-    val turnDirection: TurnDirection,
-    /** Cumulative distance from track start to this waypoint (metres). */
-    val distanceFromStart: Double,
-    /** Distance from this waypoint to the next one (metres). */
-    val distanceToNext: Double
-)
-
-data class NavigationState(
-    val track: GpxTrack,
-    val waypoints: List<NavigationWaypoint>,
-    /** Index into [waypoints] of the next upcoming turn. */
-    val nextWaypointIndex: Int,
-    val distanceToNextM: Double,
-    val distanceRemainingM: Double,
-    val offTrackM: Double,
-    val isFinished: Boolean = false
+data class UserLocation(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracy: Float,
+    val bearing: Float = 0f,
+    val speed: Float = 0f,
+    val timestamp: Long = System.currentTimeMillis()
 )
