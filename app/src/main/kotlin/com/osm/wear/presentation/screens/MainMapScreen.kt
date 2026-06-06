@@ -27,7 +27,7 @@ import org.mapsforge.map.layer.overlay.Circle
 import org.mapsforge.map.layer.overlay.Polyline
 import org.mapsforge.map.layer.renderer.TileRendererLayer
 import org.mapsforge.map.reader.MapFile
-import org.mapsforge.map.rendertheme.InternalRenderTheme
+import org.mapsforge.map.rendertheme.internal.MapsforgeThemes
 import java.io.File
 
 @Composable
@@ -227,7 +227,7 @@ private fun reloadTileLayer(
         MapFile(mapFile),
         mv.model.mapViewPosition,
         AndroidGraphicFactory.INSTANCE
-    ).apply { setXmlRenderTheme(InternalRenderTheme.OSMARENDER) }
+    ).apply { setXmlRenderTheme(MapsforgeThemes.OSMARENDER) }
     mv.layerManager.layers.add(0, layer)
     ref.value = layer
     mv.model.mapViewPosition.zoomLevel = 12

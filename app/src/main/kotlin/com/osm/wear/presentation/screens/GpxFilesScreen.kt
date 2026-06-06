@@ -72,41 +72,45 @@ fun GpxFilesScreen(
             val gpx = gpxFiles[idx]
             val isActive = gpx.isActive
 
-            Chip(
-                onClick = {
-                    vm.setActiveGpxFile(gpx)
-                    onGpxSelected()
-                },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text(
-                        gpx.name,
-                        fontSize = 13.sp,
-                        color = if (isActive) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface
-                    )
-                },
-                secondaryLabel = {
-                    Text(
-                        "%.1f km · ${gpx.trackPoints.size} pts${if (isActive) " ✓" else ""}".format(gpx.totalDistanceKm),
-                        fontSize = 11.sp
-                    )
-                },
-                colors = if (isActive) ChipDefaults.chipColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                ) else ChipDefaults.chipColors(),
-                actions = {
-                    Button(
-                        onClick = { vm.deleteGpxFile(gpx.id) },
-                        modifier = Modifier.size(28.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = {
+                        vm.setActiveGpxFile(gpx)
+                        onGpxSelected()
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = {
+                        Text(
+                            gpx.name,
+                            fontSize = 13.sp,
+                            color = if (isActive) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface
                         )
-                    ) {
-                        Text("✕", fontSize = 11.sp)
-                    }
+                    },
+                    secondaryLabel = {
+                        Text(
+                            "%.1f km · ${gpx.trackPoints.size} pts${if (isActive) " ✓" else ""}".format(gpx.totalDistanceKm),
+                            fontSize = 11.sp
+                        )
+                    },
+                    colors = if (isActive) ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ) else ButtonDefaults.buttonColors()
+                )
+                Spacer(Modifier.width(4.dp))
+                Button(
+                    onClick = { vm.deleteGpxFile(gpx.id) },
+                    modifier = Modifier.size(32.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text("✕", fontSize = 11.sp)
                 }
-            )
+            }
         }
     }
 }

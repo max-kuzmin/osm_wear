@@ -111,7 +111,7 @@ fun DownloadCatalogScreen(
                         (downloadState as DownloadState.Downloading).region.id == region.id
                 val isBusy = downloadState is DownloadState.Downloading
 
-                Chip(
+                Button(
                     onClick = {
                         if (!isDownloaded && !isBusy) vm.downloadRegion(region)
                     },
@@ -135,9 +135,9 @@ fun DownloadCatalogScreen(
                             fontSize = 11.sp
                         )
                     },
-                    colors = if (isDownloaded) ChipDefaults.chipColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ) else ChipDefaults.chipColors()
+                    colors = if (isDownloaded) ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    ) else ButtonDefaults.buttonColors()
                 )
             }
         }

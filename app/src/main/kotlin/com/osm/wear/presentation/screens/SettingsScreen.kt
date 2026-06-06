@@ -42,7 +42,7 @@ fun SettingsScreen(
 
         // ── Map Regions ───────────────────────────────────────────────────────
         item {
-            Chip(
+            Button(
                 onClick = onOpenRegions,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Map Regions") },
@@ -50,13 +50,13 @@ fun SettingsScreen(
                     val active = downloadedRegions.firstOrNull { it.isActive }
                     Text(active?.region?.name ?: "None selected")
                 },
-                colors = ChipDefaults.chipColors()
+                colors = ButtonDefaults.buttonColors()
             )
         }
 
         // ── GPX Files ─────────────────────────────────────────────────────────
         item {
-            Chip(
+            Button(
                 onClick = onOpenGpxFiles,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("GPX Files") },
@@ -64,7 +64,7 @@ fun SettingsScreen(
                     val active = gpxFiles.firstOrNull { it.isActive }
                     Text(active?.name ?: "None selected")
                 },
-                colors = ChipDefaults.chipColors()
+                colors = ButtonDefaults.buttonColors()
             )
         }
 

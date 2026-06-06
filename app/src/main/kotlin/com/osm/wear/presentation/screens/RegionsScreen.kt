@@ -63,38 +63,42 @@ fun RegionsScreen(
             val dr = downloadedRegions[idx]
             val isActive = dr.isActive
 
-            Chip(
-                onClick = {
-                    vm.setActiveRegion(dr.region)
-                    onRegionSelected()
-                },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text(
-                        dr.region.name,
-                        fontSize = 13.sp,
-                        color = if (isActive) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface
-                    )
-                },
-                secondaryLabel = {
-                    Text("${dr.fileSizeMb} MB${if (isActive) " ✓" else ""}", fontSize = 11.sp)
-                },
-                colors = if (isActive) ChipDefaults.chipColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                ) else ChipDefaults.chipColors(),
-                actions = {
-                    Button(
-                        onClick = { vm.deleteRegion(dr.region) },
-                        modifier = Modifier.size(28.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = {
+                        vm.setActiveRegion(dr.region)
+                        onRegionSelected()
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = {
+                        Text(
+                            dr.region.name,
+                            fontSize = 13.sp,
+                            color = if (isActive) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface
                         )
-                    ) {
-                        Text("✕", fontSize = 11.sp)
-                    }
+                    },
+                    secondaryLabel = {
+                        Text("${dr.fileSizeMb} MB${if (isActive) " ✓" else ""}", fontSize = 11.sp)
+                    },
+                    colors = if (isActive) ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ) else ButtonDefaults.buttonColors()
+                )
+                Spacer(Modifier.width(4.dp))
+                Button(
+                    onClick = { vm.deleteRegion(dr.region) },
+                    modifier = Modifier.size(32.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text("✕", fontSize = 11.sp)
                 }
-            )
+            }
         }
     }
 }
