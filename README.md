@@ -115,8 +115,9 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ### Run on Wear OS Emulator
 
 1. Open **Android Studio → Device Manager**
-2. Create a new virtual device → **Wear OS** → Galaxy Watch 7 profile
-3. Start the emulator, then run the app from Android Studio
+2. Create a new virtual device → **Wear OS** → Galaxy Watch 7 profile (or similar Wear OS profile)
+3. Run the helper script `start-emulator.bat` at the root of the project to automatically list and launch the emulator from the command line.
+4. Run the app directly from Android Studio using the pre-configured **app** Run/Debug configuration.
 
 ---
 
