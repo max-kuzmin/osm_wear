@@ -17,15 +17,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.*
 import com.osm.wear.domain.model.NavigationState
 import com.osm.wear.domain.model.UserLocation
+import com.osm.wear.presentation.map.layers.LocationArrowLayer
 import org.mapsforge.core.graphics.Paint
 import org.mapsforge.core.graphics.Style
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.util.AndroidUtil
 import org.mapsforge.map.android.view.MapView
-import org.mapsforge.map.layer.overlay.Circle
 import org.mapsforge.map.layer.overlay.Polyline
-import org.mapsforge.map.layer.Layer
 import org.mapsforge.map.layer.renderer.TileRendererLayer
 import org.mapsforge.map.reader.MapFile
 import org.mapsforge.map.rendertheme.internal.MapsforgeThemes
@@ -44,21 +43,31 @@ fun MainMapScreen(
 
     // Stable references to Mapsforge layers
     val mapViewRef      = remember { mutableStateOf<MapView?>(null) }
-    val locationMarker  = remember { mutableStateOf<Layer?>(null) }
+    val locationMarker  = remember { mutableStateOf<LocationArrowLayer?>(null) }
     val gpxPolyline     = remember { mutableStateOf<Polyline?>(null) }
     val tileLayerRef    = remember { mutableStateOf<TileRendererLayer?>(null) }
 
     // Update GPS dot when location changes
-    LaunchedEffect(location, uiState.followLocation, uiState.centerLat, uiState.centerLon, uiState.zoomLevel) {
+    LaunchedEffect(location) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
         val loc = location ?: return@LaunchedEffect
 
-        updateLocationMarker(mv, loc, locationMarker)
+        val marker = locationMarker.value
+        if (marker == null) {
+            val newMarker = LocationArrowLayer(LatLong(loc.latitude, loc.longitude), loc.bearing, mv)
+            mv.layerManager.layers.add(newMarker)
+            locationMarker.value = newMarker
+        } else {
+            marker.updatePosition(LatLong(loc.latitude, loc.longitude), loc.bearing)
+        }
+    }
 
+    // Follow location logic
+    LaunchedEffect(uiState.followLocation, uiState.centerLat, uiState.centerLon, uiState.zoomLevel) {
+        val mv = mapViewRef.value ?: return@LaunchedEffect
         if (uiState.followLocation) {
             mv.model.mapViewPosition.setCenter(LatLong(uiState.centerLat, uiState.centerLon))
             mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
-            // Force redraw for Wear OS
             mv.postInvalidate()
         }
     }
@@ -92,8 +101,6 @@ fun MainMapScreen(
             factory = { ctx ->
                 createMapView(ctx).also { mv ->
                     mapViewRef.value = mv
-
-                    android.util.Log.d("MainMapScreen", "MapView factory created. MV=${mv}")
 
                     // Load initial tile layer
                     uiState.activeMapFile?.let { f ->
@@ -282,7 +289,6 @@ private fun reloadTileLayer(
     ).apply { setXmlRenderTheme(MapsforgeThemes.OSMARENDER) }
     mv.layerManager.layers.add(0, layer)
     ref.value = layer
-    mv.model.mapViewPosition.zoomLevel = 12
 }
 
 private fun updateGpxPolyline(
@@ -302,16 +308,4 @@ private fun updateGpxPolyline(
     poly.latLongs.addAll(points)
     mv.layerManager.layers.add(poly)
     ref.value = poly
-}
-
-private fun updateLocationMarker(
-    mv: MapView,
-    loc: UserLocation,
-    ref: MutableState<Layer?>
-) {
-    ref.value?.let { mv.layerManager.layers.remove(it) }
-    
-    val marker = LocationArrowLayer(LatLong(loc.latitude, loc.longitude), loc.bearing, mv)
-    mv.layerManager.layers.add(marker)
-    ref.value = marker
 }

@@ -10,7 +10,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
-import com.osm.wear.data.map.MapRegionCatalog
 import com.osm.wear.domain.model.DownloadState
 
 @Composable
@@ -21,6 +20,7 @@ fun DownloadCatalogScreen(
 ) {
     val downloadedRegions by vm.downloadedRegions.collectAsStateWithLifecycle()
     val downloadState     by vm.downloadState.collectAsStateWithLifecycle()
+    val groupedRegions    by vm.groupedRegions.collectAsStateWithLifecycle()
 
     // Navigate back to RegionsScreen when a download finishes
     var wasDownloading by remember { mutableStateOf(false) }
@@ -36,7 +36,6 @@ fun DownloadCatalogScreen(
     }
 
     val alreadyDownloaded = downloadedRegions.map { it.region.id }.toSet()
-    val grouped = MapRegionCatalog.all.groupBy { it.continent }
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -46,10 +45,11 @@ fun DownloadCatalogScreen(
     ) {
         item {
             Text(
-                "Download Region",
+                text = "Download Region",
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 4.dp)
             )
         }
 
@@ -57,28 +57,11 @@ fun DownloadCatalogScreen(
         when (val ds = downloadState) {
             is DownloadState.Downloading -> {
                 item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            "Downloading ${ds.region.name}…",
-                            fontSize = 12.sp,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { ds.progressPercent / 100f },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text(
-                            "${ds.progressPercent}%  (${ds.downloadedMb.toInt()} MB)",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    DownloadProgressItem(
+                        regionName = ds.region.name,
+                        progressPercent = ds.progressPercent,
+                        downloadedMb = ds.downloadedMb
+                    )
                 }
             }
             is DownloadState.Failed -> {
@@ -95,7 +78,7 @@ fun DownloadCatalogScreen(
         }
 
         // ── Region list grouped by continent ─────────────────────────────────
-        grouped.forEach { (continent, regions) ->
+        groupedRegions.forEach { (continent, regions) ->
             item {
                 Text(
                     continent,
@@ -112,22 +95,20 @@ fun DownloadCatalogScreen(
                 val isBusy = downloadState is DownloadState.Downloading
 
                 Button(
-                    onClick = {
-                        if (!isDownloaded && !isBusy) vm.downloadRegion(region)
-                    },
+                    onClick = { if (!isDownloaded && !isBusy) vm.downloadRegion(region) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isDownloaded && !isBusy,
                     label = {
                         Text(
                             region.name,
                             fontSize = 13.sp,
-                            color = if (isDownloaded) MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (isDownloaded) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface
                         )
                     },
                     secondaryLabel = {
                         Text(
-                            when {
+                            text = when {
                                 isDownloaded  -> "Downloaded"
                                 isDownloading -> "Downloading…"
                                 else          -> "~${region.fileSizeMb} MB"
@@ -136,10 +117,38 @@ fun DownloadCatalogScreen(
                         )
                     },
                     colors = if (isDownloaded) ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
                     ) else ButtonDefaults.buttonColors()
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DownloadProgressItem(
+    regionName: String,
+    progressPercent: Int,
+    downloadedMb: Float
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "Downloading $regionName…",
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = { progressPercent / 100f },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            "$progressPercent%  (${downloadedMb.toInt()} MB)",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

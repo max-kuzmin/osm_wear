@@ -33,71 +33,76 @@ fun SettingsScreen(
     ) {
         item {
             Text(
-                "Settings",
+                text = "Settings",
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 4.dp)
             )
         }
 
-        // ── Map Regions ───────────────────────────────────────────────────────
         item {
+            val activeRegion = downloadedRegions.firstOrNull { it.isActive }
             Button(
                 onClick = onOpenRegions,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Map Regions") },
-                secondaryLabel = {
-                    val active = downloadedRegions.firstOrNull { it.isActive }
-                    Text(active?.region?.name ?: "None selected")
-                },
-                colors = ButtonDefaults.buttonColors()
+                label = { Text("Map Regions", fontSize = 13.sp) },
+                secondaryLabel = { Text(activeRegion?.region?.name ?: "None selected", fontSize = 11.sp) }
             )
         }
 
-        // ── GPX Files ─────────────────────────────────────────────────────────
         item {
+            val activeGpx = gpxFiles.firstOrNull { it.isActive }
             Button(
                 onClick = onOpenGpxFiles,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("GPX Files") },
-                secondaryLabel = {
-                    val active = gpxFiles.firstOrNull { it.isActive }
-                    Text(active?.name ?: "None selected")
-                },
-                colors = ButtonDefaults.buttonColors()
+                label = { Text("GPX Files", fontSize = 13.sp) },
+                secondaryLabel = { Text(activeGpx?.name ?: "None selected", fontSize = 11.sp) }
             )
         }
 
-        // ── Navigation button ─────────────────────────────────────────────────
         item {
-            if (navState != null && navState.isActive) {
-                Button(
-                    onClick = onStopNavigation,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Stop Navigation", fontSize = 13.sp)
-                }
-            } else {
-                val hasActiveGpx = gpxFiles.any { it.isActive }
-                Button(
-                    onClick = onStartNavigation,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = hasActiveGpx,
-                    colors = ButtonDefaults.buttonColors()
-                ) {
-                    Text("Start Navigation", fontSize = 13.sp)
-                }
-                if (!hasActiveGpx) {
-                    Text(
-                        "Select a GPX file first",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
+            NavigationButton(
+                isActive = navState?.isActive == true,
+                hasActiveGpx = gpxFiles.any { it.isActive },
+                onStart = onStartNavigation,
+                onStop = onStopNavigation
+            )
+        }
+    }
+}
+
+@Composable
+private fun NavigationButton(
+    isActive: Boolean,
+    hasActiveGpx: Boolean,
+    onStart: () -> Unit,
+    onStop: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (isActive) {
+            Button(
+                onClick = onStop,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Stop Navigation", fontSize = 13.sp)
+            }
+        } else {
+            Button(
+                onClick = onStart,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = hasActiveGpx,
+                label = { Text("Start Navigation", fontSize = 13.sp) }
+            )
+            if (!hasActiveGpx) {
+                Text(
+                    "Select a GPX file first",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

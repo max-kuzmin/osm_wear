@@ -22,7 +22,6 @@ fun GpxFilesScreen(
 ) {
     val gpxFiles by vm.gpxFiles.collectAsStateWithLifecycle()
 
-    // File picker — opens system file manager to pick a .gpx file
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -37,22 +36,20 @@ fun GpxFilesScreen(
     ) {
         item {
             Text(
-                "GPX Files",
+                text = "GPX Files",
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 4.dp)
             )
         }
 
-        // ── Open GPX button ───────────────────────────────────────────────────
         item {
             Button(
                 onClick = { filePicker.launch(arrayOf("*/*")) },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors()
-            ) {
-                Text("+ Open GPX File", fontSize = 13.sp)
-            }
+                label = { Text("+ Open GPX File", fontSize = 13.sp) }
+            )
         }
 
         if (gpxFiles.isEmpty()) {
@@ -61,17 +58,13 @@ fun GpxFilesScreen(
                     "No GPX files added yet",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
         }
 
-        // ── GPX file list ─────────────────────────────────────────────────────
         items(gpxFiles.size) { idx ->
             val gpx = gpxFiles[idx]
-            val isActive = gpx.isActive
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -86,17 +79,18 @@ fun GpxFilesScreen(
                         Text(
                             gpx.name,
                             fontSize = 13.sp,
-                            color = if (isActive) MaterialTheme.colorScheme.primary
+                            color = if (gpx.isActive) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface
                         )
                     },
                     secondaryLabel = {
                         Text(
-                            "%.1f km · ${gpx.trackPoints.size} pts${if (isActive) " ✓" else ""}".format(gpx.totalDistanceKm),
+                            "%.1f km · ${gpx.trackPoints.size} pts${if (gpx.isActive) " ✓" else ""}"
+                                .format(gpx.totalDistanceKm),
                             fontSize = 11.sp
                         )
                     },
-                    colors = if (isActive) ButtonDefaults.buttonColors(
+                    colors = if (gpx.isActive) ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     ) else ButtonDefaults.buttonColors()
                 )

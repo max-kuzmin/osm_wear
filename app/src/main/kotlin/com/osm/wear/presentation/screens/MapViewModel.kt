@@ -1,8 +1,7 @@
 package com.osm.wear.presentation.screens
 
-import android.app.Application
 import android.net.Uri
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.data.gpx.GpxRepository
 import com.osm.wear.data.location.LocationRepository
@@ -10,10 +9,12 @@ import com.osm.wear.data.map.MapDownloadManager
 import com.osm.wear.data.map.MapRegionCatalog
 import com.osm.wear.data.navigation.NavigationEngine
 import com.osm.wear.domain.model.*
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
+import javax.inject.Inject
 
 // ─── UI state ────────────────────────────────────────────────────────────────
 
@@ -40,14 +41,13 @@ data class MapUiState(
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
-class MapViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val context = application.applicationContext
-
-    val locationRepo     = LocationRepository(context)
-    val downloadManager  = MapDownloadManager(context)
-    val gpxRepo          = GpxRepository(context)
-    private val navEngine = NavigationEngine(context)
+@HiltViewModel
+class MapViewModel @Inject constructor(
+    private val locationRepo: LocationRepository,
+    private val downloadManager: MapDownloadManager,
+    private val gpxRepo: GpxRepository,
+    private val navEngine: NavigationEngine
+) : ViewModel() {
 
     // ── UI state ───────────────────────────────────────────────────────────────
     private val _uiState = MutableStateFlow(MapUiState())
@@ -69,6 +69,10 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     // ── Downloaded regions ─────────────────────────────────────────────────────
     private val _downloadedRegions = MutableStateFlow<List<DownloadedRegion>>(emptyList())
     val downloadedRegions: StateFlow<List<DownloadedRegion>> = _downloadedRegions.asStateFlow()
+
+    val groupedRegions: StateFlow<Map<String, List<MapRegion>>> = MutableStateFlow(
+        MapRegionCatalog.all.groupBy { it.continent }
+    ).asStateFlow()
 
     init {
         startLocationTracking()
@@ -243,5 +247,6 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         locationJob?.cancel()
+        navEngine.release()
     }
 }

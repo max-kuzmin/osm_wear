@@ -11,6 +11,7 @@ lifecycleRuntimeCompose = "2.9.0"
 composeBom = "2026.05.00"
 wearCompose = "1.6.2"
 wearNavigation = "1.6.2"
+hilt = "2.55"
 navigation3 = "1.0.0-alpha03"
 mapsforge = "0.28.0"
 gpxParser = "2.3.1"
@@ -47,6 +48,11 @@ androidx-wear-compose-material3 = { group = "androidx.wear.compose", name = "com
 androidx-wear-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version.ref = "wearCompose" }
 androidx-wear-compose-navigation = { group = "androidx.wear.compose", name = "compose-navigation", version.ref = "wearNavigation" }
 androidx-wear-compose-ui-tooling = { group = "androidx.wear.compose", name = "compose-ui-tooling", version.ref = "wearCompose" }
+
+# Hilt
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version = "1.2.0" }
 
 # Navigation 3 (Wear)
 androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigation3-runtime", version.ref = "navigation3" }
@@ -85,3 +91,4 @@ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-te
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

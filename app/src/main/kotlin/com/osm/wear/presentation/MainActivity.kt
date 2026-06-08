@@ -10,7 +10,9 @@ import com.osm.wear.presentation.navigation.OsmWearNavGraph
 import com.osm.wear.presentation.theme.OsmWearTheme
 import com.osm.wear.presentation.screens.MapViewModel
 import androidx.activity.viewModels
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val vm: MapViewModel by viewModels()

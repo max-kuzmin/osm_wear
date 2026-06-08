@@ -1,7 +1,7 @@
 package com.osm.wear.presentation.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
@@ -18,7 +18,7 @@ object Routes {
 @Composable
 fun OsmWearNavGraph() {
     val navController = rememberSwipeDismissableNavController()
-    val vm: MapViewModel = viewModel()
+    val vm: MapViewModel = hiltViewModel()
 
     SwipeDismissableNavHost(
         navController = navController,

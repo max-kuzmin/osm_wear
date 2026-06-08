@@ -28,22 +28,20 @@ fun RegionsScreen(
     ) {
         item {
             Text(
-                "Map Regions",
+                text = "Map Regions",
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 4.dp)
             )
         }
 
-        // ── Download new region button ────────────────────────────────────────
         item {
             Button(
                 onClick = onOpenDownloadCatalog,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors()
-            ) {
-                Text("+ Download Region", fontSize = 13.sp)
-            }
+                label = { Text("+ Download Region", fontSize = 13.sp) }
+            )
         }
 
         if (downloadedRegions.isEmpty()) {
@@ -52,17 +50,13 @@ fun RegionsScreen(
                     "No regions downloaded yet",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
         }
 
-        // ── Downloaded regions list ───────────────────────────────────────────
         items(downloadedRegions.size) { idx ->
             val dr = downloadedRegions[idx]
-            val isActive = dr.isActive
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -77,14 +71,17 @@ fun RegionsScreen(
                         Text(
                             dr.region.name,
                             fontSize = 13.sp,
-                            color = if (isActive) MaterialTheme.colorScheme.primary
+                            color = if (dr.isActive) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface
                         )
                     },
                     secondaryLabel = {
-                        Text("${dr.fileSizeMb} MB${if (isActive) " ✓" else ""}", fontSize = 11.sp)
+                        Text(
+                            "${dr.fileSizeMb} MB${if (dr.isActive) " ✓" else ""}",
+                            fontSize = 11.sp
+                        )
                     },
-                    colors = if (isActive) ButtonDefaults.buttonColors(
+                    colors = if (dr.isActive) ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     ) else ButtonDefaults.buttonColors()
                 )
