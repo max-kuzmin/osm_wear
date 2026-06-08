@@ -25,6 +25,7 @@ import org.mapsforge.map.android.util.AndroidUtil
 import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.layer.overlay.Circle
 import org.mapsforge.map.layer.overlay.Polyline
+import org.mapsforge.map.layer.Layer
 import org.mapsforge.map.layer.renderer.TileRendererLayer
 import org.mapsforge.map.reader.MapFile
 import org.mapsforge.map.rendertheme.internal.MapsforgeThemes
@@ -43,15 +44,31 @@ fun MainMapScreen(
 
     // Stable references to Mapsforge layers
     val mapViewRef      = remember { mutableStateOf<MapView?>(null) }
-    val locationCircle  = remember { mutableStateOf<Circle?>(null) }
+    val locationMarker  = remember { mutableStateOf<Layer?>(null) }
     val gpxPolyline     = remember { mutableStateOf<Polyline?>(null) }
     val tileLayerRef    = remember { mutableStateOf<TileRendererLayer?>(null) }
 
     // Update GPS dot when location changes
-    LaunchedEffect(location) {
+    LaunchedEffect(location, uiState.followLocation, uiState.centerLat, uiState.centerLon, uiState.zoomLevel) {
+        val mv = mapViewRef.value ?: return@LaunchedEffect
         val loc = location ?: return@LaunchedEffect
-        val mv  = mapViewRef.value ?: return@LaunchedEffect
-        updateLocationCircle(mv, loc, locationCircle)
+
+        updateLocationMarker(mv, loc, locationMarker)
+
+        if (uiState.followLocation) {
+            mv.model.mapViewPosition.setCenter(LatLong(uiState.centerLat, uiState.centerLon))
+            mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
+            // Force redraw for Wear OS
+            mv.postInvalidate()
+        }
+    }
+
+    // Update zoom when uiState.zoomLevel changes
+    LaunchedEffect(uiState.zoomLevel) {
+        val mv = mapViewRef.value ?: return@LaunchedEffect
+        if (mv.model.mapViewPosition.zoomLevel.toInt() != uiState.zoomLevel) {
+            mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
+        }
     }
 
     // Update GPX polyline when active GPX changes
@@ -76,6 +93,8 @@ fun MainMapScreen(
                 createMapView(ctx).also { mv ->
                     mapViewRef.value = mv
 
+                    android.util.Log.d("MainMapScreen", "MapView factory created. MV=${mv}")
+
                     // Load initial tile layer
                     uiState.activeMapFile?.let { f ->
                         reloadTileLayer(ctx, mv, f, tileLayerRef)
@@ -91,32 +110,70 @@ fun MainMapScreen(
                     mv.setOnGenericMotionListener { _, event ->
                         if (event.action == MotionEvent.ACTION_SCROLL) {
                             val scroll = event.getAxisValue(MotionEvent.AXIS_SCROLL)
-                            val pos = mv.model.mapViewPosition
-                            val newZoom = (pos.zoomLevel.toInt() + if (scroll > 0) 1 else -1)
-                                .coerceIn(pos.zoomLevelMin.toInt(), pos.zoomLevelMax.toInt())
-                            pos.zoomLevel = newZoom.toByte()
+                            if (scroll > 0) vm.zoomIn() else vm.zoomOut()
                             true
                         } else false
                     }
+
+                    // Detect panning to stop following
+                    mv.setOnTouchListener { _, event ->
+                        if (event.action == MotionEvent.ACTION_MOVE) {
+                            vm.stopFollowingLocation()
+                        }
+                        false
+                    }
                 }
             },
-            update = { /* layers updated via LaunchedEffect */ }
+            update = { mv ->
+                if (uiState.followLocation) {
+                    mv.model.mapViewPosition.setCenter(LatLong(uiState.centerLat, uiState.centerLon))
+                    mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
+                    mv.postInvalidate()
+                }
+            }
         )
 
-        // ── Settings button (top-right) ──────────────────────────────────────
+        // ── Settings button (top-centre) ─────────────────────────────────────
         Box(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp)
+                .align(Alignment.TopCenter)
+                .padding(top = 16.dp)
         ) {
             Button(
                 onClick = onOpenSettings,
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier.size(32.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = androidx.compose.ui.graphics.Color(0xCC000000)
+                    containerColor = androidx.compose.ui.graphics.Color(0xAA000000)
                 )
             ) {
-                Text("⚙", fontSize = 16.sp)
+                Text("⚙", fontSize = 14.sp)
+            }
+        }
+
+        // ── Zoom controls (right-centre) ─────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = { vm.zoomIn() },
+                modifier = Modifier.size(30.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = androidx.compose.ui.graphics.Color(0xAA000000)
+                )
+            ) {
+                Text("+", fontSize = 16.sp)
+            }
+            Button(
+                onClick = { vm.zoomOut() },
+                modifier = Modifier.size(30.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = androidx.compose.ui.graphics.Color(0xAA000000)
+                )
+            ) {
+                Text("-", fontSize = 16.sp)
             }
         }
 
@@ -124,16 +181,10 @@ fun MainMapScreen(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 12.dp)
+                .padding(bottom = 16.dp)
         ) {
             Button(
-                onClick = {
-                    location?.let { loc ->
-                        mapViewRef.value?.model?.mapViewPosition
-                            ?.setCenter(LatLong(loc.latitude, loc.longitude))
-                    }
-                    vm.centerOnLocation()
-                },
+                onClick = { vm.centerOnLocation() },
                 modifier = Modifier.size(36.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = androidx.compose.ui.graphics.Color(0xCC1565C0)
@@ -202,6 +253,7 @@ private fun createMapView(context: Context): MapView {
     val mv = MapView(context)
     mv.isClickable = true
     mv.mapScaleBar.isVisible = true
+    mv.setBuiltInZoomControls(false)
     mv.model.mapViewPosition.setCenter(LatLong(48.0, 16.0))
     mv.model.mapViewPosition.zoomLevel = 5
     return mv
@@ -252,22 +304,14 @@ private fun updateGpxPolyline(
     ref.value = poly
 }
 
-private fun updateLocationCircle(
+private fun updateLocationMarker(
     mv: MapView,
     loc: UserLocation,
-    ref: MutableState<Circle?>
+    ref: MutableState<Layer?>
 ) {
     ref.value?.let { mv.layerManager.layers.remove(it) }
-    val fill: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.argb(180, 30, 136, 229))
-        setStyle(Style.FILL)
-    }
-    val stroke: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.WHITE)
-        strokeWidth = 3f
-        setStyle(Style.STROKE)
-    }
-    val circle = Circle(LatLong(loc.latitude, loc.longitude), loc.accuracy.coerceAtLeast(10f), fill, stroke)
-    mv.layerManager.layers.add(circle)
-    ref.value = circle
+    
+    val marker = LocationArrowLayer(LatLong(loc.latitude, loc.longitude), loc.bearing, mv)
+    mv.layerManager.layers.add(marker)
+    ref.value = marker
 }

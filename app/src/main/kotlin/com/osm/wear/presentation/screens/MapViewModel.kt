@@ -101,10 +101,19 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                 it.copy(
                     centerLat = loc.latitude,
                     centerLon = loc.longitude,
+                    zoomLevel = 17,
                     followLocation = true
                 )
             }
         }
+    }
+
+    fun stopFollowingLocation() {
+        _uiState.update { it.copy(followLocation = false) }
+    }
+
+    fun onPermissionsGranted() {
+        startLocationTracking()
     }
 
     fun setGpsBatteryMode(mode: GpsBatteryMode) {

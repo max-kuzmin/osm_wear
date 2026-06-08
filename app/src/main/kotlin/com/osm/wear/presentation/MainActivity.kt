@@ -8,14 +8,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.osm.wear.presentation.navigation.OsmWearNavGraph
 import com.osm.wear.presentation.theme.OsmWearTheme
+import com.osm.wear.presentation.screens.MapViewModel
+import androidx.activity.viewModels
 
 class MainActivity : ComponentActivity() {
+
+    private val vm: MapViewModel by viewModels()
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // Permissions handled; location tracking starts in MapScreen LaunchedEffect
         val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        if (granted) {
+            vm.onPermissionsGranted()
+        }
         android.util.Log.d("MainActivity", "Location permission granted: $granted")
     }
 

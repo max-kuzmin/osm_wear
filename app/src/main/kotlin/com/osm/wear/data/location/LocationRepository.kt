@@ -81,12 +81,13 @@ class LocationRepository(private val context: Context) {
     suspend fun getLastKnownLocation(): UserLocation? {
         if (!hasLocationPermission()) return null
         return try {
-            var result: Location? = null
-            fusedClient.lastLocation.addOnSuccessListener { result = it }
-            kotlinx.coroutines.delay(500)
-            result?.toUserLocation()
+            val task = fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+            while (!task.isComplete) {
+                kotlinx.coroutines.delay(100)
+            }
+            task.result?.toUserLocation()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get last location", e)
+            Log.e(TAG, "Failed to get current location", e)
             null
         }
     }
