@@ -47,15 +47,13 @@ class LocationRepository(private val context: Context) {
 
             val priority = when (mode) {
                 GpsBatteryMode.HIGH_ACCURACY -> Priority.PRIORITY_HIGH_ACCURACY
-                GpsBatteryMode.BALANCED      -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
-                GpsBatteryMode.LOW_POWER     -> Priority.PRIORITY_LOW_POWER
+                GpsBatteryMode.BALANCED      -> Priority.PRIORITY_HIGH_ACCURACY
+                GpsBatteryMode.LOW_POWER     -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
             }
 
             val request = LocationRequest.Builder(priority, mode.intervalMs)
                 .setMinUpdateIntervalMillis(mode.intervalMs / 2)
                 .setMinUpdateDistanceMeters(mode.minDisplacementM)
-                // Batch updates to reduce CPU wake-ups on Wear OS
-                .setMaxUpdateDelayMillis(mode.intervalMs * 2)
                 .setWaitForAccurateLocation(false)
                 .build()
 

@@ -123,9 +123,22 @@ fun MainMapScreen(
                     }
 
                     // Detect panning to stop following
+                    var startX = 0f
+                    var startY = 0f
+                    val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
                     mv.setOnTouchListener { _, event ->
-                        if (event.action == MotionEvent.ACTION_MOVE) {
-                            vm.stopFollowingLocation()
+                        when (event.action) {
+                            MotionEvent.ACTION_DOWN -> {
+                                startX = event.x
+                                startY = event.y
+                            }
+                            MotionEvent.ACTION_MOVE -> {
+                                val dx = event.x - startX
+                                val dy = event.y - startY
+                                if (dx * dx + dy * dy > touchSlop * touchSlop) {
+                                    vm.stopFollowingLocation()
+                                }
+                            }
                         }
                         false
                     }

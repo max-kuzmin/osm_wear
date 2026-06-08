@@ -100,14 +100,28 @@ class MapViewModel @Inject constructor(
     }
 
     fun centerOnLocation() {
+        _uiState.update { it.copy(followLocation = true, zoomLevel = 17) }
         _currentLocation.value?.let { loc ->
             _uiState.update {
                 it.copy(
                     centerLat = loc.latitude,
-                    centerLon = loc.longitude,
-                    zoomLevel = 17,
-                    followLocation = true
+                    centerLon = loc.longitude
                 )
+            }
+        } ?: run {
+            viewModelScope.launch {
+                val lastLoc = locationRepo.getLastKnownLocation()
+                lastLoc?.let { loc ->
+                    _currentLocation.value = loc
+                    if (_uiState.value.followLocation) {
+                        _uiState.update {
+                            it.copy(
+                                centerLat = loc.latitude,
+                                centerLon = loc.longitude
+                            )
+                        }
+                    }
+                }
             }
         }
     }
