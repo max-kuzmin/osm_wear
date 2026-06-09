@@ -12,14 +12,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 
+import com.osm.wear.domain.model.DownloadState
+
 @Composable
 fun RegionsScreen(
     vm: MapViewModel,
-    onOpenDownloadCatalog: () -> Unit,
     onRegionSelected: () -> Unit,
     onBack: () -> Unit
 ) {
     val downloadedRegions by vm.downloadedRegions.collectAsStateWithLifecycle()
+    val downloadState     by vm.downloadState.collectAsStateWithLifecycle()
+    val groupedRegions    by vm.groupedRegions.collectAsStateWithLifecycle()
+
+    val alreadyDownloadedIds = downloadedRegions.map { it.region.id }.toSet()
 
     BackHandler { onBack() }
 
@@ -39,15 +44,30 @@ fun RegionsScreen(
             )
         }
 
-        item {
-            Button(
-                onClick = onOpenDownloadCatalog,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("+ Download Region", fontSize = 13.sp) }
-            )
+        // ── Download error ──────────────────────────────────────────
+        if (downloadState is DownloadState.Failed) {
+            val ds = downloadState as DownloadState.Failed
+            item {
+                Text(
+                    "Failed: ${ds.error}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
-        if (downloadedRegions.isEmpty()) {
+        // ── Downloaded Regions ──────────────────────────────────────────
+        if (downloadedRegions.isNotEmpty()) {
+            item {
+                Text(
+                    "Downloaded",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        } else {
             item {
                 Text(
                     "No regions downloaded yet",
@@ -89,14 +109,71 @@ fun RegionsScreen(
                     ) else ButtonDefaults.buttonColors()
                 )
                 Spacer(Modifier.width(4.dp))
-                Button(
-                    onClick = { vm.deleteRegion(dr.region) },
-                    modifier = Modifier.size(32.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
+                com.osm.wear.presentation.components.RemoveButton(
+                    onClick = { vm.deleteRegion(dr.region) }
+                )
+            }
+        }
+
+        // ── Available Regions (Grouped) ──────────────────────────────────
+        groupedRegions.forEach { (continent, regions) ->
+            val availableRegions = regions.filter { it.id !in alreadyDownloadedIds }
+            
+            if (availableRegions.isNotEmpty()) {
+                item {
+                    Text(
+                        continent,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
-                ) {
-                    Text("✕", fontSize = 11.sp)
+                }
+                
+                items(availableRegions.size) { idx ->
+                    val region = availableRegions[idx]
+                    val isDownloading = downloadState is DownloadState.Downloading &&
+                            (downloadState as DownloadState.Downloading).region.id == region.id
+                    val isBusy = downloadState is DownloadState.Downloading
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Button(
+                            onClick = { if (!isBusy) vm.downloadRegion(region) },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isBusy,
+                            label = {
+                                Text(
+                                    region.name,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            secondaryLabel = {
+                                if (isDownloading) {
+                                    val ds = downloadState as DownloadState.Downloading
+                                    Text(
+                                        text = "${ds.progressPercent}% (${ds.downloadedMb.toInt()} MB)",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Text(
+                                        text = "~${region.fileSizeMb} MB",
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        )
+                        
+                        if (isDownloading) {
+                            com.osm.wear.presentation.components.RemoveButton(
+                                onClick = { vm.cancelDownload() }
+                            )
+                        }
+                    }
                 }
             }
         }

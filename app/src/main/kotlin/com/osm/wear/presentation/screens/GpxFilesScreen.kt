@@ -98,15 +98,9 @@ fun GpxFilesScreen(
                     ) else ButtonDefaults.buttonColors()
                 )
                 Spacer(Modifier.width(4.dp))
-                Button(
-                    onClick = { vm.deleteGpxFile(gpx.id) },
-                    modifier = Modifier.size(32.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text("✕", fontSize = 11.sp)
-                }
+                com.osm.wear.presentation.components.RemoveButton(
+                    onClick = { vm.deleteGpxFile(gpx.id) }
+                )
             }
         }
     }

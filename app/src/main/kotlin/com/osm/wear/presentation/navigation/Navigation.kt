@@ -11,7 +11,6 @@ object Routes {
     const val MAP              = "map"
     const val SETTINGS         = "settings"
     const val REGIONS          = "regions"
-    const val DOWNLOAD_CATALOG = "download_catalog"
     const val GPX_FILES        = "gpx_files"
 }
 
@@ -48,16 +47,8 @@ fun OsmWearNavGraph() {
         composable(Routes.REGIONS) {
             RegionsScreen(
                 vm = vm,
-                onOpenDownloadCatalog = { navController.navigate(Routes.DOWNLOAD_CATALOG) },
                 onRegionSelected      = { navController.popBackStack(Routes.MAP, false) },
                 onBack                = { navController.popBackStack() }
-            )
-        }
-        composable(Routes.DOWNLOAD_CATALOG) {
-            DownloadCatalogScreen(
-                vm = vm,
-                onDownloadComplete = { navController.popBackStack(Routes.REGIONS, false) },
-                onBack             = { navController.popBackStack() }
             )
         }
         composable(Routes.GPX_FILES) {
