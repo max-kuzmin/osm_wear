@@ -1,5 +1,6 @@
 package com.osm.wear.presentation.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +25,8 @@ fun SettingsScreen(
     val downloadedRegions by vm.downloadedRegions.collectAsStateWithLifecycle()
     val gpxFiles        by vm.gpxFiles.collectAsStateWithLifecycle()
     val navState        = uiState.navigationState
+
+    BackHandler { onBack() }
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),

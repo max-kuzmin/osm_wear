@@ -1,5 +1,6 @@
 package com.osm.wear.presentation.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +20,8 @@ fun RegionsScreen(
     onBack: () -> Unit
 ) {
     val downloadedRegions by vm.downloadedRegions.collectAsStateWithLifecycle()
+
+    BackHandler { onBack() }
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),

@@ -46,7 +46,8 @@ class MapViewModel @Inject constructor(
     private val locationRepo: LocationRepository,
     private val downloadManager: MapDownloadManager,
     private val gpxRepo: GpxRepository,
-    private val navEngine: NavigationEngine
+    private val navEngine: NavigationEngine,
+    private val prefs: android.content.SharedPreferences
 ) : ViewModel() {
 
     // ── UI state ───────────────────────────────────────────────────────────────
@@ -159,6 +160,7 @@ class MapViewModel @Inject constructor(
                 activeRegionId = region.id
             )
         }
+        prefs.edit().putString("active_region_id", region.id).apply()
         refreshDownloadedRegions()
     }
 
@@ -167,6 +169,7 @@ class MapViewModel @Inject constructor(
             downloadManager.deleteRegion(region)
             if (_uiState.value.activeRegionId == region.id) {
                 _uiState.update { it.copy(activeMapFile = null, activeRegionId = null) }
+                prefs.edit().remove("active_region_id").apply()
             }
             refreshDownloadedRegions()
             autoLoadFirstRegion()
@@ -188,6 +191,10 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    fun cancelDownload() {
+        downloadManager.cancelDownload()
+    }
+
     fun refreshDownloadedRegions() {
         _downloadedRegions.value = downloadManager.getDownloadedRegions(
             catalog = MapRegionCatalog.all,
@@ -197,11 +204,19 @@ class MapViewModel @Inject constructor(
 
     private fun autoLoadFirstRegion() {
         if (_uiState.value.activeMapFile != null) return
-        val first = downloadManager.getDownloadedRegions(MapRegionCatalog.all, null).firstOrNull()
-            ?: return
-        val file = File(first.filePath)
+        val downloaded = downloadManager.getDownloadedRegions(MapRegionCatalog.all, null)
+        if (downloaded.isEmpty()) return
+
+        val lastSelectedId = prefs.getString("active_region_id", null)
+        val target = downloaded.find { it.region.id == lastSelectedId } ?: downloaded.first()
+        
+        val file = File(target.filePath)
         if (file.exists()) {
-            _uiState.update { it.copy(activeMapFile = file, activeRegionId = first.region.id) }
+            _uiState.update { it.copy(activeMapFile = file, activeRegionId = target.region.id) }
+            if (lastSelectedId != target.region.id) {
+                prefs.edit().putString("active_region_id", target.region.id).apply()
+            }
+            refreshDownloadedRegions()
         }
     }
 

@@ -20,6 +20,8 @@ fun OsmWearNavGraph() {
     val navController = rememberSwipeDismissableNavController()
     val vm: MapViewModel = hiltViewModel()
 
+
+
     SwipeDismissableNavHost(
         navController = navController,
         startDestination = Routes.MAP

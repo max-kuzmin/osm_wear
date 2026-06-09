@@ -23,7 +23,10 @@ import kotlin.math.*
  * Files are stored in [Context.getFilesDir]/gpx/.
  * Exposes a [StateFlow] of [GpxFile] objects matching the new domain model.
  */
-class GpxRepository(private val context: Context) {
+class GpxRepository(
+    private val context: Context,
+    private val prefs: android.content.SharedPreferences
+) {
 
     private val gpxDir: File get() = File(context.filesDir, "gpx").also { it.mkdirs() }
     private val parser = GPXParser()
@@ -70,16 +73,21 @@ class GpxRepository(private val context: Context) {
     suspend fun deleteFile(fileId: String) = withContext(Dispatchers.IO) {
         val gpx = _files.value.find { it.id == fileId } ?: return@withContext
         File(gpx.filePath).delete()
+        if (prefs.getString("active_gpx_id", null) == fileId) {
+            prefs.edit().remove("active_gpx_id").apply()
+        }
         _files.value = _files.value.filter { it.id != fileId }
     }
 
     /** Sets the active GPX file (only one can be active at a time). */
     fun setActive(fileId: String) {
+        prefs.edit().putString("active_gpx_id", fileId).apply()
         _files.value = _files.value.map { it.copy(isActive = it.id == fileId) }
     }
 
     /** Clears the active GPX file. */
     fun clearActive() {
+        prefs.edit().remove("active_gpx_id").apply()
         _files.value = _files.value.map { it.copy(isActive = false) }
     }
 
@@ -93,9 +101,11 @@ class GpxRepository(private val context: Context) {
     }
 
     private fun loadStoredFiles() {
+        val activeId = prefs.getString("active_gpx_id", null)
         val loaded = gpxDir.listFiles()
             ?.filter { it.extension == "gpx" }
             ?.mapNotNull { parseGpxFile(it).getOrNull() }
+            ?.map { it.copy(isActive = it.id == activeId) }
             ?: emptyList()
         _files.value = loaded
         Log.d(TAG, "Loaded ${loaded.size} GPX files from storage")

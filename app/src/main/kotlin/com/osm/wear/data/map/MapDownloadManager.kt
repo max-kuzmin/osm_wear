@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Call
+import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -30,6 +32,9 @@ class MapDownloadManager(private val context: Context) {
     private val mapsDir: File get() = File(context.filesDir, "maps").also { it.mkdirs() }
 
     // ── Download state ────────────────────────────────────────────────────────
+    
+    @Volatile
+    private var currentCall: Call? = null
 
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
@@ -83,7 +88,9 @@ class MapDownloadManager(private val context: Context) {
                 Log.d(TAG, "Resuming ${region.name} from byte $resumeFrom")
             }
 
-            val response = client.newCall(requestBuilder.build()).execute()
+            val call = client.newCall(requestBuilder.build())
+            currentCall = call
+            val response = call.execute()
             if (!response.isSuccessful && response.code != 206) {
                 throw Exception("HTTP ${response.code}: ${response.message}")
             }
@@ -119,9 +126,22 @@ class MapDownloadManager(private val context: Context) {
             _downloadState.value = DownloadState.Idle
 
         } catch (e: Exception) {
-            Log.e(TAG, "Download failed: ${region.name}", e)
-            _downloadState.value = DownloadState.Failed(region, e.message ?: "Unknown error")
+            if (e is CancellationException || e.message?.contains("Canceled", ignoreCase = true) == true) {
+                Log.d(TAG, "Download cancelled: ${region.name}")
+                _downloadState.value = DownloadState.Idle
+            } else {
+                Log.e(TAG, "Download failed: ${region.name}", e)
+                _downloadState.value = DownloadState.Failed(region, e.message ?: "Unknown error")
+            }
+        } finally {
+            currentCall = null
         }
+    }
+
+    /** Cancels the currently active download. */
+    fun cancelDownload() {
+        currentCall?.cancel()
+        _downloadState.value = DownloadState.Idle
     }
 
     /** Deletes the downloaded map file for a region. */

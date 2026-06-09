@@ -31,8 +31,17 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideGpxRepository(@ApplicationContext context: Context): GpxRepository {
-        return GpxRepository(context)
+    fun provideSharedPreferences(@ApplicationContext context: Context): android.content.SharedPreferences {
+        return context.getSharedPreferences("osm_wear_prefs", Context.MODE_PRIVATE)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGpxRepository(
+        @ApplicationContext context: Context,
+        prefs: android.content.SharedPreferences
+    ): GpxRepository {
+        return GpxRepository(context, prefs)
     }
 
     @Provides

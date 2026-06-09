@@ -2,6 +2,7 @@ package com.osm.wear.presentation.screens
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -27,6 +28,8 @@ fun GpxFilesScreen(
     ) { uri: Uri? ->
         uri?.let { vm.importGpxFile(it) }
     }
+
+    BackHandler { onBack() }
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
