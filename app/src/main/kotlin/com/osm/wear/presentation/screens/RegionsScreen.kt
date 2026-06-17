@@ -93,9 +93,7 @@ fun RegionsScreen(
                     label = {
                         Text(
                             dr.region.name,
-                            fontSize = 13.sp,
-                            color = if (dr.isActive) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface
+                            fontSize = 13.sp
                         )
                     },
                     secondaryLabel = {
@@ -105,8 +103,12 @@ fun RegionsScreen(
                         )
                     },
                     colors = if (dr.isActive) ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ) else ButtonDefaults.buttonColors()
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ) else ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 )
                 Spacer(Modifier.width(4.dp))
                 com.osm.wear.presentation.components.RemoveButton(
@@ -144,11 +146,14 @@ fun RegionsScreen(
                             onClick = { if (!isBusy) vm.downloadRegion(region) },
                             modifier = Modifier.weight(1f),
                             enabled = !isBusy,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
                             label = {
                                 Text(
                                     region.name,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    fontSize = 13.sp
                                 )
                             },
                             secondaryLabel = {

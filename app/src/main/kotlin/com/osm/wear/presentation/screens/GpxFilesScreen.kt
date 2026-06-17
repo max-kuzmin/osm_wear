@@ -17,13 +17,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
+
 @Composable
 fun GpxFilesScreen(
     vm: MapViewModel,
     onGpxSelected: () -> Unit,
+    onStartNavigation: () -> Unit,
+    onStopNavigation: () -> Unit,
     onBack: () -> Unit
 ) {
+    val uiState by vm.uiState.collectAsStateWithLifecycle()
     val gpxFiles by vm.gpxFiles.collectAsStateWithLifecycle()
+    val navState = uiState.navigationState
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -56,10 +63,21 @@ fun GpxFilesScreen(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = null
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
                     )
                 },
                 label = { Text("Open GPX File", fontSize = 13.sp) }
+            )
+        }
+
+        // ── Navigation Control ──────────────────────────────────────────
+        item {
+            NavigationButton(
+                isActive = navState?.isActive == true,
+                hasActiveGpx = gpxFiles.any { it.isActive },
+                onStart = onStartNavigation,
+                onStop = onStopNavigation
             )
         }
 
@@ -90,7 +108,7 @@ fun GpxFilesScreen(
                         Text(
                             gpx.name,
                             fontSize = 13.sp,
-                            color = if (gpx.isActive) MaterialTheme.colorScheme.primary
+                            color = if (gpx.isActive) MaterialTheme.colorScheme.onPrimaryContainer
                             else MaterialTheme.colorScheme.onSurface
                         )
                     },
@@ -98,11 +116,14 @@ fun GpxFilesScreen(
                         Text(
                             "%.1f km · ${gpx.trackPoints.size} pts${if (gpx.isActive) " ✓" else ""}"
                                 .format(gpx.totalDistanceKm),
-                            fontSize = 11.sp
+                            fontSize = 11.sp,
+                            color = if (gpx.isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     colors = if (gpx.isActive) ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ) else ButtonDefaults.buttonColors()
                 )
                 Spacer(Modifier.width(4.dp))
@@ -110,6 +131,49 @@ fun GpxFilesScreen(
                     onClick = { vm.deleteGpxFile(gpx.id) }
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun NavigationButton(
+    isActive: Boolean,
+    hasActiveGpx: Boolean,
+    onStart: () -> Unit,
+    onStop: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (isActive) {
+            Button(
+                onClick = onStop,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                ),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            ) {
+                Text("Stop Navigation", fontSize = 13.sp)
+            }
+        } else {
+            Button(
+                onClick = onStart,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = hasActiveGpx,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                label = { Text("Start Navigation", fontSize = 13.sp) }
+            )
         }
     }
 }

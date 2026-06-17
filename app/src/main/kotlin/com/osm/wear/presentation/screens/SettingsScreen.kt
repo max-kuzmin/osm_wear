@@ -22,14 +22,11 @@ fun SettingsScreen(
     vm: MapViewModel,
     onOpenRegions: () -> Unit,
     onOpenGpxFiles: () -> Unit,
-    onStartNavigation: () -> Unit,
-    onStopNavigation: () -> Unit,
     onBack: () -> Unit
 ) {
     val uiState         by vm.uiState.collectAsStateWithLifecycle()
     val downloadedRegions by vm.downloadedRegions.collectAsStateWithLifecycle()
     val gpxFiles        by vm.gpxFiles.collectAsStateWithLifecycle()
-    val navState        = uiState.navigationState
 
     BackHandler { onBack() }
 
@@ -57,7 +54,8 @@ fun SettingsScreen(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Map,
-                        contentDescription = null
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
                     )
                 },
                 label = { Text("Map Regions", fontSize = 13.sp) },
@@ -73,61 +71,12 @@ fun SettingsScreen(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Route,
-                        contentDescription = null
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
                     )
                 },
                 label = { Text("GPX Files", fontSize = 13.sp) },
                 secondaryLabel = { Text(activeGpx?.name ?: "None selected", fontSize = 11.sp) }
-            )
-        }
-
-        item {
-            NavigationButton(
-                isActive = navState?.isActive == true,
-                hasActiveGpx = gpxFiles.any { it.isActive },
-                onStart = onStartNavigation,
-                onStop = onStopNavigation
-            )
-        }
-    }
-}
-
-@Composable
-private fun NavigationButton(
-    isActive: Boolean,
-    hasActiveGpx: Boolean,
-    onStart: () -> Unit,
-    onStop: () -> Unit
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        if (isActive) {
-            Button(
-                onClick = onStop,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                ),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Stop,
-                        contentDescription = null
-                    )
-                }
-            ) {
-                Text("Stop Navigation", fontSize = 13.sp)
-            }
-        } else {
-            Button(
-                onClick = onStart,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = hasActiveGpx,
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null
-                    )
-                },
-                label = { Text("Start Navigation", fontSize = 13.sp) }
             )
         }
     }

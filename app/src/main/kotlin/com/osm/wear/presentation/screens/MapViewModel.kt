@@ -32,7 +32,7 @@ data class MapUiState(
     /** Map centre longitude. */
     val centerLon: Double = 0.0,
     /** Whether the map should snap to the user's current location. */
-    val followLocation: Boolean = false,
+    val followLocation: Boolean = true,
     /** Current navigation state, or null when not navigating. */
     val navigationState: NavigationState? = null,
     /** Battery mode for GPS. */
@@ -77,6 +77,7 @@ class MapViewModel @Inject constructor(
 
     init {
         startLocationTracking()
+        centerOnLocation()
         refreshDownloadedRegions()
         autoLoadFirstRegion()
     }
@@ -142,8 +143,8 @@ class MapViewModel @Inject constructor(
 
     // ── Map pan / zoom ─────────────────────────────────────────────────────────
 
-    fun zoomIn()  { _uiState.update { it.copy(zoomLevel = (it.zoomLevel + 1).coerceAtMost(20), followLocation = false) } }
-    fun zoomOut() { _uiState.update { it.copy(zoomLevel = (it.zoomLevel - 1).coerceAtLeast(3), followLocation = false) } }
+    fun zoomIn()  { _uiState.update { it.copy(zoomLevel = (it.zoomLevel + 1).coerceAtMost(20)) } }
+    fun zoomOut() { _uiState.update { it.copy(zoomLevel = (it.zoomLevel - 1).coerceAtLeast(3)) } }
 
     fun onMapPanned(newLat: Double, newLon: Double) {
         _uiState.update { it.copy(centerLat = newLat, centerLon = newLon, followLocation = false) }

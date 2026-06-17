@@ -241,7 +241,7 @@ fun MainMapScreen(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Zoom In",
                     modifier = Modifier.size(20.dp),
-                    tint = Color.Black
+                    tint = Color.DarkGray
                 )
             }
             // Zoom Out (Middle - stays at the edge)
@@ -256,7 +256,7 @@ fun MainMapScreen(
                     imageVector = Icons.Default.Remove,
                     contentDescription = "Zoom Out",
                     modifier = Modifier.size(20.dp),
-                    tint = Color.Black
+                    tint = Color.DarkGray
                 )
             }
             // Center on Location (Bottom - slightly shifted left for curve)
@@ -276,7 +276,7 @@ fun MainMapScreen(
                     imageVector = Icons.Default.MyLocation,
                     contentDescription = "Center on Location",
                     modifier = Modifier.size(20.dp),
-                    tint = Color.Black
+                    tint = Color.DarkGray
                 )
             }
         }
@@ -339,7 +339,7 @@ private fun bearingToArrow(b: Float) = when {
 private fun createMapView(context: Context): MapView {
     val mv = MapView(context)
     mv.isClickable = true
-    mv.mapScaleBar.isVisible = true
+    mv.mapScaleBar.isVisible = false
     mv.setBuiltInZoomControls(false)
     mv.model.mapViewPosition.setCenter(LatLong(48.0, 16.0))
     mv.model.mapViewPosition.zoomLevel = 5
