@@ -3,6 +3,8 @@ package com.osm.wear.presentation.screens
 import android.content.Context
 import android.graphics.Color
 import android.view.MotionEvent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -18,6 +20,7 @@ import androidx.wear.compose.material3.*
 import com.osm.wear.domain.model.NavigationState
 import com.osm.wear.domain.model.UserLocation
 import com.osm.wear.presentation.map.layers.LocationArrowLayer
+import kotlinx.coroutines.launch
 import org.mapsforge.core.graphics.Paint
 import org.mapsforge.core.graphics.Style
 import org.mapsforge.core.model.LatLong
@@ -47,29 +50,62 @@ fun MainMapScreen(
     val gpxPolyline     = remember { mutableStateOf<Polyline?>(null) }
     val tileLayerRef    = remember { mutableStateOf<TileRendererLayer?>(null) }
 
-    // Update GPS dot when location changes
+    // ── Smooth Location Animation ──────────────────────────────────────────
+    // We animate Lat/Long and Bearing to interpolate between GPS updates.
+    val animLat = remember { Animatable(uiState.centerLat.toFloat()) }
+    val animLon = remember { Animatable(uiState.centerLon.toFloat()) }
+    val animBearing = remember { Animatable(0f) }
+
+    // Update GPS dot and centering when location changes
     LaunchedEffect(location) {
-        val mv = mapViewRef.value ?: return@LaunchedEffect
         val loc = location ?: return@LaunchedEffect
 
-        val marker = locationMarker.value
-        if (marker == null) {
-            val newMarker = LocationArrowLayer(LatLong(loc.latitude, loc.longitude), loc.bearing, mv)
-            mv.layerManager.layers.add(newMarker)
-            locationMarker.value = newMarker
-        } else {
-            marker.updatePosition(LatLong(loc.latitude, loc.longitude), loc.bearing)
+        // Target values
+        val targetLat = loc.latitude.toFloat()
+        val targetLon = loc.longitude.toFloat()
+        var targetBearing = loc.bearing
+
+        // Handle shortest path rotation for bearing (e.g. 350 -> 10 should go through 0)
+        val currentBearing = animBearing.value
+        val diff = ((targetBearing - currentBearing + 180) % 360 + 360) % 360 - 180
+        targetBearing = currentBearing + diff
+
+        // Kick off animations in parallel
+        val duration = 800 // slightly less than 1s GPS interval
+        
+        // Animatable.animateTo is a suspend function.
+        // LaunchedEffect provides a CoroutineScope.
+        // We use launch to run them in parallel within this scope.
+        launch { animLat.animateTo(targetLat, tween(duration)) }
+        launch { animLon.animateTo(targetLon, tween(duration)) }
+        launch { animBearing.animateTo(targetBearing, tween(duration)) }
+    }
+
+    // React to animated values
+    val currentLat = animLat.value.toDouble()
+    val currentLon = animLon.value.toDouble()
+    val currentBearing = animBearing.value
+
+    // Update marker position continuously
+    SideEffect {
+        locationMarker.value?.updatePosition(LatLong(currentLat, currentLon), currentBearing)
+        if (uiState.followLocation) {
+            mapViewRef.value?.model?.mapViewPosition?.setCenter(LatLong(currentLat, currentLon))
         }
     }
 
-    // Follow location logic
-    LaunchedEffect(uiState.followLocation, uiState.centerLat, uiState.centerLon, uiState.zoomLevel) {
+    // Update GPS dot when location changes (Handled by Animatable + SideEffect now)
+    /*
+    LaunchedEffect(location) {
+        ...
+    }
+    */
+
+    // Follow location logic (Handled by SideEffect for smooth panning)
+    LaunchedEffect(uiState.followLocation, uiState.zoomLevel) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        if (uiState.followLocation) {
-            mv.model.mapViewPosition.setCenter(LatLong(uiState.centerLat, uiState.centerLon))
-            mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
-            mv.postInvalidate()
-        }
+        mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
+        mv.postInvalidate()
     }
 
     // Update zoom when uiState.zoomLevel changes
@@ -145,10 +181,17 @@ fun MainMapScreen(
                 }
             },
             update = { mv ->
+                // Ensure initial marker exists
+                if (locationMarker.value == null && location != null) {
+                    val loc = location!!
+                    val newMarker = LocationArrowLayer(LatLong(loc.latitude, loc.longitude), loc.bearing, mv)
+                    mv.layerManager.layers.add(newMarker)
+                    locationMarker.value = newMarker
+                }
+                
                 if (uiState.followLocation) {
-                    mv.model.mapViewPosition.setCenter(LatLong(uiState.centerLat, uiState.centerLon))
+                    mv.model.mapViewPosition.setCenter(LatLong(currentLat, currentLon))
                     mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
-                    mv.postInvalidate()
                 }
             }
         )
