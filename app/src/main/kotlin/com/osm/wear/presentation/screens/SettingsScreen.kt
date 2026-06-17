@@ -2,6 +2,11 @@ package com.osm.wear.presentation.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +54,12 @@ fun SettingsScreen(
             Button(
                 onClick = onOpenRegions,
                 modifier = Modifier.fillMaxWidth(),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Map,
+                        contentDescription = null
+                    )
+                },
                 label = { Text("Map Regions", fontSize = 13.sp) },
                 secondaryLabel = { Text(activeRegion?.region?.name ?: "None selected", fontSize = 11.sp) }
             )
@@ -59,6 +70,12 @@ fun SettingsScreen(
             Button(
                 onClick = onOpenGpxFiles,
                 modifier = Modifier.fillMaxWidth(),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Route,
+                        contentDescription = null
+                    )
+                },
                 label = { Text("GPX Files", fontSize = 13.sp) },
                 secondaryLabel = { Text(activeGpx?.name ?: "None selected", fontSize = 11.sp) }
             )
@@ -89,7 +106,13 @@ private fun NavigationButton(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
-                )
+                ),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = null
+                    )
+                }
             ) {
                 Text("Stop Navigation", fontSize = 13.sp)
             }
@@ -98,15 +121,14 @@ private fun NavigationButton(
                 onClick = onStart,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = hasActiveGpx,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null
+                    )
+                },
                 label = { Text("Start Navigation", fontSize = 13.sp) }
             )
-            if (!hasActiveGpx) {
-                Text(
-                    "Select a GPX file first",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }

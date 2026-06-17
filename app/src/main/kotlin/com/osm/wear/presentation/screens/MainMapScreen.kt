@@ -1,16 +1,23 @@
 package com.osm.wear.presentation.screens
 
 import android.content.Context
-import android.graphics.Color
 import android.view.MotionEvent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,6 +50,15 @@ fun MainMapScreen(
     val location by vm.currentLocation.collectAsStateWithLifecycle()
 
     val navState = uiState.navigationState
+
+    val focusRequester = remember { FocusRequester() }
+
+    BackHandler { onOpenSettings() }
+
+    // Request focus for rotary events
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     // Stable references to Mapsforge layers
     val mapViewRef      = remember { mutableStateOf<MapView?>(null) }
@@ -129,7 +145,15 @@ fun MainMapScreen(
         reloadTileLayer(context, mv, uiState.activeMapFile, tileLayerRef)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .focusRequester(focusRequester)
+            .onRotaryScrollEvent {
+                if (it.verticalScrollPixels > 0) vm.zoomOut() else vm.zoomIn()
+                true
+            }
+    ) {
 
         // ── Mapsforge MapView ────────────────────────────────────────────────
         AndroidView(
@@ -196,64 +220,64 @@ fun MainMapScreen(
             }
         )
 
-        // ── Settings button (top-centre) ─────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp)
-        ) {
-            Button(
-                onClick = onOpenSettings,
-                modifier = Modifier.size(32.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = androidx.compose.ui.graphics.Color(0xAA000000)
-                )
-            ) {
-                Text("⚙", fontSize = 14.sp)
-            }
-        }
-
-        // ── Zoom controls (right-centre) ─────────────────────────────────────
+        // ── Map Controls (Curved Right side column) ─────────────────────────
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(end = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.End
         ) {
-            Button(
-                onClick = { vm.zoomIn() },
-                modifier = Modifier.size(30.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = androidx.compose.ui.graphics.Color(0xAA000000)
-                )
+            // Zoom In (Top - slightly shifted left for curve)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .offset(x = (-8).dp)
+                    .background(Color(0x66000000), CircleShape)
+                    .clickable { vm.zoomIn() },
+                contentAlignment = Alignment.Center
             ) {
-                Text("+", fontSize = 16.sp)
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Zoom In",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Black
+                )
             }
-            Button(
-                onClick = { vm.zoomOut() },
-                modifier = Modifier.size(30.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = androidx.compose.ui.graphics.Color(0xAA000000)
-                )
+            // Zoom Out (Middle - stays at the edge)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(Color(0x66000000), CircleShape)
+                    .clickable { vm.zoomOut() },
+                contentAlignment = Alignment.Center
             ) {
-                Text("-", fontSize = 16.sp)
+                Icon(
+                    imageVector = Icons.Default.Remove,
+                    contentDescription = "Zoom Out",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Black
+                )
             }
-        }
-
-        // ── GPS centre button (bottom-centre) ────────────────────────────────
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 16.dp)
-        ) {
-            Button(
-                onClick = { vm.centerOnLocation() },
-                modifier = Modifier.size(36.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = androidx.compose.ui.graphics.Color(0xCC1565C0)
-                )
+            // Center on Location (Bottom - slightly shifted left for curve)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .offset(x = (-8).dp)
+                    .background(
+                        if (uiState.followLocation) Color.White.copy(alpha = 0.6f)
+                        else Color(0x661565C0),
+                        CircleShape
+                    )
+                    .clickable { vm.centerOnLocation() },
+                contentAlignment = Alignment.Center
             ) {
-                Text("◎", fontSize = 16.sp)
+                Icon(
+                    imageVector = Icons.Default.MyLocation,
+                    contentDescription = "Center on Location",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Black
+                )
             }
         }
 
@@ -282,17 +306,17 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
     Row(
         modifier = modifier
             .background(
-                color = androidx.compose.ui.graphics.Color(0xDD000000),
+                color = Color(0xDD000000),
                 shape = CircleShape
             )
             .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(arrow, fontSize = 20.sp, color = androidx.compose.ui.graphics.Color.Yellow)
-        Text(distText, fontSize = 13.sp, color = androidx.compose.ui.graphics.Color.White)
+        Text(arrow, fontSize = 20.sp, color = Color.Yellow)
+        Text(distText, fontSize = 13.sp, color = Color.White)
         if (navState.isOffTrack) {
-            Text("⚠", fontSize = 13.sp, color = androidx.compose.ui.graphics.Color.Red)
+            Text("⚠", fontSize = 13.sp, color = Color.Red)
         }
     }
 }
@@ -356,7 +380,7 @@ private fun updateGpxPolyline(
     ref.value = null
     if (points.isEmpty()) return
     val paint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.argb(200, 255, 80, 0))
+        setColor(android.graphics.Color.argb(200, 255, 80, 0))
         strokeWidth = 6f
         setStyle(Style.STROKE)
     }

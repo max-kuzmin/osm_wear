@@ -101,7 +101,7 @@ class MapViewModel @Inject constructor(
     }
 
     fun centerOnLocation() {
-        _uiState.update { it.copy(followLocation = true, zoomLevel = 17) }
+        _uiState.update { it.copy(followLocation = true) }
         _currentLocation.value?.let { loc ->
             _uiState.update {
                 it.copy(
