@@ -1,59 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/apk/res/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- Marker drop shadow -->
-    <path
-        android:pathData="M54,55m-8,0a8,2 0,1 1,16 0a8,2 0,1 1,-16 0"
-        android:fillColor="#40000000" />
 
-    <!-- Route trail glow effect -->
+    <!-- Neon-mint glow effect under OSM letters -->
+    <!-- Glow for O -->
     <path
-        android:pathData="M32,78 C32,68 44,72 48,60 C51,51 46,45 54,42"
+        android:pathData="M 31,42 C 34.8,42 38,45.2 38,49 L 38,59 C 38,62.8 34.8,66 31,66 C 27.2,66 24,62.8 24,59 L 24,49 C 24,45.2 27.2,42 31,42 Z"
         android:strokeWidth="12"
+        android:strokeColor="#2200FF88"
         android:strokeLineCap="round"
-        android:strokeColor="#26FF5A36" />
-    
-    <!-- Route trail path with gradient stroke -->
+        android:strokeLineJoin="round" />
+        
+    <!-- Glow for S -->
     <path
-        android:pathData="M32,78 C32,68 44,72 48,60 C51,51 46,45 54,42"
-        android:strokeWidth="6"
-        android:strokeLineCap="round">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:type="linear"
-                android:startX="32"
-                android:startY="78"
-                android:endX="54"
-                android:endY="42">
-                <item android:offset="0" android:color="#FF5A36" />
-                <item android:offset="1" android:color="#FFB300" />
-            </gradient>
-        </aapt:attr>
-    </path>
+        android:pathData="M 58,45 C 57,41 45,41 45,47 C 45,53 57,55 57,61 C 57,67 45,67 44,63"
+        android:strokeWidth="12"
+        android:strokeColor="#2200FF88"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+        
+    <!-- Glow for M -->
+    <path
+        android:pathData="M 64,66 L 64,42 L 74,55 L 84,42 L 84,66"
+        android:strokeWidth="12"
+        android:strokeColor="#2200FF88"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 
-    <!-- Location Marker Pin -->
+    <!-- Foreground OSM letters (Crisp White) -->
+    <!-- Letter O -->
     <path
-        android:pathData="M54,54 C48,46 42,42 42,36 C42,29.37 47.37,24 54,24 C60.63,24 66,29.37 66,36 C66,42 60,46 54,54 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="42"
-                android:startY="24"
-                android:endX="66"
-                android:endY="54">
-                <item android:offset="0" android:color="#00F0FF" />
-                <item android:offset="1" android:color="#0066FF" />
-            </gradient>
-        </aapt:attr>
-    </path>
-    
-    <!-- White center point inside the marker pin -->
+        android:pathData="M 31,42 C 34.8,42 38,45.2 38,49 L 38,59 C 38,62.8 34.8,66 31,66 C 27.2,66 24,62.8 24,59 L 24,49 C 24,45.2 27.2,42 31,42 Z"
+        android:strokeWidth="6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Letter S -->
     <path
-        android:pathData="M54,36m-4.5,0a4.5,4.5 0,1 1,9 0a4.5,4.5 0,1 1,-9 0"
-        android:fillColor="#FFFFFF" />
+        android:pathData="M 58,45 C 57,41 45,41 45,47 C 45,53 57,55 57,61 C 57,67 45,67 44,63"
+        android:strokeWidth="6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Letter M -->
+    <path
+        android:pathData="M 64,66 L 64,42 L 74,55 L 84,42 L 84,66"
+        android:strokeWidth="6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
 </vector>
