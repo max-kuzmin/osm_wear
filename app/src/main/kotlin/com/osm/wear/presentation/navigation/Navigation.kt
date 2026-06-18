@@ -49,7 +49,6 @@ fun OsmWearNavGraph() {
         composable(Routes.GPX_FILES) {
             GpxFilesScreen(
                 vm = vm,
-                onGpxSelected     = { navController.popBackStack(Routes.MAP, false) },
                 onStartNavigation = {
                     vm.startNavigation()
                     navController.popBackStack(Routes.MAP, false)

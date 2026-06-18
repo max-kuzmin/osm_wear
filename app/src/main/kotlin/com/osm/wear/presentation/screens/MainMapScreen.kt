@@ -196,7 +196,11 @@ fun MainMapScreen(
                                 val dx = event.x - startX
                                 val dy = event.y - startY
                                 if (dx * dx + dy * dy > touchSlop * touchSlop) {
-                                    vm.stopFollowingLocation()
+                                    val mvPos = mv.model.mapViewPosition
+                                    vm.onMapPanned(
+                                        mvPos.center.latitude,
+                                        mvPos.center.longitude
+                                    )
                                 }
                             }
                         }
@@ -287,7 +291,7 @@ fun MainMapScreen(
                 navState = navState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 52.dp)
+                    .padding(bottom = 6.dp)
             )
         }
     }
@@ -306,7 +310,7 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
     Row(
         modifier = modifier
             .background(
-                color = Color(0xDD000000),
+                color = Color(0x66000000),
                 shape = CircleShape
             )
             .padding(horizontal = 12.dp, vertical = 4.dp),

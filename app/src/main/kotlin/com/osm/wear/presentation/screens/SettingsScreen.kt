@@ -51,6 +51,10 @@ fun SettingsScreen(
             Button(
                 onClick = onOpenRegions,
                 modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Map,
@@ -68,6 +72,10 @@ fun SettingsScreen(
             Button(
                 onClick = onOpenGpxFiles,
                 modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Route,

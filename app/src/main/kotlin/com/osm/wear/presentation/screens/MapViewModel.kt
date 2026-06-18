@@ -1,6 +1,7 @@
 package com.osm.wear.presentation.screens
 
 import android.net.Uri
+import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.data.gpx.GpxRepository
@@ -43,6 +44,7 @@ data class MapUiState(
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val locationRepo: LocationRepository,
     private val downloadManager: MapDownloadManager,
     private val gpxRepo: GpxRepository,
@@ -77,9 +79,41 @@ class MapViewModel @Inject constructor(
 
     init {
         startLocationTracking()
-        centerOnLocation()
+        loadMapState()
         refreshDownloadedRegions()
         autoLoadFirstRegion()
+        autoLoadActiveGpx()
+        scanFilesystem()
+    }
+
+    private fun loadMapState() {
+        val lat = prefs.getFloat("map_center_lat", 0.0f).toDouble()
+        val lon = prefs.getFloat("map_center_lon", 0.0f).toDouble()
+        val zoom = prefs.getInt("map_zoom_level", 14)
+        val follow = prefs.getBoolean("map_follow_location", true)
+
+        _uiState.update { 
+            it.copy(
+                centerLat = lat, 
+                centerLon = lon, 
+                zoomLevel = zoom, 
+                followLocation = follow
+            ) 
+        }
+
+        if (lat == 0.0 && lon == 0.0) {
+            centerOnLocation()
+        }
+    }
+
+    private fun persistMapState() {
+        val state = _uiState.value
+        prefs.edit()
+            .putFloat("map_center_lat", state.centerLat.toFloat())
+            .putFloat("map_center_lon", state.centerLon.toFloat())
+            .putInt("map_zoom_level", state.zoomLevel)
+            .putBoolean("map_follow_location", state.followLocation)
+            .apply()
     }
 
     // ── Location ───────────────────────────────────────────────────────────────
@@ -91,6 +125,7 @@ class MapViewModel @Inject constructor(
                 _currentLocation.value = loc
                 if (_uiState.value.followLocation) {
                     _uiState.update { it.copy(centerLat = loc.latitude, centerLon = loc.longitude) }
+                    persistMapState()
                 }
                 // Feed navigation engine
                 _uiState.value.navigationState?.let { nav ->
@@ -103,6 +138,7 @@ class MapViewModel @Inject constructor(
 
     fun centerOnLocation() {
         _uiState.update { it.copy(followLocation = true) }
+        persistMapState()
         _currentLocation.value?.let { loc ->
             _uiState.update {
                 it.copy(
@@ -130,6 +166,7 @@ class MapViewModel @Inject constructor(
 
     fun stopFollowingLocation() {
         _uiState.update { it.copy(followLocation = false) }
+        persistMapState()
     }
 
     fun onPermissionsGranted() {
@@ -143,11 +180,19 @@ class MapViewModel @Inject constructor(
 
     // ── Map pan / zoom ─────────────────────────────────────────────────────────
 
-    fun zoomIn()  { _uiState.update { it.copy(zoomLevel = (it.zoomLevel + 1).coerceAtMost(20)) } }
-    fun zoomOut() { _uiState.update { it.copy(zoomLevel = (it.zoomLevel - 1).coerceAtLeast(3)) } }
+    fun zoomIn() {
+        _uiState.update { it.copy(zoomLevel = (it.zoomLevel + 1).coerceAtMost(20)) }
+        persistMapState()
+    }
+
+    fun zoomOut() {
+        _uiState.update { it.copy(zoomLevel = (it.zoomLevel - 1).coerceAtLeast(3)) }
+        persistMapState()
+    }
 
     fun onMapPanned(newLat: Double, newLon: Double) {
         _uiState.update { it.copy(centerLat = newLat, centerLon = newLon, followLocation = false) }
+        persistMapState()
     }
 
     // ── Regions ────────────────────────────────────────────────────────────────
@@ -223,8 +268,66 @@ class MapViewModel @Inject constructor(
 
     // ── GPX ────────────────────────────────────────────────────────────────────
 
+    private val _scannedFiles = MutableStateFlow<List<File>>(emptyList())
+    val scannedFiles: StateFlow<List<File>> = _scannedFiles.asStateFlow()
+
     fun importGpxFile(uri: Uri) {
         viewModelScope.launch { gpxRepo.importFromUri(uri) }
+    }
+
+    fun importGpxFromFile(file: File) {
+        viewModelScope.launch { gpxRepo.importFromFile(file) }
+    }
+
+    fun scanFilesystem() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val foundFiles = mutableListOf<File>()
+            
+            // 1. App-specific external storage (Always accessible)
+            context.getExternalFilesDir(null)?.let { 
+                android.util.Log.i("MapViewModel", "Scanning app-specific: ${it.absolutePath}")
+                findGpxFiles(it, foundFiles) 
+            }
+
+            // 2. Public Downloads folder
+            val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            android.util.Log.i("MapViewModel", "Scanning downloads: ${downloads.absolutePath}")
+            findGpxFiles(downloads, foundFiles)
+
+            // 3. Public Documents folder
+            val documents = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+            findGpxFiles(documents, foundFiles)
+
+            _scannedFiles.value = foundFiles.distinctBy { it.absolutePath }
+            android.util.Log.i("MapViewModel", "Found ${foundFiles.size} GPX files total. Auto-importing...")
+            
+            foundFiles.forEach { file ->
+                gpxRepo.importFromFile(file)
+            }
+        }
+    }
+
+    private fun findGpxFiles(dir: File, result: MutableList<File>) {
+        if (!dir.exists()) return
+        val files = dir.listFiles() ?: run {
+            android.util.Log.i("MapViewModel", "Could not list files in: ${dir.absolutePath}")
+            return
+        }
+        for (file in files) {
+            if (file.isDirectory) {
+                // Avoid deep scanning for performance
+                if (!file.name.startsWith(".") && file.name != "Android") {
+                    findGpxFiles(file, result)
+                }
+            } else if (file.extension.lowercase() == "gpx") {
+                android.util.Log.i("MapViewModel", "Found GPX: ${file.name} at ${file.absolutePath}")
+                result.add(file)
+            }
+        }
+    }
+
+    fun clearScannedFiles() {
+        _scannedFiles.value = emptyList()
     }
 
     fun deleteGpxFile(fileId: String) {
@@ -247,6 +350,18 @@ class MapViewModel @Inject constructor(
         _uiState.update { it.copy(activeGpxFile = null) }
     }
 
+    private fun autoLoadActiveGpx() {
+        viewModelScope.launch {
+            // Wait for gpxFiles to be populated from the repository
+            gpxFiles.collect { files ->
+                val active = files.find { it.isActive }
+                if (active != null && _uiState.value.activeGpxFile == null) {
+                    _uiState.update { it.copy(activeGpxFile = active) }
+                }
+            }
+        }
+    }
+
     // ── Navigation ─────────────────────────────────────────────────────────────
 
     fun startNavigation() {
@@ -267,6 +382,8 @@ class MapViewModel @Inject constructor(
         _uiState.update { it.copy(navigationState = nav) }
         // Switch to high accuracy GPS for navigation
         setGpsBatteryMode(GpsBatteryMode.HIGH_ACCURACY)
+        // Auto-enable locate me mode
+        centerOnLocation()
     }
 
     fun stopNavigation() {
