@@ -68,6 +68,11 @@ data class NavigationState(
     val lastAlertedWaypointIndex: Int = -1
 )
 
+enum class MapRotationMode {
+    NORTH_UP,
+    HEADING_UP
+}
+
 // ─── GPS ─────────────────────────────────────────────────────────────────────
 
 enum class GpsBatteryMode(

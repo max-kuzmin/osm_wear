@@ -73,7 +73,12 @@ class LocationArrowLayer(
 
         canvas.save()
         canvas.translate(x, y)
-        canvas.rotate(bearing, 0f, 0f)
+        val rotateAngle = if (rotation.degrees != 0f) {
+            -rotation.degrees
+        } else {
+            bearing
+        }
+        canvas.rotate(rotateAngle, 0f, 0f)
 
         canvas.drawPath(arrowPath, fillPaint)
         canvas.drawPath(arrowPath, strokePaint)

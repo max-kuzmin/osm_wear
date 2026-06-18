@@ -78,6 +78,30 @@ class NavigationEngine(context: Context) {
         }
     }
 
+    data class SegmentProjection(
+        val projectedPoint: GpxPoint,
+        val distanceToSegmentM: Double,
+        val fraction: Double
+    )
+
+    private fun projectPointToSegment(p: GpxPoint, a: GpxPoint, b: GpxPoint): SegmentProjection {
+        val ab = haversineM(a, b)
+        if (ab < 1.0) {
+            return SegmentProjection(a, haversineM(p, a), 0.0)
+        }
+        val ap = haversineM(a, p)
+        if (ap < 0.1) {
+            return SegmentProjection(a, ap, 0.0)
+        }
+        val bp = haversineM(b, p)
+        val cosA = (ab * ab + ap * ap - bp * bp) / (2 * ab * ap)
+        val t = (ap * cosA).coerceIn(0.0, ab) / ab
+        val projLat = a.lat + t * (b.lat - a.lat)
+        val projLon = a.lon + t * (b.lon - a.lon)
+        val projPt = GpxPoint(projLat, projLon)
+        return SegmentProjection(projPt, haversineM(p, projPt), t)
+    }
+
     /**
      * Updates [state] based on the user's new [location].
      * Fires alarms when a turn waypoint is reached.
@@ -87,31 +111,98 @@ class NavigationEngine(context: Context) {
 
         val userPt = GpxPoint(location.latitude, location.longitude)
 
-        // Find nearest waypoint ahead of current position
-        val nearestIdx = findNearestWaypointIndex(
-            state.waypoints, userPt, state.currentWaypointIndex
-        )
+        // 1. Find the closest segment on the track.
+        // We use a localized window to avoid incorrect snaps on self-crossing routes,
+        // but if we are far off track or just starting, we search the entire track.
+        val currentSegIdx = state.currentWaypointIndex
+        val searchRadius = 10
+        val startIdx = maxOf(0, currentSegIdx - 2)
+        val endIdx = minOf(state.waypoints.size - 2, currentSegIdx + searchRadius)
 
-        // Off-track check
-        val distToTrack = distToNearestSegment(
-            state.gpxFile!!.trackPoints, userPt
-        )
+        var bestProjection: SegmentProjection? = null
+        var bestSegIdx = -1
+
+        // Check local window first
+        for (i in startIdx..endIdx) {
+            val a = state.waypoints[i].point
+            val b = state.waypoints[i + 1].point
+            val proj = projectPointToSegment(userPt, a, b)
+            if (bestProjection == null || proj.distanceToSegmentM < bestProjection.distanceToSegmentM) {
+                bestProjection = proj
+                bestSegIdx = i
+            }
+        }
+
+        // If off track locally, scan the entire track to find the closest segment.
+        val localDist = bestProjection?.distanceToSegmentM ?: Double.MAX_VALUE
+        if (localDist > 50.0) {
+            var globalProjection: SegmentProjection? = null
+            var globalSegIdx = -1
+            for (i in 0 until state.waypoints.size - 1) {
+                val a = state.waypoints[i].point
+                val b = state.waypoints[i + 1].point
+                val proj = projectPointToSegment(userPt, a, b)
+                if (globalProjection == null || proj.distanceToSegmentM < globalProjection.distanceToSegmentM) {
+                    globalProjection = proj
+                    globalSegIdx = i
+                } else if (abs(proj.distanceToSegmentM - globalProjection.distanceToSegmentM) < 5.0) {
+                    // Tie-breaker: prefer the segment with the smaller index to prevent jumping ahead on loop routes
+                    if (i < globalSegIdx) {
+                        globalProjection = proj
+                        globalSegIdx = i
+                    }
+                }
+            }
+            val globalDist = globalProjection?.distanceToSegmentM ?: Double.MAX_VALUE
+            if (globalProjection != null && globalDist < localDist) {
+                bestProjection = globalProjection
+                bestSegIdx = globalSegIdx
+            }
+        }
+
+        if (bestProjection == null || bestSegIdx == -1) {
+            return state // Fallback
+        }
+
+        val projectedPt = bestProjection.projectedPoint
+        val distToTrack = bestProjection.distanceToSegmentM
         val isOffTrack = distToTrack > OFF_TRACK_M
 
-        // Next TURN waypoint at or after nearestIdx
+        // Next waypoint index that we are approaching
+        val nextWpIdx = minOf(bestSegIdx + 1, state.waypoints.size - 1)
+
+        // Find the next TURN waypoint at or after nextWpIdx. Fallback to destination if no turn is left.
         val nextTurnWp = state.waypoints
-            .drop(nearestIdx)
-            .firstOrNull { it.isTurn }
+            .drop(nextWpIdx)
+            .firstOrNull { it.isTurn } ?: state.waypoints.last()
 
-        val distToNextTurn = nextTurnWp
-            ?.let { haversineM(userPt, it.point).toFloat() } ?: 0f
-        val bearingToNext  = nextTurnWp
-            ?.let { bearingDeg(userPt, it.point) } ?: 0f
-        val totalRemaining = haversineM(userPt, state.waypoints.last().point).toFloat()
+        // Calculate distance to the next turn/destination along the track
+        var distToNextTurn = 0f
+        // Distance from projected point to the next waypoint along the segment
+        distToNextTurn = haversineM(projectedPt, state.waypoints[nextWpIdx].point).toFloat()
+        // Plus sum of segment distances from nextWpIdx to the turn/destination waypoint
+        for (k in nextWpIdx until nextTurnWp.index) {
+            distToNextTurn += state.waypoints[k].distanceToNextM
+        }
 
-        // Alarm when approaching a turn
+        // Calculate the turn direction relative to the track at the upcoming turn/destination
+        var relativeTurnBearing = 0f
+        if (nextTurnWp.isTurn) {
+            val T = nextTurnWp.index
+            val bIn = if (T > 0) state.waypoints[T - 1].bearingToNext else state.waypoints[T].bearingToNext
+            val bOut = state.waypoints[T].bearingToNext
+            relativeTurnBearing = (bOut - bIn + 360f) % 360f
+        }
+
+        // Calculate total remaining distance along the track to the end
+        var totalRemaining = haversineM(projectedPt, state.waypoints[nextWpIdx].point).toFloat()
+        for (k in nextWpIdx until state.waypoints.size - 1) {
+            totalRemaining += state.waypoints[k].distanceToNextM
+        }
+
+        // Alarm when approaching a turn (based on distance along track)
         var lastAlerted = state.lastAlertedWaypointIndex
-        if (nextTurnWp != null &&
+        if (nextTurnWp.isTurn &&
             nextTurnWp.index != lastAlerted &&
             distToNextTurn <= ALARM_RADIUS_M
         ) {
@@ -120,18 +211,17 @@ class NavigationEngine(context: Context) {
             Log.d(TAG, "Alarm fired at waypoint ${nextTurnWp.index}")
         }
 
-        // Destination reached
-        val distToEnd = haversineM(userPt, state.waypoints.last().point)
-        if (distToEnd < ALARM_RADIUS_M && nearestIdx >= state.waypoints.size - 2) {
+        // Destination reached check (remaining track distance < ALARM_RADIUS_M)
+        if (totalRemaining < ALARM_RADIUS_M && nextWpIdx >= state.waypoints.size - 2) {
             fireAlarm()
             Log.d(TAG, "Destination reached")
             return state.copy(isActive = false)
         }
 
         return state.copy(
-            currentWaypointIndex     = nearestIdx,
+            currentWaypointIndex     = bestSegIdx,
             distanceToNextTurnM      = distToNextTurn,
-            bearingToNextTurn        = bearingToNext,
+            bearingToNextTurn        = relativeTurnBearing,
             totalRemainingM          = totalRemaining,
             isOffTrack               = isOffTrack,
             lastAlertedWaypointIndex = lastAlerted

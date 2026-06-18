@@ -30,6 +30,8 @@ import com.osm.wear.presentation.map.layers.LocationArrowLayer
 import com.osm.wear.presentation.map.layers.TrackMarkersLayer
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
+import org.mapsforge.core.model.Rotation
+import com.osm.wear.domain.model.MapRotationMode
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.util.AndroidUtil
 import org.mapsforge.map.android.view.MapView
@@ -71,13 +73,24 @@ fun MainMapScreen(
     val animBearing = remember { Animatable(0f) }
 
     // Update GPS dot and centering when location changes
-    LaunchedEffect(location) {
+    LaunchedEffect(location, uiState.navigationState?.currentWaypointIndex) {
         val loc = location ?: return@LaunchedEffect
 
         // Target values
         val targetLat = loc.latitude.toFloat()
         val targetLon = loc.longitude.toFloat()
-        var targetBearing = loc.bearing
+        
+        val nav = uiState.navigationState
+        var targetBearing = if (nav != null && nav.isActive && nav.waypoints.isNotEmpty() && !nav.isOffTrack) {
+            val idx = nav.currentWaypointIndex
+            if (idx >= 0 && idx < nav.waypoints.size) {
+                nav.waypoints[idx].bearingToNext
+            } else {
+                loc.bearing
+            }
+        } else {
+            loc.bearing
+        }
 
         // Handle shortest path rotation for bearing (e.g. 350 -> 10 should go through 0)
         val currentBearing = animBearing.value
@@ -100,11 +113,21 @@ fun MainMapScreen(
     val currentLon = animLon.value.toDouble()
     val currentBearing = animBearing.value
 
-    // Update marker position continuously
+    // Update marker position continuously and map center/rotation
     SideEffect {
+        val mv = mapViewRef.value ?: return@SideEffect
         locationMarker.value?.updatePosition(LatLong(currentLat, currentLon), currentBearing)
+        
         if (uiState.followLocation) {
-            mapViewRef.value?.model?.mapViewPosition?.setCenter(LatLong(currentLat, currentLon))
+            mv.model.mapViewPosition.setCenter(LatLong(currentLat, currentLon))
+            val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
+            val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+            val targetRotation = if (uiState.mapRotationMode == MapRotationMode.HEADING_UP) -currentBearing else 0f
+            mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
+        } else {
+            val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
+            val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+            mv.model.mapViewPosition.setRotation(Rotation(0f, pivotX, pivotY))
         }
     }
 
@@ -130,11 +153,29 @@ fun MainMapScreen(
         }
     }
 
-    // Update GPX layer when active GPX changes
-    LaunchedEffect(uiState.activeGpxFile) {
+    // Update GPX layer dynamically based on GPX changes and navigation progress
+    LaunchedEffect(uiState.activeGpxFile, uiState.navigationState?.currentWaypointIndex, location) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
         val gpx = uiState.activeGpxFile
-        val pts = gpx?.trackPoints?.map { LatLong(it.lat, it.lon) } ?: emptyList()
+        val nav = uiState.navigationState
+        
+        val pts = if (nav != null && nav.isActive) {
+            val rawPoints = gpx?.trackPoints ?: emptyList()
+            val nextWp = nav.currentWaypointIndex + 1
+            if (nextWp < rawPoints.size) {
+                val remaining = rawPoints.drop(nextWp).map { LatLong(it.lat, it.lon) }
+                val userLocation = location
+                if (userLocation != null) {
+                    listOf(LatLong(userLocation.latitude, userLocation.longitude)) + remaining
+                } else {
+                    remaining
+                }
+            } else {
+                emptyList()
+            }
+        } else {
+            gpx?.trackPoints?.map { LatLong(it.lat, it.lon) } ?: emptyList()
+        }
 
         if (trackLayer.value == null) {
             val layer = TrackMarkersLayer(pts, mv)
@@ -232,6 +273,15 @@ fun MainMapScreen(
                 if (uiState.followLocation) {
                     mv.model.mapViewPosition.setCenter(LatLong(currentLat, currentLon))
                     mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
+                    
+                    val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
+                    val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+                    val targetRotation = if (uiState.mapRotationMode == MapRotationMode.HEADING_UP) -currentBearing else 0f
+                    mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
+                } else {
+                    val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
+                    val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+                    mv.model.mapViewPosition.setRotation(Rotation(0f, pivotX, pivotY))
                 }
             }
         )
@@ -276,20 +326,26 @@ fun MainMapScreen(
                 )
             }
             // Center on Location (Bottom - slightly shifted left for curve)
+            val buttonBgColor = if (!uiState.followLocation) {
+                Color(0x66000000) // same background as other buttons in free mode
+            } else {
+                Color(0x661565C0) // transparent blue in other modes
+            }
+            val buttonIcon = if (uiState.followLocation && uiState.mapRotationMode == MapRotationMode.HEADING_UP) {
+                Icons.Default.Navigation
+            } else {
+                Icons.Default.MyLocation
+            }
             Box(
                 modifier = Modifier
                     .size(28.dp)
                     .offset(x = (-8).dp)
-                    .background(
-                        if (uiState.followLocation) Color.White.copy(alpha = 0.6f)
-                        else Color(0x661565C0),
-                        CircleShape
-                    )
+                    .background(buttonBgColor, CircleShape)
                     .clickable { vm.centerOnLocation() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.MyLocation,
+                    imageVector = buttonIcon,
                     contentDescription = "Center on Location",
                     modifier = Modifier.size(20.dp),
                     tint = Color.DarkGray

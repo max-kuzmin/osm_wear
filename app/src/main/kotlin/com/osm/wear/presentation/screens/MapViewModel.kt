@@ -37,7 +37,9 @@ data class MapUiState(
     /** Current navigation state, or null when not navigating. */
     val navigationState: NavigationState? = null,
     /** Battery mode for GPS. */
-    val gpsBatteryMode: GpsBatteryMode = GpsBatteryMode.BALANCED
+    val gpsBatteryMode: GpsBatteryMode = GpsBatteryMode.BALANCED,
+    /** Map rotation mode (North-up or Heading-up). */
+    val mapRotationMode: MapRotationMode = MapRotationMode.NORTH_UP
 )
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
@@ -137,7 +139,22 @@ class MapViewModel @Inject constructor(
     }
 
     fun centerOnLocation() {
-        _uiState.update { it.copy(followLocation = true) }
+        val currentFollow = _uiState.value.followLocation
+        if (!currentFollow) {
+            _uiState.update { 
+                it.copy(
+                    followLocation = true,
+                    mapRotationMode = MapRotationMode.NORTH_UP
+                ) 
+            }
+        } else {
+            val nextMode = if (_uiState.value.mapRotationMode == MapRotationMode.NORTH_UP) {
+                MapRotationMode.HEADING_UP
+            } else {
+                MapRotationMode.NORTH_UP
+            }
+            _uiState.update { it.copy(mapRotationMode = nextMode) }
+        }
         persistMapState()
         _currentLocation.value?.let { loc ->
             _uiState.update {
@@ -191,7 +208,14 @@ class MapViewModel @Inject constructor(
     }
 
     fun onMapPanned(newLat: Double, newLon: Double) {
-        _uiState.update { it.copy(centerLat = newLat, centerLon = newLon, followLocation = false) }
+        _uiState.update { 
+            it.copy(
+                centerLat = newLat, 
+                centerLon = newLon, 
+                followLocation = false,
+                mapRotationMode = MapRotationMode.NORTH_UP
+            ) 
+        }
         persistMapState()
     }
 
