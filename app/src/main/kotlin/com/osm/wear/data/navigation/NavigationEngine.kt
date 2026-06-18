@@ -1,8 +1,7 @@
 package com.osm.wear.data.navigation
 
 import android.content.Context
-import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.RingtoneManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -23,7 +22,7 @@ import kotlin.math.*
  * Alarms (vibration + beep) fire when the user is within [ALARM_RADIUS_M] of a turn
  * and that turn has not yet been alerted.
  */
-class NavigationEngine(context: Context) {
+class NavigationEngine(private val context: Context) {
 
     companion object {
         private const val TAG               = "NavigationEngine"
@@ -42,12 +41,7 @@ class NavigationEngine(context: Context) {
         context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
 
-    private val toneGen: ToneGenerator? = try {
-        ToneGenerator(AudioManager.STREAM_ALARM, 90)
-    } catch (e: Exception) {
-        Log.w(TAG, "ToneGenerator unavailable", e)
-        null
-    }
+
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -69,6 +63,7 @@ class NavigationEngine(context: Context) {
         val minBaseline = 3.0 // meters
         val turnAngles = DoubleArray(pts.size)
         val isTurnCandidate = BooleanArray(pts.size)
+        val turnBearingChanges = FloatArray(pts.size)
 
         for (i in 1 until pts.size - 1) {
             var prevIdx = i
@@ -93,6 +88,7 @@ class NavigationEngine(context: Context) {
             turnAngles[i] = angle
             if (angle >= TURN_THRESHOLD_DEG) {
                 isTurnCandidate[i] = true
+                turnBearingChanges[i] = ((bOut - bIn + 360f) % 360f)
             }
         }
 
@@ -139,11 +135,12 @@ class NavigationEngine(context: Context) {
                 haversineM(point, pts[i + 1]).toFloat() else 0f
 
             NavigationWaypoint(
-                index           = i,
-                point           = point,
-                bearingToNext   = bearingOut,
-                distanceToNextM = distToNext,
-                isTurn          = isTurn[i]
+                index             = i,
+                point             = point,
+                bearingToNext     = bearingOut,
+                distanceToNextM   = distToNext,
+                isTurn            = isTurn[i],
+                turnBearingChange = if (isTurn[i]) turnBearingChanges[i] else 0f
             )
         }
     }
@@ -258,10 +255,7 @@ class NavigationEngine(context: Context) {
         // Calculate the turn direction relative to the track at the upcoming turn/destination
         var relativeTurnBearing = 0f
         if (nextTurnWp.isTurn) {
-            val T = nextTurnWp.index
-            val bIn = if (T > 0) state.waypoints[T - 1].bearingToNext else state.waypoints[T].bearingToNext
-            val bOut = state.waypoints[T].bearingToNext
-            relativeTurnBearing = (bOut - bIn + 360f) % 360f
+            relativeTurnBearing = nextTurnWp.turnBearingChange
         }
 
         // Calculate total remaining distance along the track to the end
@@ -298,7 +292,7 @@ class NavigationEngine(context: Context) {
         )
     }
 
-    fun release() { toneGen?.release() }
+    fun release() {}
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
@@ -349,8 +343,10 @@ class NavigationEngine(context: Context) {
             )
         } catch (e: Exception) { Log.w(TAG, "Vibration failed", e) }
         try {
-            toneGen?.startTone(ToneGenerator.TONE_PROP_BEEP2, 600)
-        } catch (e: Exception) { Log.w(TAG, "Beep failed", e) }
+            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val ringtone = RingtoneManager.getRingtone(context, uri)
+            ringtone?.play()
+        } catch (e: Exception) { Log.w(TAG, "Notification sound failed", e) }
     }
 
     // ── Math ──────────────────────────────────────────────────────────────────

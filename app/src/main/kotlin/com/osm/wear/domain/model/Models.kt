@@ -53,7 +53,8 @@ data class NavigationWaypoint(
     val point: GpxPoint,
     val bearingToNext: Float,
     val distanceToNextM: Float,
-    val isTurn: Boolean
+    val isTurn: Boolean,
+    val turnBearingChange: Float = 0f
 )
 
 data class NavigationState(

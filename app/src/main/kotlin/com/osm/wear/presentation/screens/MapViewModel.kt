@@ -390,7 +390,7 @@ class MapViewModel @Inject constructor(
         val gpx = _uiState.value.activeGpxFile ?: return
         val waypoints = navEngine.buildWaypoints(gpx)
         if (waypoints.isEmpty()) return
-        val nav = NavigationState(
+        var nav = NavigationState(
             isActive = true,
             gpxFile = gpx,
             waypoints = waypoints,
@@ -401,6 +401,10 @@ class MapViewModel @Inject constructor(
             isOffTrack = false,
             lastAlertedWaypointIndex = -1
         )
+        // Update navigation state immediately if location is available
+        _currentLocation.value?.let { loc ->
+            nav = navEngine.update(nav, loc)
+        }
         _uiState.update { it.copy(navigationState = nav) }
         // Switch to high accuracy GPS for navigation
         setGpsBatteryMode(GpsBatteryMode.HIGH_ACCURACY)
