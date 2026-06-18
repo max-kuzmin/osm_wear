@@ -12,12 +12,13 @@ import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.layer.Layer
 import org.mapsforge.core.util.MercatorProjection
+import kotlin.jvm.Volatile
 
 /**
  * Renders the GPX track polyline and an end-of-track marker.
  */
 class TrackMarkersLayer(
-    private var points: List<LatLong>,
+    @Volatile private var points: List<LatLong>,
     private val mv: MapView
 ) : Layer() {
 
@@ -52,15 +53,16 @@ class TrackMarkersLayer(
         topLeftPoint: Point,
         rotation: Rotation
     ) {
-        if (points.isEmpty()) return
+        val pts = this.points
+        if (pts.isEmpty()) return
         
         val tileSize = mv.model.displayModel.tileSize
 
         // 1. Draw Polyline
         var prevX = 0
         var prevY = 0
-        for (i in points.indices) {
-            val pt = points[i]
+        for (i in pts.indices) {
+            val pt = pts[i]
             val px = MercatorProjection.longitudeToPixelX(pt.longitude, zoomLevel, tileSize)
             val py = MercatorProjection.latitudeToPixelY(pt.latitude, zoomLevel, tileSize)
             
@@ -75,7 +77,7 @@ class TrackMarkersLayer(
         }
 
         // 2. Draw End Marker
-        drawEndCircle(canvas, points.last(), zoomLevel, tileSize, topLeftPoint)
+        drawEndCircle(canvas, pts.last(), zoomLevel, tileSize, topLeftPoint)
     }
 
     private fun drawEndCircle(

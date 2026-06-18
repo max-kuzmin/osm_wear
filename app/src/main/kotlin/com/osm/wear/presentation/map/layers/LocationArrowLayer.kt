@@ -13,14 +13,15 @@ import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.layer.Layer
 import org.mapsforge.core.util.MercatorProjection
+import kotlin.jvm.Volatile
 
 /**
  * A map layer that draws a directional arrow representing the user's current location and bearing.
  * Optimized for Wear OS by caching the arrow path and avoiding allocations during draw.
  */
 class LocationArrowLayer(
-    private var latLong: LatLong,
-    private var bearing: Float,
+    @Volatile private var latLong: LatLong,
+    @Volatile private var bearing: Float,
     private val mv: MapView
 ) : Layer() {
 
@@ -64,9 +65,11 @@ class LocationArrowLayer(
         topLeftPoint: Point,
         rotation: Rotation
     ) {
+        val loc = this.latLong
+        val b = this.bearing
         val tileSize = mv.model.displayModel.tileSize
-        val pixelX = MercatorProjection.longitudeToPixelX(latLong.longitude, zoomLevel, tileSize)
-        val pixelY = MercatorProjection.latitudeToPixelY(latLong.latitude, zoomLevel, tileSize)
+        val pixelX = MercatorProjection.longitudeToPixelX(loc.longitude, zoomLevel, tileSize)
+        val pixelY = MercatorProjection.latitudeToPixelY(loc.latitude, zoomLevel, tileSize)
 
         val x = (pixelX - topLeftPoint.x).toFloat()
         val y = (pixelY - topLeftPoint.y).toFloat()
@@ -76,7 +79,7 @@ class LocationArrowLayer(
         val rotateAngle = if (rotation.degrees != 0f) {
             -rotation.degrees
         } else {
-            bearing
+            b
         }
         canvas.rotate(rotateAngle, 0f, 0f)
 
