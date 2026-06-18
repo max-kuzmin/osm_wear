@@ -15,7 +15,6 @@ import kotlinx.coroutines.withContext
 import org.xmlpull.v1.XmlPullParserException
 import java.io.File
 import java.io.IOException
-import java.util.UUID
 import kotlin.math.*
 
 /**
@@ -96,7 +95,13 @@ class GpxRepository(
     private fun addOrReplace(gpx: GpxFile) {
         val current = _files.value.toMutableList()
         val idx = current.indexOfFirst { it.filePath == gpx.filePath }
-        if (idx >= 0) current[idx] = gpx else current.add(gpx)
+        if (idx >= 0) {
+            val existing = current[idx]
+            current[idx] = gpx.copy(id = existing.id, isActive = existing.isActive)
+        } else {
+            val activeId = prefs.getString("active_gpx_id", null)
+            current.add(gpx.copy(isActive = gpx.id == activeId))
+        }
         _files.value = current
     }
 
@@ -142,7 +147,7 @@ class GpxRepository(
 
             Result.success(
                 GpxFile(
-                    id = UUID.randomUUID().toString(),
+                    id = file.name,
                     name = name,
                     filePath = file.absolutePath,
                     trackPoints = points,

@@ -355,9 +355,7 @@ class MapViewModel @Inject constructor(
             // Wait for gpxFiles to be populated from the repository
             gpxFiles.collect { files ->
                 val active = files.find { it.isActive }
-                if (active != null && _uiState.value.activeGpxFile == null) {
-                    _uiState.update { it.copy(activeGpxFile = active) }
-                }
+                _uiState.update { it.copy(activeGpxFile = active) }
             }
         }
     }

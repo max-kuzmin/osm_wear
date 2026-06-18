@@ -27,14 +27,12 @@ import androidx.wear.compose.material3.*
 import com.osm.wear.domain.model.NavigationState
 import com.osm.wear.domain.model.UserLocation
 import com.osm.wear.presentation.map.layers.LocationArrowLayer
+import com.osm.wear.presentation.map.layers.TrackMarkersLayer
 import kotlinx.coroutines.launch
-import org.mapsforge.core.graphics.Paint
-import org.mapsforge.core.graphics.Style
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.util.AndroidUtil
 import org.mapsforge.map.android.view.MapView
-import org.mapsforge.map.layer.overlay.Polyline
 import org.mapsforge.map.layer.renderer.TileRendererLayer
 import org.mapsforge.map.reader.MapFile
 import org.mapsforge.map.rendertheme.internal.MapsforgeThemes
@@ -63,7 +61,7 @@ fun MainMapScreen(
     // Stable references to Mapsforge layers
     val mapViewRef      = remember { mutableStateOf<MapView?>(null) }
     val locationMarker  = remember { mutableStateOf<LocationArrowLayer?>(null) }
-    val gpxPolyline     = remember { mutableStateOf<Polyline?>(null) }
+    val trackLayer      = remember { mutableStateOf<TrackMarkersLayer?>(null) }
     val tileLayerRef    = remember { mutableStateOf<TileRendererLayer?>(null) }
 
     // ── Smooth Location Animation ──────────────────────────────────────────
@@ -132,11 +130,19 @@ fun MainMapScreen(
         }
     }
 
-    // Update GPX polyline when active GPX changes
+    // Update GPX layer when active GPX changes
     LaunchedEffect(uiState.activeGpxFile) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        val pts = uiState.activeGpxFile?.trackPoints?.map { LatLong(it.lat, it.lon) } ?: emptyList()
-        updateGpxPolyline(mv, pts, gpxPolyline)
+        val gpx = uiState.activeGpxFile
+        val pts = gpx?.trackPoints?.map { LatLong(it.lat, it.lon) } ?: emptyList()
+
+        if (trackLayer.value == null) {
+            val layer = TrackMarkersLayer(pts, mv)
+            mv.layerManager.layers.add(layer)
+            trackLayer.value = layer
+        } else {
+            trackLayer.value?.updatePoints(pts)
+        }
     }
 
     // Reload tile layer when active map file changes
@@ -162,6 +168,10 @@ fun MainMapScreen(
                 createMapView(ctx).also { mv ->
                     mapViewRef.value = mv
 
+                    // Initialize position from ViewModel state
+                    mv.model.mapViewPosition.setCenter(LatLong(uiState.centerLat, uiState.centerLon))
+                    mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
+
                     // Load initial tile layer
                     uiState.activeMapFile?.let { f ->
                         reloadTileLayer(ctx, mv, f, tileLayerRef)
@@ -170,7 +180,9 @@ fun MainMapScreen(
                     // Draw initial GPX
                     uiState.activeGpxFile?.let { gpx ->
                         val pts = gpx.trackPoints.map { LatLong(it.lat, it.lon) }
-                        updateGpxPolyline(mv, pts, gpxPolyline)
+                        val layer = TrackMarkersLayer(pts, mv)
+                        mv.layerManager.layers.add(layer)
+                        trackLayer.value = layer
                     }
 
                     // Bezel rotation → zoom
@@ -345,8 +357,6 @@ private fun createMapView(context: Context): MapView {
     mv.isClickable = true
     mv.mapScaleBar.isVisible = false
     mv.setBuiltInZoomControls(false)
-    mv.model.mapViewPosition.setCenter(LatLong(48.0, 16.0))
-    mv.model.mapViewPosition.zoomLevel = 5
     return mv
 }
 
@@ -373,23 +383,4 @@ private fun reloadTileLayer(
     ).apply { setXmlRenderTheme(MapsforgeThemes.OSMARENDER) }
     mv.layerManager.layers.add(0, layer)
     ref.value = layer
-}
-
-private fun updateGpxPolyline(
-    mv: MapView,
-    points: List<LatLong>,
-    ref: MutableState<Polyline?>
-) {
-    ref.value?.let { mv.layerManager.layers.remove(it) }
-    ref.value = null
-    if (points.isEmpty()) return
-    val paint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(android.graphics.Color.argb(200, 255, 80, 0))
-        strokeWidth = 6f
-        setStyle(Style.STROKE)
-    }
-    val poly = Polyline(paint, AndroidGraphicFactory.INSTANCE)
-    poly.latLongs.addAll(points)
-    mv.layerManager.layers.add(poly)
-    ref.value = poly
 }
