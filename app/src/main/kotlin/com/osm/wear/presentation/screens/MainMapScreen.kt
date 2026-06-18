@@ -422,21 +422,25 @@ private fun reloadTileLayer(
     mapFile: File?,
     ref: MutableState<TileRendererLayer?>
 ) {
-    ref.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
-    ref.value = null
-    if (mapFile == null || !mapFile.exists()) return
-    val cache = AndroidUtil.createTileCache(
-        context, "mapcache",
-        mv.model.displayModel.tileSize,
-        1f,
-        mv.model.frameBufferModel.overdrawFactor
-    )
-    val layer = TileRendererLayer(
-        cache,
-        MapFile(mapFile),
-        mv.model.mapViewPosition,
-        AndroidGraphicFactory.INSTANCE
-    ).apply { setXmlRenderTheme(MapsforgeThemes.OSMARENDER) }
-    mv.layerManager.layers.add(0, layer)
-    ref.value = layer
+    try {
+        ref.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
+        ref.value = null
+        if (mapFile == null || !mapFile.exists()) return
+        val cache = AndroidUtil.createTileCache(
+            context, "mapcache",
+            mv.model.displayModel.tileSize,
+            1f,
+            mv.model.frameBufferModel.overdrawFactor
+        )
+        val layer = TileRendererLayer(
+            cache,
+            MapFile(mapFile),
+            mv.model.mapViewPosition,
+            AndroidGraphicFactory.INSTANCE
+        ).apply { setXmlRenderTheme(MapsforgeThemes.OSMARENDER) }
+        mv.layerManager.layers.add(0, layer)
+        ref.value = layer
+    } catch (e: Exception) {
+        android.util.Log.e("MainMapScreen", "Failed to reload tile layer", e)
+    }
 }

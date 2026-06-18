@@ -59,21 +59,91 @@ class NavigationEngine(context: Context) {
         val pts = gpxFile.trackPoints
         if (pts.size < 2) return emptyList()
 
+        val cumDist = DoubleArray(pts.size)
+        cumDist[0] = 0.0
+        for (j in 1 until pts.size) {
+            cumDist[j] = cumDist[j - 1] + haversineM(pts[j - 1], pts[j])
+        }
+
+        val lookDistance = 15.0 // meters
+        val minBaseline = 3.0 // meters
+        val turnAngles = DoubleArray(pts.size)
+        val isTurnCandidate = BooleanArray(pts.size)
+
+        for (i in 1 until pts.size - 1) {
+            var prevIdx = i
+            while (prevIdx > 0 && cumDist[i] - cumDist[prevIdx] < lookDistance) {
+                prevIdx--
+            }
+            var nextIdx = i
+            while (nextIdx < pts.size - 1 && cumDist[nextIdx] - cumDist[i] < lookDistance) {
+                nextIdx++
+            }
+
+            val distBack = cumDist[i] - cumDist[prevIdx]
+            val distAhead = cumDist[nextIdx] - cumDist[i]
+            if (distBack < minBaseline || distAhead < minBaseline) {
+                continue
+            }
+
+            val bIn = bearingDeg(pts[prevIdx], pts[i])
+            val bOut = bearingDeg(pts[i], pts[nextIdx])
+            val angle = angleDiff(bIn, bOut)
+
+            turnAngles[i] = angle
+            if (angle >= TURN_THRESHOLD_DEG) {
+                isTurnCandidate[i] = true
+            }
+        }
+
+        val isTurn = BooleanArray(pts.size)
+        val nmsDistance = 20.0 // meters
+        for (i in 1 until pts.size - 1) {
+            if (!isTurnCandidate[i]) continue
+
+            val currentAngle = turnAngles[i]
+            var isMax = true
+            
+            // Search backward in NMS window
+            var j = i - 1
+            while (j > 0 && cumDist[i] - cumDist[j] < nmsDistance) {
+                if (isTurnCandidate[j] && turnAngles[j] > currentAngle) {
+                    isMax = false
+                    break
+                }
+                j--
+            }
+            
+            if (!isMax) continue
+
+            // Search forward in NMS window
+            j = i + 1
+            while (j < pts.size - 1 && cumDist[j] - cumDist[i] < nmsDistance) {
+                // To break ties cleanly, use >= for forward comparison so that only the first peak wins
+                if (isTurnCandidate[j] && turnAngles[j] >= currentAngle) {
+                    isMax = false
+                    break
+                }
+                j++
+            }
+
+            if (isMax) {
+                isTurn[i] = true
+            }
+        }
+
         return pts.mapIndexed { i, point ->
             val bearingIn  = if (i > 0) bearingDeg(pts[i - 1], point) else 0f
             val bearingOut = if (i < pts.size - 1) bearingDeg(point, pts[i + 1]) else bearingIn
             val distToNext = if (i < pts.size - 1)
                 haversineM(point, pts[i + 1]).toFloat() else 0f
 
-            val isTurn = i > 0 && i < pts.size - 1 &&
-                    angleDiff(bearingIn, bearingOut) >= TURN_THRESHOLD_DEG
-
             NavigationWaypoint(
                 index           = i,
                 point           = point,
                 bearingToNext   = bearingOut,
                 distanceToNextM = distToNext,
-                isTurn          = isTurn
+                isTurn          = isTurn[i]
             )
         }
     }
@@ -291,7 +361,8 @@ class NavigationEngine(context: Context) {
         val dLon = Math.toRadians(b.lon - a.lon)
         val h    = sin(dLat / 2).pow(2) +
                 cos(Math.toRadians(a.lat)) * cos(Math.toRadians(b.lat)) * sin(dLon / 2).pow(2)
-        return r * 2 * atan2(sqrt(h), sqrt(1 - h))
+        val clampedH = h.coerceIn(0.0, 1.0)
+        return r * 2 * atan2(sqrt(clampedH), sqrt(1.0 - clampedH))
     }
 
     private fun bearingDeg(from: GpxPoint, to: GpxPoint): Float {

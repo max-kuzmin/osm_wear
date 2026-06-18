@@ -155,11 +155,8 @@ class GpxRepository(
                     isActive = false
                 )
             )
-        } catch (e: IOException) {
-            Log.e(TAG, "IO error parsing GPX: ${file.name}", e)
-            Result.failure(e)
-        } catch (e: XmlPullParserException) {
-            Log.e(TAG, "XML error parsing GPX: ${file.name}", e)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing GPX: ${file.name}", e)
             Result.failure(e)
         }
     }
@@ -187,7 +184,8 @@ class GpxRepository(
         val h = sin(dLat / 2).let { it * it } +
                 cos(Math.toRadians(a.lat)) * cos(Math.toRadians(b.lat)) *
                 sin(dLon / 2).let { it * it }
-        return r * 2 * atan2(sqrt(h), sqrt(1 - h))
+        val clampedH = h.coerceIn(0.0, 1.0)
+        return r * 2 * atan2(sqrt(clampedH), sqrt(1.0 - clampedH))
     }
 
     private fun getFileNameFromUri(uri: Uri): String? =
