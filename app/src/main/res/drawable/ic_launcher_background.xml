@@ -6,7 +6,7 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- Base background gradient -->
+    <!-- Base background gradient (Light Silver to White) -->
     <path
         android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
@@ -16,29 +16,29 @@
                 android:startY="0"
                 android:endX="108"
                 android:endY="108">
-                <item android:offset="0" android:color="#1E222F" />
-                <item android:offset="1" android:color="#0E1017" />
+                <item android:offset="0" android:color="#F4F6F9" />
+                <item android:offset="1" android:color="#FFFFFF" />
             </gradient>
         </aapt:attr>
     </path>
     
-    <!-- Topographic Contour Lines -->
+    <!-- Topographic Contour Lines (Subtle light blue details) -->
     <path
         android:pathData="M-10,90 Q54,120 118,80"
         android:strokeWidth="2"
-        android:strokeColor="#0AFFFFFF" />
+        android:strokeColor="#0F0066FF" />
     <path
         android:pathData="M-10,70 Q54,100 118,60"
         android:strokeWidth="2"
-        android:strokeColor="#0AFFFFFF" />
+        android:strokeColor="#0F0066FF" />
     <path
         android:pathData="M-10,50 Q54,80 118,40"
         android:strokeWidth="2"
-        android:strokeColor="#0AFFFFFF" />
+        android:strokeColor="#0F0066FF" />
     
-    <!-- Trail detail line -->
+    <!-- Trail detail line (Subtle gray path) -->
     <path
         android:pathData="M15,95 C45,85 75,95 105,80"
         android:strokeWidth="1.5"
-        android:strokeColor="#14FFFFFF" />
+        android:strokeColor="#14000000" />
 </vector>
