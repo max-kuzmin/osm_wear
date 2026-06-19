@@ -94,3 +94,14 @@ data class UserLocation(
     val speed: Float = 0f,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+enum class MapTheme {
+    BIKER,
+    DARK,
+    DEFAULT,
+    HILLSHADING,
+    INDIGO,
+    MOTORIDER,
+    OSMARENDER
+}
+

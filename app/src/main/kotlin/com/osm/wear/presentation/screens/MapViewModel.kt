@@ -39,7 +39,9 @@ data class MapUiState(
     /** Battery mode for GPS. */
     val gpsBatteryMode: GpsBatteryMode = GpsBatteryMode.BALANCED,
     /** Map rotation mode (North-up or Heading-up). */
-    val mapRotationMode: MapRotationMode = MapRotationMode.NORTH_UP
+    val mapRotationMode: MapRotationMode = MapRotationMode.NORTH_UP,
+    /** Map style theme. */
+    val mapTheme: MapTheme = MapTheme.OSMARENDER
 )
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
@@ -93,13 +95,16 @@ class MapViewModel @Inject constructor(
         val lon = prefs.getFloat("map_center_lon", 0.0f).toDouble()
         val zoom = prefs.getInt("map_zoom_level", 14)
         val follow = prefs.getBoolean("map_follow_location", true)
+        val themeStr = prefs.getString("map_theme", MapTheme.OSMARENDER.name) ?: MapTheme.OSMARENDER.name
+        val theme = try { MapTheme.valueOf(themeStr) } catch (e: Exception) { MapTheme.OSMARENDER }
 
         _uiState.update { 
             it.copy(
                 centerLat = lat, 
                 centerLon = lon, 
                 zoomLevel = zoom, 
-                followLocation = follow
+                followLocation = follow,
+                mapTheme = theme
             ) 
         }
 
@@ -115,6 +120,7 @@ class MapViewModel @Inject constructor(
             .putFloat("map_center_lon", state.centerLon.toFloat())
             .putInt("map_zoom_level", state.zoomLevel)
             .putBoolean("map_follow_location", state.followLocation)
+            .putString("map_theme", state.mapTheme.name)
             .apply()
     }
 
@@ -204,6 +210,11 @@ class MapViewModel @Inject constructor(
 
     fun zoomOut() {
         _uiState.update { it.copy(zoomLevel = (it.zoomLevel - 1).coerceAtLeast(3)) }
+        persistMapState()
+    }
+
+    fun setMapTheme(theme: MapTheme) {
+        _uiState.update { it.copy(mapTheme = theme) }
         persistMapState()
     }
 

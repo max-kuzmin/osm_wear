@@ -32,12 +32,13 @@ import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.model.Rotation
 import com.osm.wear.domain.model.MapRotationMode
+import com.osm.wear.domain.model.MapTheme
+import org.mapsforge.map.rendertheme.internal.MapsforgeThemes
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.util.AndroidUtil
 import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.layer.renderer.TileRendererLayer
 import org.mapsforge.map.reader.MapFile
-import org.mapsforge.map.rendertheme.internal.MapsforgeThemes
 import java.io.File
 
 @Composable
@@ -186,10 +187,10 @@ fun MainMapScreen(
         }
     }
 
-    // Reload tile layer when active map file changes
-    LaunchedEffect(uiState.activeMapFile) {
+    // Reload tile layer when active map file or theme changes
+    LaunchedEffect(uiState.activeMapFile, uiState.mapTheme) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        reloadTileLayer(context, mv, uiState.activeMapFile, tileLayerRef)
+        reloadTileLayer(context, mv, uiState.activeMapFile, uiState.mapTheme, tileLayerRef)
     }
 
     Box(
@@ -215,7 +216,7 @@ fun MainMapScreen(
 
                     // Load initial tile layer
                     uiState.activeMapFile?.let { f ->
-                        reloadTileLayer(ctx, mv, f, tileLayerRef)
+                        reloadTileLayer(ctx, mv, f, uiState.mapTheme, tileLayerRef)
                     }
 
                     // Draw initial GPX
@@ -420,6 +421,7 @@ private fun reloadTileLayer(
     context: Context,
     mv: MapView,
     mapFile: File?,
+    theme: MapTheme,
     ref: MutableState<TileRendererLayer?>
 ) {
     try {
@@ -432,12 +434,21 @@ private fun reloadTileLayer(
             1f,
             mv.model.frameBufferModel.overdrawFactor
         )
+        val renderTheme = when (theme) {
+            MapTheme.BIKER -> MapsforgeThemes.BIKER
+            MapTheme.DARK -> MapsforgeThemes.DARK
+            MapTheme.DEFAULT -> MapsforgeThemes.DEFAULT
+            MapTheme.HILLSHADING -> MapsforgeThemes.HILLSHADING
+            MapTheme.INDIGO -> MapsforgeThemes.INDIGO
+            MapTheme.MOTORIDER -> MapsforgeThemes.MOTORIDER
+            MapTheme.OSMARENDER -> MapsforgeThemes.OSMARENDER
+        }
         val layer = TileRendererLayer(
             cache,
             MapFile(mapFile),
             mv.model.mapViewPosition,
             AndroidGraphicFactory.INSTANCE
-        ).apply { setXmlRenderTheme(MapsforgeThemes.OSMARENDER) }
+        ).apply { setXmlRenderTheme(renderTheme) }
         mv.layerManager.layers.add(0, layer)
         ref.value = layer
     } catch (e: Exception) {
