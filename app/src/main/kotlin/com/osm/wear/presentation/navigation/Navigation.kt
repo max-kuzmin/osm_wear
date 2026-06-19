@@ -31,7 +31,8 @@ fun OsmWearNavGraph() {
 
     SwipeDismissableNavHost(
         navController = navController,
-        startDestination = Routes.MAP
+        startDestination = Routes.MAP,
+        userSwipeEnabled = false
     ) {
         composable(Routes.MAP) {
             MainMapScreen(

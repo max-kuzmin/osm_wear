@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.OsmWear" parent="@android:style/Theme.DeviceDefault">
+        <!-- Disable system-wide swipe-to-dismiss gesture completely in the app -->
+        <item name="android:windowSwipeToDismiss">false</item>
+    </style>
+</resources>
