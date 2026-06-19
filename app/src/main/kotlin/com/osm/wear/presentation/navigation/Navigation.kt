@@ -19,7 +19,15 @@ fun OsmWearNavGraph() {
     val navController = rememberSwipeDismissableNavController()
     val vm: MapViewModel = hiltViewModel()
 
-
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        vm.navigationEvents.collect { route ->
+            if (route == Routes.MAP) {
+                navController.popBackStack(Routes.MAP, false)
+            } else {
+                navController.navigate(route)
+            }
+        }
+    }
 
     SwipeDismissableNavHost(
         navController = navController,

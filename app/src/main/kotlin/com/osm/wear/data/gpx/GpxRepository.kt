@@ -188,12 +188,22 @@ class GpxRepository(
         return r * 2 * atan2(sqrt(clampedH), sqrt(1.0 - clampedH))
     }
 
-    private fun getFileNameFromUri(uri: Uri): String? =
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val col = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-            cursor.moveToFirst()
-            if (col >= 0) cursor.getString(col) else null
+    private fun getFileNameFromUri(uri: Uri): String? {
+        if (uri.scheme == "file") {
+            return uri.lastPathSegment
         }
+        return try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val col = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst() && col >= 0) {
+                    cursor.getString(col)
+                } else null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting filename from URI: $uri", e)
+            uri.lastPathSegment
+        }
+    }
 
     companion object { private const val TAG = "GpxRepository" }
 }

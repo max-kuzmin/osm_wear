@@ -44,5 +44,35 @@ class MainActivity : ComponentActivity() {
                 OsmWearNavGraph()
             }
         }
+
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: android.content.Intent?) {
+        if (intent == null) return
+        val action = intent.action
+        val data = intent.data
+        if (action == android.content.Intent.ACTION_VIEW || action == android.content.Intent.ACTION_SEND) {
+            val uri = if (action == android.content.Intent.ACTION_SEND) {
+                androidx.core.content.IntentCompat.getParcelableExtra(
+                    intent,
+                    android.content.Intent.EXTRA_STREAM,
+                    android.net.Uri::class.java
+                )
+            } else {
+                data
+            }
+            if (uri != null) {
+                android.util.Log.d("MainActivity", "Handling intent to import GPX from: $uri")
+                vm.importGpxFile(uri, autoActivate = true)
+                vm.navigateTo(com.osm.wear.presentation.navigation.Routes.MAP)
+            }
+        }
     }
 }
