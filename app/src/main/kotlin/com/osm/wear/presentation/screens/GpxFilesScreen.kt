@@ -26,7 +26,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
-import java.io.File
 
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -44,7 +43,8 @@ fun GpxFilesScreen(
     val navState = uiState.navigationState
 
     val hasAllFilesAccess = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        Environment.isExternalStorageManager()
+        Environment.isExternalStorageManager() ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
     } else {
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
     }
@@ -53,7 +53,7 @@ fun GpxFilesScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            vm.scanFilesystem()
+            vm.scanGpxFolders()
         }
     }
 
@@ -62,11 +62,24 @@ fun GpxFilesScreen(
             try {
                 val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
                     data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
             } catch (e: Exception) {
-                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                context.startActivity(intent)
+                android.util.Log.e("GpxFilesScreen", "Failed to launch ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION", e)
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (e2: Exception) {
+                    android.util.Log.e("GpxFilesScreen", "Failed to launch ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION", e2)
+                    try {
+                        permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    } catch (e3: Exception) {
+                        android.util.Log.e("GpxFilesScreen", "Failed to launch READ_EXTERNAL_STORAGE request", e3)
+                    }
+                }
             }
         } else {
             permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -83,7 +96,7 @@ fun GpxFilesScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                vm.scanFilesystem()
+                vm.scanGpxFolders()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -110,21 +123,6 @@ fun GpxFilesScreen(
             )
         }
 
-        if (!hasAllFilesAccess) {
-            item {
-                Button(
-                    onClick = requestPermission,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                ) {
-                    Text("Grant Files Access", fontSize = 12.sp, textAlign = TextAlign.Center)
-                }
-            }
-        }
-
         // ── Navigation Control ──────────────────────────────────────────
         item {
             NavigationButton(
@@ -142,6 +140,15 @@ fun GpxFilesScreen(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            item {
+                Text(
+                    "To add GPX files, copy them to the watch directory:\n/Download/",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 4.dp)
                 )
             }
         }
@@ -167,8 +174,8 @@ fun GpxFilesScreen(
                     )
                 },
                 colors = if (gpx.isActive) ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) else ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     contentColor = MaterialTheme.colorScheme.onSurface

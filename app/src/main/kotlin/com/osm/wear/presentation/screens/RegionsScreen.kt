@@ -98,13 +98,15 @@ fun RegionsScreen(
                     },
                     secondaryLabel = {
                         Text(
-                            "${dr.fileSizeMb} MB${if (dr.isActive) " ✓" else ""}",
-                            fontSize = 11.sp
+                            text = "${dr.fileSizeMb} MB${if (dr.isActive) " ✓" else ""}",
+                            fontSize = 11.sp,
+                            color = if (dr.isActive) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f) 
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                         )
                     },
                     colors = if (dr.isActive) ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ) else ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         contentColor = MaterialTheme.colorScheme.onSurface
@@ -167,7 +169,8 @@ fun RegionsScreen(
                                 } else {
                                     Text(
                                         text = "~${region.fileSizeMb} MB",
-                                        fontSize = 11.sp
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                                     )
                                 }
                             }

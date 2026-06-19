@@ -52,8 +52,8 @@ fun SettingsScreen(
                 onClick = onOpenRegions,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 icon = {
                     Icon(
@@ -63,7 +63,13 @@ fun SettingsScreen(
                     )
                 },
                 label = { Text("Map Regions", fontSize = 13.sp) },
-                secondaryLabel = { Text(activeRegion?.region?.name ?: "None selected", fontSize = 11.sp) }
+                secondaryLabel = { 
+                    Text(
+                        text = activeRegion?.region?.name ?: "None selected", 
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    ) 
+                }
             )
         }
 
@@ -73,8 +79,8 @@ fun SettingsScreen(
                 onClick = onOpenGpxFiles,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 icon = {
                     Icon(
@@ -84,7 +90,13 @@ fun SettingsScreen(
                     )
                 },
                 label = { Text("GPX Files", fontSize = 13.sp) },
-                secondaryLabel = { Text(activeGpx?.name ?: "None selected", fontSize = 11.sp) }
+                secondaryLabel = { 
+                    Text(
+                        text = activeGpx?.name ?: "None selected", 
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    ) 
+                }
             )
         }
     }

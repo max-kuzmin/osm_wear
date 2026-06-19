@@ -85,7 +85,7 @@ class MapViewModel @Inject constructor(
         refreshDownloadedRegions()
         autoLoadFirstRegion()
         autoLoadActiveGpx()
-        scanFilesystem()
+        scanGpxFolders()
     }
 
     private fun loadMapState() {
@@ -292,8 +292,7 @@ class MapViewModel @Inject constructor(
 
     // ── GPX ────────────────────────────────────────────────────────────────────
 
-    private val _scannedFiles = MutableStateFlow<List<File>>(emptyList())
-    val scannedFiles: StateFlow<List<File>> = _scannedFiles.asStateFlow()
+
 
     private val _navigationEvents = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 1)
     val navigationEvents = _navigationEvents.asSharedFlow()
@@ -329,74 +328,56 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch { gpxRepo.importFromFile(file) }
     }
 
-    fun scanFilesystem() {
+    fun scanGpxFolders() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val foundFiles = mutableListOf<File>()
             
-            // 1. App-specific external storage (Always accessible)
-            context.getExternalFilesDir(null)?.let { 
-                android.util.Log.i("MapViewModel", "Scanning app-specific: ${it.absolutePath}")
-                scanDirectory(it, foundFiles, currentDepth = 1, maxDepth = 4) 
+            // Scan Downloads folder recursively (including subfolders like Received)
+            val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (downloads.exists()) {
+                android.util.Log.i("MapViewModel", "Scanning downloads recursively: ${downloads.absolutePath}")
+                scanDirectory(downloads, foundFiles)
             }
 
-            // Check if we have permission to scan the public external storage root
-            val hasAccess = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                Environment.isExternalStorageManager()
-            } else {
-                androidx.core.content.ContextCompat.checkSelfPermission(
-                    context, 
-                    android.Manifest.permission.READ_EXTERNAL_STORAGE
-                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            }
-
-            if (hasAccess) {
-                val root = Environment.getExternalStorageDirectory()
-                android.util.Log.i("MapViewModel", "Scanning external storage root: ${root.absolutePath}")
-                scanDirectory(root, foundFiles, currentDepth = 1, maxDepth = 4)
-            } else {
-                // Fallback to public Downloads and Documents folders if direct access is restricted
-                val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                android.util.Log.i("MapViewModel", "Scanning downloads: ${downloads.absolutePath}")
-                scanDirectory(downloads, foundFiles, currentDepth = 1, maxDepth = 4)
-
-                val documents = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-                scanDirectory(documents, foundFiles, currentDepth = 1, maxDepth = 4)
-            }
-
-            _scannedFiles.value = foundFiles.distinctBy { it.absolutePath }
             android.util.Log.i("MapViewModel", "Found ${foundFiles.size} GPX files total. Auto-importing...")
-            
             foundFiles.forEach { file ->
                 gpxRepo.importFromFile(file)
+            }
+
+            // Clean up files in internal storage that no longer exist in the scanned folders
+            val foundNames = foundFiles.map { it.name }.toSet()
+            val internalFiles = File(context.filesDir, "gpx").listFiles()?.filter { it.extension == "gpx" } ?: emptyList()
+            internalFiles.forEach { internalFile ->
+                if (!foundNames.contains(internalFile.name)) {
+                    android.util.Log.i("MapViewModel", "Deleting stale GPX file: ${internalFile.name}")
+                    gpxRepo.deleteFile(internalFile.name)
+                }
             }
         }
     }
 
-    private fun scanDirectory(dir: File, result: MutableList<File>, currentDepth: Int, maxDepth: Int) {
-        if (currentDepth > maxDepth || !dir.exists()) return
-        val files = dir.listFiles() ?: return
-        
-        // Skip common system / media folders to optimize performance
-        val skippedDirs = setOf(
-            "Android", "DCIM", "Pictures", "Music", "Movies", "Alarms", 
-            "Notifications", "Ringtones", "Podcasts", "WhatsApp", "System Volume Information"
-        )
-        
+    private fun scanDirectory(dir: File, result: MutableList<File>) {
+        if (!dir.exists()) return
+        val files = try {
+            dir.listFiles()
+        } catch (e: SecurityException) {
+            android.util.Log.e("MapViewModel", "SecurityException listing files in: ${dir.absolutePath}", e)
+            null
+        } catch (e: Exception) {
+            android.util.Log.e("MapViewModel", "Error listing files in: ${dir.absolutePath}", e)
+            null
+        }
+        if (files == null) return
         for (file in files) {
             if (file.isDirectory) {
-                if (!file.name.startsWith(".") && !skippedDirs.contains(file.name)) {
-                    scanDirectory(file, result, currentDepth + 1, maxDepth)
-                }
+                scanDirectory(file, result)
             } else if (file.extension.lowercase() == "gpx") {
-                android.util.Log.i("MapViewModel", "Found GPX: ${file.name} at ${file.absolutePath}")
                 result.add(file)
             }
         }
     }
 
-    fun clearScannedFiles() {
-        _scannedFiles.value = emptyList()
-    }
+
 
     fun deleteGpxFile(fileId: String) {
         viewModelScope.launch {
