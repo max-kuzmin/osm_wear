@@ -5,6 +5,9 @@ import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -59,6 +62,16 @@ fun MainMapScreen(
     // Request focus for rotary events
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+    }
+
+    var controlsVisible by remember { mutableStateOf(true) }
+
+    // Auto-hide controls after 10 seconds
+    LaunchedEffect(controlsVisible) {
+        if (controlsVisible) {
+            kotlinx.coroutines.delay(10000L)
+            controlsVisible = false
+        }
     }
 
     // Stable references to Mapsforge layers
@@ -245,6 +258,12 @@ fun MainMapScreen(
                     val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
                     
                     mv.setOnTouchListener { _, event ->
+                        when (event.actionMasked) {
+                            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                                controlsVisible = true
+                            }
+                        }
+
                         if (event.pointerCount == 2) {
                             val dx = event.getX(1) - event.getX(0)
                             val dy = event.getY(1) - event.getY(0)
@@ -320,69 +339,91 @@ fun MainMapScreen(
         )
 
         // ── Map Controls (Curved Right side column) ─────────────────────────
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalAlignment = Alignment.End
+        AnimatedVisibility(
+            visible = controlsVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.CenterEnd)
         ) {
-            // Zoom In (Top - slightly shifted left for curve)
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .offset(x = (-8).dp)
-                    .background(Color(0x66000000), CircleShape)
-                    .clickable { vm.zoomIn() },
-                contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier.padding(end = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.End
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Zoom In",
-                    modifier = Modifier.size(20.dp),
-                    tint = Color.DarkGray
-                )
-            }
-            // Zoom Out (Middle - stays at the edge)
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(Color(0x66000000), CircleShape)
-                    .clickable { vm.zoomOut() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Remove,
-                    contentDescription = "Zoom Out",
-                    modifier = Modifier.size(20.dp),
-                    tint = Color.DarkGray
-                )
-            }
-            // Center on Location (Bottom - slightly shifted left for curve)
-            val buttonBgColor = if (!uiState.followLocation) {
-                Color(0x66000000) // same background as other buttons in free mode
-            } else {
-                Color(0x661565C0) // transparent blue in other modes
-            }
-            val buttonIcon = if (uiState.followLocation && uiState.mapRotationMode == MapRotationMode.HEADING_UP) {
-                Icons.Default.Navigation
-            } else {
-                Icons.Default.MyLocation
-            }
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .offset(x = (-8).dp)
-                    .background(buttonBgColor, CircleShape)
-                    .clickable { vm.centerOnLocation() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = buttonIcon,
-                    contentDescription = "Center on Location",
-                    modifier = Modifier.size(20.dp),
-                    tint = Color.DarkGray
-                )
+                // Settings Button (Top - shifted further left for curve)
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .offset(x = (-28).dp)
+                        .background(Color(0x66000000), CircleShape)
+                        .clickable { onOpenSettings() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.White
+                    )
+                }
+                // Zoom In (Middle-Top - slightly shifted left for curve)
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .offset(x = (-8).dp)
+                        .background(Color(0x66000000), CircleShape)
+                        .clickable { vm.zoomIn() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Zoom In",
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.White
+                    )
+                }
+                // Zoom Out (Middle-Bottom - stays at the edge)
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .offset(x = (-8).dp)
+                        .background(Color(0x66000000), CircleShape)
+                        .clickable { vm.zoomOut() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Remove,
+                        contentDescription = "Zoom Out",
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.White
+                    )
+                }
+                // Center on Location (Bottom - slightly shifted left for curve)
+                val buttonBgColor = if (!uiState.followLocation) {
+                    Color(0x66000000) // same background as other buttons in free mode
+                } else {
+                    Color(0x661565C0) // transparent blue in other modes
+                }
+                val buttonIcon = if (uiState.followLocation && uiState.mapRotationMode == MapRotationMode.HEADING_UP) {
+                    Icons.Default.Navigation
+                } else {
+                    Icons.Default.MyLocation
+                }
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .offset(x = (-28).dp)
+                        .background(buttonBgColor, CircleShape)
+                        .clickable { vm.centerOnLocation() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = buttonIcon,
+                        contentDescription = "Center on Location",
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.White
+                    )
+                }
             }
         }
 
@@ -414,12 +455,17 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
                 color = Color(0x66000000),
                 shape = CircleShape
             )
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(arrow, fontSize = 20.sp, color = Color.Yellow)
-        Text(distText, fontSize = 13.sp, color = Color.White)
+        Text(
+            text = arrow, 
+            fontSize = 24.sp, 
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            color = Color.Yellow
+        )
+        Text(distText, fontSize = 15.sp, color = Color.White)
         if (navState.isOffTrack) {
             Text("⚠", fontSize = 13.sp, color = Color.Red)
         }

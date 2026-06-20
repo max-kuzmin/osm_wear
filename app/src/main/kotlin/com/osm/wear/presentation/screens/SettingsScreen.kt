@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,7 +61,8 @@ fun SettingsScreen(
                     Icon(
                         imageVector = Icons.Default.Map,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(24.dp),
+                        tint = androidx.compose.ui.graphics.Color.White
                     )
                 },
                 label = { Text("Map Regions", fontSize = 13.sp) },
@@ -87,7 +89,8 @@ fun SettingsScreen(
                     Icon(
                         imageVector = Icons.Default.Route,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(24.dp),
+                        tint = androidx.compose.ui.graphics.Color.White
                     )
                 },
                 label = { Text("GPX Files", fontSize = 13.sp) },
@@ -124,7 +127,8 @@ fun SettingsScreen(
                     Icon(
                         imageVector = Icons.Default.Map,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(24.dp),
+                        tint = androidx.compose.ui.graphics.Color.White
                     )
                 },
                 label = { Text("Map Theme", fontSize = 13.sp) },
@@ -144,6 +148,26 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                 }
+            )
+        }
+
+        item {
+            Button(
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        modifier = Modifier.size(24.dp),
+                        tint = androidx.compose.ui.graphics.Color.White
+                    )
+                },
+                label = { Text("Back", fontSize = 13.sp) }
             )
         }
     }

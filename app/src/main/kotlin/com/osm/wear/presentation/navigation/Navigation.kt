@@ -1,7 +1,9 @@
 package com.osm.wear.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
@@ -29,10 +31,13 @@ fun OsmWearNavGraph() {
         }
     }
 
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
     SwipeDismissableNavHost(
         navController = navController,
         startDestination = Routes.MAP,
-        userSwipeEnabled = false
+        userSwipeEnabled = currentRoute != Routes.MAP
     ) {
         composable(Routes.MAP) {
             MainMapScreen(

@@ -168,9 +168,10 @@ fun GpxFilesScreen(
                 },
                 secondaryLabel = {
                     Text(
-                        "%.1f km · ${gpx.trackPoints.size} pts${if (gpx.isActive) " ✓" else ""}"
-                            .format(gpx.totalDistanceKm),
-                        fontSize = 11.sp
+                        text = "%.1f km${if (gpx.isActive) " ✓" else ""}".format(gpx.totalDistanceKm),
+                        fontSize = 11.sp,
+                        color = if (gpx.isActive) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f) 
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                 },
                 colors = if (gpx.isActive) ButtonDefaults.buttonColors(
@@ -215,11 +216,16 @@ private fun NavigationButton(
                 onClick = onStart,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = hasActiveGpx,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
                 icon = {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(24.dp),
+                        tint = androidx.compose.ui.graphics.Color.White
                     )
                 },
                 label = { Text("Start Navigation", fontSize = 13.sp) }
