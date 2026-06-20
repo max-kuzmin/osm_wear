@@ -128,7 +128,8 @@ fun MainMapScreen(
         } else {
             val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
             val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
-            mv.model.mapViewPosition.setRotation(Rotation(0f, pivotX, pivotY))
+            val targetRotation = if (uiState.mapRotationMode == MapRotationMode.MANUAL) uiState.manualRotation else 0f
+            mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
         }
     }
 
@@ -236,25 +237,55 @@ fun MainMapScreen(
                         } else false
                     }
 
-                    // Detect panning to stop following
+                    // Detect panning and rotation
                     var startX = 0f
                     var startY = 0f
+                    var previousAngle = 0f
+                    var isRotating = false
                     val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
+                    
                     mv.setOnTouchListener { _, event ->
-                        when (event.action) {
-                            MotionEvent.ACTION_DOWN -> {
-                                startX = event.x
-                                startY = event.y
+                        if (event.pointerCount == 2) {
+                            val dx = event.getX(1) - event.getX(0)
+                            val dy = event.getY(1) - event.getY(0)
+                            val angle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                            
+                            when (event.actionMasked) {
+                                MotionEvent.ACTION_POINTER_DOWN -> {
+                                    previousAngle = angle
+                                    isRotating = true
+                                }
+                                MotionEvent.ACTION_MOVE -> {
+                                    if (isRotating) {
+                                        val delta = angle - previousAngle
+                                        previousAngle = angle
+                                        
+                                        val currentRot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
+                                        val newRot = currentRot + delta
+                                        vm.onMapRotated(newRot)
+                                    }
+                                }
+                                MotionEvent.ACTION_POINTER_UP -> {
+                                    isRotating = false
+                                }
                             }
-                            MotionEvent.ACTION_MOVE -> {
-                                val dx = event.x - startX
-                                val dy = event.y - startY
-                                if (dx * dx + dy * dy > touchSlop * touchSlop) {
-                                    val mvPos = mv.model.mapViewPosition
-                                    vm.onMapPanned(
-                                        mvPos.center.latitude,
-                                        mvPos.center.longitude
-                                    )
+                        } else {
+                            isRotating = false
+                            when (event.actionMasked) {
+                                MotionEvent.ACTION_DOWN -> {
+                                    startX = event.x
+                                    startY = event.y
+                                }
+                                MotionEvent.ACTION_MOVE -> {
+                                    val dx = event.x - startX
+                                    val dy = event.y - startY
+                                    if (dx * dx + dy * dy > touchSlop * touchSlop) {
+                                        val mvPos = mv.model.mapViewPosition
+                                        vm.onMapPanned(
+                                            mvPos.center.latitude,
+                                            mvPos.center.longitude
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -282,7 +313,8 @@ fun MainMapScreen(
                 } else {
                     val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
                     val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
-                    mv.model.mapViewPosition.setRotation(Rotation(0f, pivotX, pivotY))
+                    val targetRotation = if (uiState.mapRotationMode == MapRotationMode.MANUAL) uiState.manualRotation else 0f
+                    mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
                 }
             }
         )

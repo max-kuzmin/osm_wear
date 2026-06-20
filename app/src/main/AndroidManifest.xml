@@ -20,6 +20,11 @@
     <!-- Keep screen on while navigating -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Foreground Service for background navigation -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Vibration for turn-by-turn navigation alarms -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -93,6 +98,11 @@
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".data.navigation.NavigationService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
 
         <!-- WorkManager for background downloads -->
         <provider

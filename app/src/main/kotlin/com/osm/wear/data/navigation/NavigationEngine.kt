@@ -205,7 +205,14 @@ class NavigationEngine(private val context: Context) {
         if (localDist > 50.0) {
             var globalProjection: SegmentProjection? = null
             var globalSegIdx = -1
-            for (i in 0 until state.waypoints.size - 1) {
+            
+            val maxGoBack = 10 // allow slight backwards jitter
+            val maxGoForward = state.waypoints.size / 2 // prevent cutting off more than half the track
+            
+            val globalStartIdx = maxOf(0, currentSegIdx - maxGoBack)
+            val globalEndIdx = minOf(state.waypoints.size - 2, currentSegIdx + maxGoForward)
+            
+            for (i in globalStartIdx..globalEndIdx) {
                 val a = state.waypoints[i].point
                 val b = state.waypoints[i + 1].point
                 val proj = projectPointToSegment(userPt, a, b)

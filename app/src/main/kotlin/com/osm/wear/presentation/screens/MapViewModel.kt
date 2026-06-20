@@ -40,6 +40,8 @@ data class MapUiState(
     val gpsBatteryMode: GpsBatteryMode = GpsBatteryMode.BALANCED,
     /** Map rotation mode (North-up or Heading-up). */
     val mapRotationMode: MapRotationMode = MapRotationMode.NORTH_UP,
+    /** Current manual rotation angle, used when MapRotationMode is MANUAL. */
+    val manualRotation: Float = 0f,
     /** Map style theme. */
     val mapTheme: MapTheme = MapTheme.OSMARENDER
 )
@@ -224,7 +226,18 @@ class MapViewModel @Inject constructor(
                 centerLat = newLat, 
                 centerLon = newLon, 
                 followLocation = false,
-                mapRotationMode = MapRotationMode.NORTH_UP
+                mapRotationMode = if (it.mapRotationMode == MapRotationMode.HEADING_UP) MapRotationMode.NORTH_UP else it.mapRotationMode
+            ) 
+        }
+        persistMapState()
+    }
+
+    fun onMapRotated(rotation: Float) {
+        _uiState.update { 
+            it.copy(
+                mapRotationMode = MapRotationMode.MANUAL,
+                manualRotation = rotation,
+                followLocation = false
             ) 
         }
         persistMapState()
@@ -446,11 +459,17 @@ class MapViewModel @Inject constructor(
         setGpsBatteryMode(GpsBatteryMode.HIGH_ACCURACY)
         // Auto-enable locate me mode
         centerOnLocation()
+        // Start Foreground Service for background navigation
+        val serviceIntent = android.content.Intent(context, com.osm.wear.data.navigation.NavigationService::class.java)
+        androidx.core.content.ContextCompat.startForegroundService(context, serviceIntent)
     }
 
     fun stopNavigation() {
         _uiState.update { it.copy(navigationState = null) }
         setGpsBatteryMode(GpsBatteryMode.BALANCED)
+        // Stop Foreground Service
+        val serviceIntent = android.content.Intent(context, com.osm.wear.data.navigation.NavigationService::class.java)
+        context.stopService(serviceIntent)
     }
 
     override fun onCleared() {

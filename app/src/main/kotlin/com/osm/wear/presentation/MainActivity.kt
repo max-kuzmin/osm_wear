@@ -2,6 +2,7 @@ package com.osm.wear.presentation
 
 import android.Manifest
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -10,7 +11,11 @@ import com.osm.wear.presentation.navigation.OsmWearNavGraph
 import com.osm.wear.presentation.theme.OsmWearTheme
 import com.osm.wear.presentation.screens.MapViewModel
 import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -32,18 +37,24 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // Request permissions on startup
-        locationPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
+        val permissions = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
         )
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        locationPermissionLauncher.launch(permissions.toTypedArray())
 
         setContent {
             OsmWearTheme {
                 OsmWearNavGraph()
             }
         }
+
+        // Navigation is now handled by a Foreground Service,
+        // so the screen can be turned off to save battery.
+        // We no longer keep the screen on artificially.
 
         handleIntent(intent)
     }
