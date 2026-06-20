@@ -31,6 +31,11 @@
     <!-- Wear OS specific -->
     <uses-feature android:name="android.hardware.type.watch" />
 
+    <!-- Attribution for Location access -->
+    <attribution
+        android:tag="Location"
+        android:label="@string/app_name" />
+
     <application
         android:name=".OsmWearApp"
         android:allowBackup="true"

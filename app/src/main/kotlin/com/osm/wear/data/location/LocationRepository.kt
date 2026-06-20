@@ -27,8 +27,9 @@ import kotlinx.coroutines.flow.catch
  */
 class LocationRepository(private val context: Context) {
 
+    private val locationContext = context.createAttributionContext("Location")
     private val fusedClient: FusedLocationProviderClient =
-        LocationServices.getFusedLocationProviderClient(context)
+        LocationServices.getFusedLocationProviderClient(locationContext)
 
     fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==

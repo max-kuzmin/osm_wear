@@ -459,6 +459,9 @@ class MapViewModel @Inject constructor(
         setGpsBatteryMode(GpsBatteryMode.HIGH_ACCURACY)
         // Auto-enable locate me mode
         centerOnLocation()
+        
+        navEngine.announce("Navigation started")
+        
         // Start Foreground Service for background navigation
         val serviceIntent = android.content.Intent(context, com.osm.wear.data.navigation.NavigationService::class.java)
         androidx.core.content.ContextCompat.startForegroundService(context, serviceIntent)
@@ -467,6 +470,9 @@ class MapViewModel @Inject constructor(
     fun stopNavigation() {
         _uiState.update { it.copy(navigationState = null) }
         setGpsBatteryMode(GpsBatteryMode.BALANCED)
+        
+        navEngine.announce("Navigation stopped")
+        
         // Stop Foreground Service
         val serviceIntent = android.content.Intent(context, com.osm.wear.data.navigation.NavigationService::class.java)
         context.stopService(serviceIntent)

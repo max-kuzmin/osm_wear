@@ -5,12 +5,14 @@ import android.media.RingtoneManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import com.osm.wear.domain.model.GpxFile
 import com.osm.wear.domain.model.GpxPoint
 import com.osm.wear.domain.model.NavigationState
 import com.osm.wear.domain.model.NavigationWaypoint
 import com.osm.wear.domain.model.UserLocation
+import java.util.Locale
 import kotlin.math.*
 
 /**
@@ -22,7 +24,7 @@ import kotlin.math.*
  * Alarms (vibration + beep) fire when the user is within [ALARM_RADIUS_M] of a turn
  * and that turn has not yet been alerted.
  */
-class NavigationEngine(private val context: Context) {
+class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListener {
 
     companion object {
         private const val TAG               = "NavigationEngine"
@@ -41,7 +43,21 @@ class NavigationEngine(private val context: Context) {
         context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
 
+    private var tts: TextToSpeech? = null
+    private var isTtsInitialized = false
 
+    init {
+        tts = TextToSpeech(context, this)
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.language = Locale.ENGLISH
+            isTtsInitialized = true
+        } else {
+            Log.e(TAG, "TTS Initialization failed")
+        }
+    }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -277,14 +293,15 @@ class NavigationEngine(private val context: Context) {
             nextTurnWp.index != lastAlerted &&
             distToNextTurn <= ALARM_RADIUS_M
         ) {
-            fireAlarm()
+            val direction = if (relativeTurnBearing > 180f) "left" else "right"
+            fireAlarm("Turn $direction")
             lastAlerted = nextTurnWp.index
             Log.d(TAG, "Alarm fired at waypoint ${nextTurnWp.index}")
         }
 
         // Destination reached check (remaining track distance < ALARM_RADIUS_M)
         if (totalRemaining < ALARM_RADIUS_M && nextWpIdx >= state.waypoints.size - 2) {
-            fireAlarm()
+            fireAlarm("Destination reached")
             Log.d(TAG, "Destination reached")
             return state.copy(isActive = false)
         }
@@ -299,7 +316,16 @@ class NavigationEngine(private val context: Context) {
         )
     }
 
-    fun release() {}
+    fun announce(message: String) {
+        if (isTtsInitialized && tts != null) {
+            tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
+        }
+    }
+
+    fun release() {
+        tts?.stop()
+        tts?.shutdown()
+    }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
@@ -339,7 +365,7 @@ class NavigationEngine(private val context: Context) {
         return haversineM(p, GpxPoint(projLat, projLon))
     }
 
-    private fun fireAlarm() {
+    private fun fireAlarm(message: String) {
         try {
             vibrator?.vibrate(
                 VibrationEffect.createWaveform(
@@ -349,11 +375,16 @@ class NavigationEngine(private val context: Context) {
                 )
             )
         } catch (e: Exception) { Log.w(TAG, "Vibration failed", e) }
-        try {
-            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val ringtone = RingtoneManager.getRingtone(context, uri)
-            ringtone?.play()
-        } catch (e: Exception) { Log.w(TAG, "Notification sound failed", e) }
+        
+        if (isTtsInitialized && tts != null) {
+            tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
+        } else {
+            try {
+                val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                val ringtone = RingtoneManager.getRingtone(context, uri)
+                ringtone?.play()
+            } catch (e: Exception) { Log.w(TAG, "Notification sound failed", e) }
+        }
     }
 
     // ── Math ──────────────────────────────────────────────────────────────────
