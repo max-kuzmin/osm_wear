@@ -64,14 +64,14 @@ fun MainMapScreen(
         focusRequester.requestFocus()
     }
 
+    var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
     var controlsVisible by remember { mutableStateOf(true) }
 
-    // Auto-hide controls after 10 seconds
-    LaunchedEffect(controlsVisible) {
-        if (controlsVisible) {
-            kotlinx.coroutines.delay(10000L)
-            controlsVisible = false
-        }
+    // Auto-hide controls after 10 seconds of inactivity
+    LaunchedEffect(lastInteractionTime) {
+        controlsVisible = true
+        kotlinx.coroutines.delay(10000L)
+        controlsVisible = false
     }
 
     // Stable references to Mapsforge layers
@@ -260,7 +260,7 @@ fun MainMapScreen(
                     mv.setOnTouchListener { _, event ->
                         when (event.actionMasked) {
                             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                                controlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
                             }
                         }
 
@@ -281,6 +281,13 @@ fun MainMapScreen(
                                         
                                         val currentRot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
                                         val newRot = currentRot + delta
+                                        
+                                        // Update MapView rotation directly for smooth visual feedback
+                                        val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
+                                        val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+                                        mv.model.mapViewPosition.setRotation(Rotation(newRot, pivotX, pivotY))
+                                        mv.postInvalidate()
+                                        
                                         vm.onMapRotated(newRot)
                                     }
                                 }
@@ -288,6 +295,7 @@ fun MainMapScreen(
                                     isRotating = false
                                 }
                             }
+                            return@setOnTouchListener true // Consume the event to prevent MapView from processing pinch-to-zoom
                         } else {
                             isRotating = false
                             when (event.actionMasked) {
@@ -356,7 +364,7 @@ fun MainMapScreen(
                         .size(28.dp)
                         .offset(x = (-28).dp)
                         .background(Color(0x66000000), CircleShape)
-                        .clickable { onOpenSettings() },
+                        .clickable { onOpenSettings(); lastInteractionTime = System.currentTimeMillis() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -372,7 +380,7 @@ fun MainMapScreen(
                         .size(28.dp)
                         .offset(x = (-8).dp)
                         .background(Color(0x66000000), CircleShape)
-                        .clickable { vm.zoomIn() },
+                        .clickable { vm.zoomIn(); lastInteractionTime = System.currentTimeMillis() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -388,7 +396,7 @@ fun MainMapScreen(
                         .size(28.dp)
                         .offset(x = (-8).dp)
                         .background(Color(0x66000000), CircleShape)
-                        .clickable { vm.zoomOut() },
+                        .clickable { vm.zoomOut(); lastInteractionTime = System.currentTimeMillis() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -414,7 +422,7 @@ fun MainMapScreen(
                         .size(28.dp)
                         .offset(x = (-28).dp)
                         .background(buttonBgColor, CircleShape)
-                        .clickable { vm.centerOnLocation() },
+                        .clickable { vm.centerOnLocation(); lastInteractionTime = System.currentTimeMillis() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
