@@ -43,7 +43,9 @@ data class MapUiState(
     /** Current manual rotation angle, used when MapRotationMode is MANUAL. */
     val manualRotation: Float = 0f,
     /** Map style theme. */
-    val mapTheme: MapTheme = MapTheme.OSMARENDER
+    val mapTheme: MapTheme = MapTheme.OSMARENDER,
+    /** Navigation alert mode (Voice, Sound, Vibration, Silent). */
+    val navigationAlertMode: NavigationAlertMode = NavigationAlertMode.VOICE
 )
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
@@ -100,15 +102,20 @@ class MapViewModel @Inject constructor(
         val themeStr = prefs.getString("map_theme", MapTheme.OSMARENDER.name) ?: MapTheme.OSMARENDER.name
         val theme = try { MapTheme.valueOf(themeStr) } catch (e: Exception) { MapTheme.OSMARENDER }
 
+        val alertModeStr = prefs.getString("nav_alert_mode", NavigationAlertMode.VOICE.name) ?: NavigationAlertMode.VOICE.name
+        val alertMode = try { NavigationAlertMode.valueOf(alertModeStr) } catch (e: Exception) { NavigationAlertMode.VOICE }
+
         _uiState.update { 
             it.copy(
                 centerLat = lat, 
                 centerLon = lon, 
                 zoomLevel = zoom, 
                 followLocation = follow,
-                mapTheme = theme
+                mapTheme = theme,
+                navigationAlertMode = alertMode
             ) 
         }
+        navEngine.alertMode = alertMode
 
         if (lat == 0.0 && lon == 0.0) {
             centerOnLocation()
@@ -123,6 +130,7 @@ class MapViewModel @Inject constructor(
             .putInt("map_zoom_level", state.zoomLevel)
             .putBoolean("map_follow_location", state.followLocation)
             .putString("map_theme", state.mapTheme.name)
+            .putString("nav_alert_mode", state.navigationAlertMode.name)
             .apply()
     }
 
@@ -217,6 +225,12 @@ class MapViewModel @Inject constructor(
 
     fun setMapTheme(theme: MapTheme) {
         _uiState.update { it.copy(mapTheme = theme) }
+        persistMapState()
+    }
+
+    fun setNavigationAlertMode(mode: NavigationAlertMode) {
+        _uiState.update { it.copy(navigationAlertMode = mode) }
+        navEngine.alertMode = mode
         persistMapState()
     }
 

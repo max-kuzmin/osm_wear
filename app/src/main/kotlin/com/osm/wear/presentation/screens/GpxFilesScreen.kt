@@ -29,6 +29,8 @@ import androidx.wear.compose.material3.*
 
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Notifications
+import com.osm.wear.domain.model.NavigationAlertMode
 
 @Composable
 fun GpxFilesScreen(
@@ -130,6 +132,47 @@ fun GpxFilesScreen(
                 hasActiveGpx = gpxFiles.any { it.isActive },
                 onStart = onStartNavigation,
                 onStop = onStopNavigation
+            )
+        }
+
+        item {
+            Button(
+                onClick = {
+                    val nextMode = when (uiState.navigationAlertMode) {
+                        NavigationAlertMode.VOICE -> NavigationAlertMode.SOUND
+                        NavigationAlertMode.SOUND -> NavigationAlertMode.VIBRATION
+                        NavigationAlertMode.VIBRATION -> NavigationAlertMode.SILENT
+                        NavigationAlertMode.SILENT -> NavigationAlertMode.VOICE
+                    }
+                    vm.setNavigationAlertMode(nextMode)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = androidx.compose.ui.graphics.Color.White
+                    )
+                },
+                label = { Text("Nav Alerts", fontSize = 13.sp) },
+                secondaryLabel = {
+                    val modeText = when (uiState.navigationAlertMode) {
+                        NavigationAlertMode.VOICE -> "Voice"
+                        NavigationAlertMode.SOUND -> "Sound"
+                        NavigationAlertMode.VIBRATION -> "Vibration"
+                        NavigationAlertMode.SILENT -> "Silent"
+                    }
+                    Text(
+                        text = modeText,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
+                }
             )
         }
 

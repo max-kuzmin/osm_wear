@@ -75,6 +75,13 @@ enum class MapRotationMode {
     MANUAL
 }
 
+enum class NavigationAlertMode {
+    VOICE,
+    SOUND,
+    VIBRATION,
+    SILENT
+}
+
 // ─── GPS ─────────────────────────────────────────────────────────────────────
 
 enum class GpsBatteryMode(

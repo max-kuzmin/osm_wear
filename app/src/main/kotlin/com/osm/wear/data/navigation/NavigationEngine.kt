@@ -11,6 +11,7 @@ import com.osm.wear.domain.model.GpxFile
 import com.osm.wear.domain.model.GpxPoint
 import com.osm.wear.domain.model.NavigationState
 import com.osm.wear.domain.model.NavigationWaypoint
+import com.osm.wear.domain.model.NavigationAlertMode
 import com.osm.wear.domain.model.UserLocation
 import java.util.Locale
 import kotlin.math.*
@@ -45,6 +46,8 @@ class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListen
 
     private var tts: TextToSpeech? = null
     private var isTtsInitialized = false
+    
+    var alertMode: NavigationAlertMode = NavigationAlertMode.VOICE
 
     init {
         tts = TextToSpeech(context, this)
@@ -317,6 +320,7 @@ class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListen
     }
 
     fun announce(message: String) {
+        if (alertMode != NavigationAlertMode.VOICE) return
         if (isTtsInitialized && tts != null) {
             tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
         }
@@ -366,25 +370,37 @@ class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListen
     }
 
     private fun fireAlarm(message: String) {
-        try {
-            vibrator?.vibrate(
-                VibrationEffect.createWaveform(
-                    longArrayOf(0, 200, 100, 200, 100, 400),
-                    intArrayOf(0, 255, 0, 255, 0, 255),
-                    -1
-                )
-            )
-        } catch (e: Exception) { Log.w(TAG, "Vibration failed", e) }
-        
-        if (isTtsInitialized && tts != null) {
-            tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
-        } else {
+        if (alertMode == NavigationAlertMode.SILENT) return
+
+        if (alertMode == NavigationAlertMode.VOICE || alertMode == NavigationAlertMode.SOUND || alertMode == NavigationAlertMode.VIBRATION) {
             try {
-                val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                val ringtone = RingtoneManager.getRingtone(context, uri)
-                ringtone?.play()
-            } catch (e: Exception) { Log.w(TAG, "Notification sound failed", e) }
+                vibrator?.vibrate(
+                    VibrationEffect.createWaveform(
+                        longArrayOf(0, 200, 100, 200, 100, 400),
+                        intArrayOf(0, 255, 0, 255, 0, 255),
+                        -1
+                    )
+                )
+            } catch (e: Exception) { Log.w(TAG, "Vibration failed", e) }
         }
+
+        if (alertMode == NavigationAlertMode.VOICE) {
+            if (isTtsInitialized && tts != null) {
+                tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
+            } else {
+                playNotificationSound()
+            }
+        } else if (alertMode == NavigationAlertMode.SOUND) {
+            playNotificationSound()
+        }
+    }
+
+    private fun playNotificationSound() {
+        try {
+            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val ringtone = RingtoneManager.getRingtone(context, uri)
+            ringtone?.play()
+        } catch (e: Exception) { Log.w(TAG, "Notification sound failed", e) }
     }
 
     // ── Math ──────────────────────────────────────────────────────────────────
