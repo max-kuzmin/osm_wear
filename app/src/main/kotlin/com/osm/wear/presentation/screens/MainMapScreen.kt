@@ -79,6 +79,7 @@ fun MainMapScreen(
     val locationMarker  = remember { mutableStateOf<LocationArrowLayer?>(null) }
     val trackLayer      = remember { mutableStateOf<TrackMarkersLayer?>(null) }
     val tileLayerRef    = remember { mutableStateOf<TileRendererLayer?>(null) }
+    val dotMarkLayer    = remember { mutableStateOf<com.osm.wear.presentation.map.layers.DotMarkLayer?>(null) }
 
     // ── Smooth Location Animation ──────────────────────────────────────────
     // We animate Lat/Long and Bearing to interpolate between GPS updates.
@@ -207,6 +208,39 @@ fun MainMapScreen(
         reloadTileLayer(context, mv, uiState.activeMapFile, uiState.mapTheme, tileLayerRef)
     }
 
+    // Update DotMarkLayer dynamically based on tappedPoint changes
+    LaunchedEffect(uiState.tappedPoint) {
+        val mv = mapViewRef.value ?: return@LaunchedEffect
+        val pt = uiState.tappedPoint
+        if (pt == null) {
+            dotMarkLayer.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
+            dotMarkLayer.value = null
+        } else {
+            val latLong = LatLong(pt.lat, pt.lon)
+            val currentLayer = dotMarkLayer.value
+            if (currentLayer == null) {
+                val layer = com.osm.wear.presentation.map.layers.DotMarkLayer(latLong, mv)
+                mv.layerManager.layers.add(layer)
+                dotMarkLayer.value = layer
+            } else {
+                currentLayer.updatePosition(latLong)
+            }
+        }
+    }
+
+    val gestureDetector = remember {
+        android.view.GestureDetector(context, object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onLongPress(e: MotionEvent) {
+                val mv = mapViewRef.value ?: return
+                val projection = org.mapsforge.map.util.MapViewProjection(mv)
+                val latLong = projection.fromPixels(e.x.toDouble(), e.y.toDouble())
+                if (latLong != null) {
+                    vm.onMapTapped(latLong.latitude, latLong.longitude)
+                }
+            }
+        })
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -241,6 +275,14 @@ fun MainMapScreen(
                         trackLayer.value = layer
                     }
 
+                    // Draw initial green dot (DotMarkLayer)
+                    uiState.tappedPoint?.let { pt ->
+                        val latLong = LatLong(pt.lat, pt.lon)
+                        val layer = com.osm.wear.presentation.map.layers.DotMarkLayer(latLong, mv)
+                        mv.layerManager.layers.add(layer)
+                        dotMarkLayer.value = layer
+                    }
+
                     // Bezel rotation → zoom
                     mv.setOnGenericMotionListener { _, event ->
                         if (event.action == MotionEvent.ACTION_SCROLL) {
@@ -258,6 +300,8 @@ fun MainMapScreen(
                     val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
                     
                     mv.setOnTouchListener { _, event ->
+                        gestureDetector.onTouchEvent(event)
+                        
                         when (event.actionMasked) {
                             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                                 lastInteractionTime = System.currentTimeMillis()

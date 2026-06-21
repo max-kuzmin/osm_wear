@@ -45,7 +45,11 @@ data class MapUiState(
     /** Map style theme. */
     val mapTheme: MapTheme = MapTheme.OSMARENDER,
     /** Navigation alert mode (Voice, Sound, Vibration, Silent). */
-    val navigationAlertMode: NavigationAlertMode = NavigationAlertMode.VOICE
+    val navigationAlertMode: NavigationAlertMode = NavigationAlertMode.VOICE,
+    /** Tapped point coordinate (red dot) */
+    val tappedPoint: GpxPoint? = null,
+    /** Mode for point-to-point navigation (Walking, Cycling, Driving) */
+    val navigationMode: NavigationMode = NavigationMode.WALKING
 )
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
@@ -105,6 +109,18 @@ class MapViewModel @Inject constructor(
         val alertModeStr = prefs.getString("nav_alert_mode", NavigationAlertMode.VOICE.name) ?: NavigationAlertMode.VOICE.name
         val alertMode = try { NavigationAlertMode.valueOf(alertModeStr) } catch (e: Exception) { NavigationAlertMode.VOICE }
 
+        val hasTapped = prefs.getBoolean("has_tapped_point", false)
+        val tappedPoint = if (hasTapped) {
+            val tLat = prefs.getFloat("tapped_point_lat", 0f).toDouble()
+            val tLon = prefs.getFloat("tapped_point_lon", 0f).toDouble()
+            GpxPoint(tLat, tLon)
+        } else {
+            null
+        }
+
+        val modeStr = prefs.getString("navigation_mode", NavigationMode.WALKING.name) ?: NavigationMode.WALKING.name
+        val mode = try { NavigationMode.valueOf(modeStr) } catch (e: Exception) { NavigationMode.WALKING }
+
         _uiState.update { 
             it.copy(
                 centerLat = lat, 
@@ -112,7 +128,9 @@ class MapViewModel @Inject constructor(
                 zoomLevel = zoom, 
                 followLocation = follow,
                 mapTheme = theme,
-                navigationAlertMode = alertMode
+                navigationAlertMode = alertMode,
+                tappedPoint = tappedPoint,
+                navigationMode = mode
             ) 
         }
         navEngine.alertMode = alertMode
@@ -124,14 +142,24 @@ class MapViewModel @Inject constructor(
 
     private fun persistMapState() {
         val state = _uiState.value
-        prefs.edit()
+        val editor = prefs.edit()
             .putFloat("map_center_lat", state.centerLat.toFloat())
             .putFloat("map_center_lon", state.centerLon.toFloat())
             .putInt("map_zoom_level", state.zoomLevel)
             .putBoolean("map_follow_location", state.followLocation)
             .putString("map_theme", state.mapTheme.name)
             .putString("nav_alert_mode", state.navigationAlertMode.name)
-            .apply()
+            .putString("navigation_mode", state.navigationMode.name)
+
+        val pt = state.tappedPoint
+        if (pt != null) {
+            editor.putBoolean("has_tapped_point", true)
+                .putFloat("tapped_point_lat", pt.lat.toFloat())
+                .putFloat("tapped_point_lon", pt.lon.toFloat())
+        } else {
+            editor.putBoolean("has_tapped_point", false)
+        }
+        editor.apply()
     }
 
     // ── Location ───────────────────────────────────────────────────────────────
@@ -482,7 +510,13 @@ class MapViewModel @Inject constructor(
     }
 
     fun stopNavigation() {
-        _uiState.update { it.copy(navigationState = null) }
+        _uiState.update { 
+            val clearGpx = it.activeGpxFile?.id == "path_finder"
+            it.copy(
+                navigationState = null,
+                activeGpxFile = if (clearGpx) null else it.activeGpxFile
+            )
+        }
         setGpsBatteryMode(GpsBatteryMode.BALANCED)
         
         navEngine.announce("Navigation stopped")
@@ -490,6 +524,137 @@ class MapViewModel @Inject constructor(
         // Stop Foreground Service
         val serviceIntent = android.content.Intent(context, com.osm.wear.data.navigation.NavigationService::class.java)
         context.stopService(serviceIntent)
+    }
+
+    fun onMapTapped(lat: Double, lon: Double) {
+        val pt = GpxPoint(lat, lon)
+        _uiState.update { it.copy(tappedPoint = pt) }
+        persistMapState()
+    }
+
+    fun clearTappedPoint() {
+        _uiState.update { it.copy(tappedPoint = null) }
+        persistMapState()
+    }
+
+    fun cycleNavigationMode() {
+        val nextMode = when (_uiState.value.navigationMode) {
+            NavigationMode.WALKING -> NavigationMode.CYCLING
+            NavigationMode.CYCLING -> NavigationMode.DRIVING
+            NavigationMode.DRIVING -> NavigationMode.WALKING
+        }
+        _uiState.update { it.copy(navigationMode = nextMode) }
+        persistMapState()
+    }
+
+    fun startNavigationToPoint(onFailure: (String) -> Unit) {
+        val target = _uiState.value.tappedPoint
+        if (target == null) {
+            onFailure("No target point selected.")
+            return
+        }
+        
+        val startLat: Double
+        val startLon: Double
+        val currentLoc = _currentLocation.value
+        if (currentLoc != null) {
+            startLat = currentLoc.latitude
+            startLon = currentLoc.longitude
+        } else {
+            startLat = _uiState.value.centerLat
+            startLon = _uiState.value.centerLon
+        }
+
+        val mode = _uiState.value.navigationMode
+
+        viewModelScope.launch {
+            try {
+                val routePoints = fetchRoute(startLat, startLon, target.lat, target.lon, mode)
+                if (routePoints.isEmpty()) {
+                    onFailure("Routing failed. Check your internet connection.")
+                    return@launch
+                }
+                
+                val gpx = GpxFile(
+                    id = "path_finder",
+                    name = "Path Finder",
+                    filePath = "",
+                    trackPoints = routePoints,
+                    totalDistanceKm = calculateDistanceKm(routePoints),
+                    isActive = true
+                )
+
+                _uiState.update { it.copy(activeGpxFile = gpx) }
+                startNavigation()
+            } catch (e: Exception) {
+                android.util.Log.e("MapViewModel", "startNavigationToPoint failed", e)
+                onFailure("Routing failed. Check your internet connection.")
+            }
+        }
+    }
+
+    private suspend fun fetchRoute(
+        startLat: Double,
+        startLon: Double,
+        endLat: Double,
+        endLon: Double,
+        mode: NavigationMode
+    ): List<GpxPoint> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val client = okhttp3.OkHttpClient()
+        val url = "https://router.project-osrm.org/route/v1/${mode.profile}/$startLon,$startLat;$endLon,$endLat?overview=full&geometries=geojson"
+        
+        try {
+            val request = okhttp3.Request.Builder()
+                .url(url)
+                .build()
+                
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string()
+                    if (body != null) {
+                        val json = org.json.JSONObject(body)
+                        val routes = json.getJSONArray("routes")
+                        if (routes.length() > 0) {
+                            val route = routes.getJSONObject(0)
+                            val geometry = route.getJSONObject("geometry")
+                            val coordinates = geometry.getJSONArray("coordinates")
+                            val pts = mutableListOf<GpxPoint>()
+                            for (i in 0 until coordinates.length()) {
+                                val coord = coordinates.getJSONArray(i)
+                                val lon = coord.getDouble(0)
+                                val lat = coord.getDouble(1)
+                                pts.add(GpxPoint(lat = lat, lon = lon))
+                            }
+                            return@withContext pts
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MapViewModel", "Failed to fetch OSRM route: ${e.message}", e)
+        }
+        
+        return@withContext emptyList<GpxPoint>()
+    }
+
+    private fun calculateDistanceKm(points: List<GpxPoint>): Double {
+        if (points.size < 2) return 0.0
+        var total = 0.0
+        for (i in 1 until points.size) {
+            total += haversineM(points[i - 1], points[i])
+        }
+        return total / 1000.0
+    }
+
+    private fun haversineM(a: GpxPoint, b: GpxPoint): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(b.lat - a.lat)
+        val dLon = Math.toRadians(b.lon - a.lon)
+        val h = kotlin.math.sin(dLat / 2).let { it * it } +
+                kotlin.math.cos(Math.toRadians(a.lat)) * kotlin.math.cos(Math.toRadians(b.lat)) *
+                kotlin.math.sin(dLon / 2).let { it * it }
+        val clampedH = h.coerceIn(0.0, 1.0)
+        return r * 2 * kotlin.math.atan2(kotlin.math.sqrt(clampedH), kotlin.math.sqrt(1.0 - clampedH))
     }
 
     override fun onCleared() {

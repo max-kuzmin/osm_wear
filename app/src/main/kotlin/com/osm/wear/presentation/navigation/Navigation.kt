@@ -14,6 +14,7 @@ object Routes {
     const val SETTINGS         = "settings"
     const val REGIONS          = "regions"
     const val GPX_FILES        = "gpx_files"
+    const val PATH_FINDER      = "path_finder"
 }
 
 @Composable
@@ -48,9 +49,10 @@ fun OsmWearNavGraph() {
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 vm = vm,
-                onOpenRegions     = { navController.navigate(Routes.REGIONS) },
-                onOpenGpxFiles    = { navController.navigate(Routes.GPX_FILES) },
-                onBack            = { navController.popBackStack() }
+                onOpenRegions          = { navController.navigate(Routes.REGIONS) },
+                onOpenGpxFiles         = { navController.navigate(Routes.GPX_FILES) },
+                onOpenPathFinder       = { navController.navigate(Routes.PATH_FINDER) },
+                onBack                 = { navController.popBackStack() }
             )
         }
         composable(Routes.REGIONS) {
@@ -69,6 +71,15 @@ fun OsmWearNavGraph() {
                 },
                 onStopNavigation  = { vm.stopNavigation() },
                 onBack            = { navController.popBackStack() }
+            )
+        }
+        composable(Routes.PATH_FINDER) {
+            PathFinderScreen(
+                vm = vm,
+                onStartNavigation = {
+                    navController.popBackStack(Routes.MAP, false)
+                },
+                onBack = { navController.popBackStack() }
             )
         }
     }

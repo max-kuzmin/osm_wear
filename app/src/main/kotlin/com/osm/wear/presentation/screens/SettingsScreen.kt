@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +25,7 @@ fun SettingsScreen(
     vm: MapViewModel,
     onOpenRegions: () -> Unit,
     onOpenGpxFiles: () -> Unit,
+    onOpenPathFinder: () -> Unit,
     onBack: () -> Unit
 ) {
     val uiState         by vm.uiState.collectAsStateWithLifecycle()
@@ -100,6 +102,39 @@ fun SettingsScreen(
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     ) 
+                }
+            )
+        }
+ 
+         item {
+            Button(
+                onClick = onOpenPathFinder,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = androidx.compose.ui.graphics.Color.White
+                    )
+                },
+                label = { Text("Path Finder", fontSize = 13.sp) },
+                secondaryLabel = {
+                    val tappedPoint = uiState.tappedPoint
+                    val pointText = if (tappedPoint != null) {
+                        "%.4f, %.4f".format(tappedPoint.lat, tappedPoint.lon)
+                    } else {
+                        "No point selected"
+                    }
+                    Text(
+                        text = pointText,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
                 }
             )
         }
