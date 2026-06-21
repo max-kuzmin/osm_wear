@@ -5,6 +5,7 @@ import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,7 @@ fun MainMapScreen(
     val location by vm.currentLocation.collectAsStateWithLifecycle()
 
     val navState = uiState.navigationState
+    val pointMarkColor = android.graphics.Color.argb(220, 30, 136, 229)
 
     val focusRequester = remember { FocusRequester() }
 
@@ -66,6 +69,7 @@ fun MainMapScreen(
 
     var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
     var controlsVisible by remember { mutableStateOf(true) }
+    val controlsAlpha = if (controlsVisible) 1f else 0f
 
     // Auto-hide controls after 10 seconds of inactivity
     LaunchedEffect(lastInteractionTime) {
@@ -219,11 +223,12 @@ fun MainMapScreen(
             val latLong = LatLong(pt.lat, pt.lon)
             val currentLayer = dotMarkLayer.value
             if (currentLayer == null) {
-                val layer = com.osm.wear.presentation.map.layers.DotMarkLayer(latLong, mv)
+                val layer = com.osm.wear.presentation.map.layers.DotMarkLayer(latLong, mv, pointMarkColor)
                 mv.layerManager.layers.add(layer)
                 dotMarkLayer.value = layer
             } else {
                 currentLayer.updatePosition(latLong)
+                currentLayer.updateColor(pointMarkColor)
             }
         }
     }
@@ -275,10 +280,10 @@ fun MainMapScreen(
                         trackLayer.value = layer
                     }
 
-                    // Draw initial green dot (DotMarkLayer)
+                    // Draw initial dot (DotMarkLayer)
                     uiState.tappedPoint?.let { pt ->
                         val latLong = LatLong(pt.lat, pt.lon)
-                        val layer = com.osm.wear.presentation.map.layers.DotMarkLayer(latLong, mv)
+                        val layer = com.osm.wear.presentation.map.layers.DotMarkLayer(latLong, mv, pointMarkColor)
                         mv.layerManager.layers.add(layer)
                         dotMarkLayer.value = layer
                     }
@@ -391,91 +396,94 @@ fun MainMapScreen(
         )
 
         // ── Map Controls (Curved Right side column) ─────────────────────────
-        AnimatedVisibility(
-            visible = controlsVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.CenterEnd)
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 6.dp)
+                .graphicsLayer {
+                    alpha = controlsAlpha
+                },
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.End
         ) {
-            Column(
-                modifier = Modifier.padding(end = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                horizontalAlignment = Alignment.End
+            // Settings Button (Top - shifted further left for curve)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .offset(x = (-28).dp)
+                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
+                    .clickable(enabled = controlsVisible) { onOpenSettings(); lastInteractionTime = System.currentTimeMillis() },
+                contentAlignment = Alignment.Center
             ) {
-                // Settings Button (Top - shifted further left for curve)
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .offset(x = (-28).dp)
-                        .background(Color(0x66000000), CircleShape)
-                        .clickable { onOpenSettings(); lastInteractionTime = System.currentTimeMillis() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        modifier = Modifier.size(20.dp),
-                        tint = Color.White
-                    )
-                }
-                // Zoom In (Middle-Top - slightly shifted left for curve)
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .offset(x = (-8).dp)
-                        .background(Color(0x66000000), CircleShape)
-                        .clickable { vm.zoomIn(); lastInteractionTime = System.currentTimeMillis() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Zoom In",
-                        modifier = Modifier.size(20.dp),
-                        tint = Color.White
-                    )
-                }
-                // Zoom Out (Middle-Bottom - stays at the edge)
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .offset(x = (-8).dp)
-                        .background(Color(0x66000000), CircleShape)
-                        .clickable { vm.zoomOut(); lastInteractionTime = System.currentTimeMillis() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Remove,
-                        contentDescription = "Zoom Out",
-                        modifier = Modifier.size(20.dp),
-                        tint = Color.White
-                    )
-                }
-                // Center on Location (Bottom - slightly shifted left for curve)
-                val buttonBgColor = if (!uiState.followLocation) {
-                    Color(0x66000000) // same background as other buttons in free mode
-                } else {
-                    Color(0x661565C0) // transparent blue in other modes
-                }
-                val buttonIcon = if (uiState.followLocation && uiState.mapRotationMode == MapRotationMode.HEADING_UP) {
-                    Icons.Default.Navigation
-                } else {
-                    Icons.Default.MyLocation
-                }
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .offset(x = (-28).dp)
-                        .background(buttonBgColor, CircleShape)
-                        .clickable { vm.centerOnLocation(); lastInteractionTime = System.currentTimeMillis() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = buttonIcon,
-                        contentDescription = "Center on Location",
-                        modifier = Modifier.size(20.dp),
-                        tint = Color.White
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            // Zoom In (Middle-Top - slightly shifted left for curve)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .offset(x = (-8).dp)
+                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
+                    .clickable(enabled = controlsVisible) { vm.zoomIn(); lastInteractionTime = System.currentTimeMillis() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Zoom In",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            // Zoom Out (Middle-Bottom - stays at the edge)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .offset(x = (-8).dp)
+                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
+                    .clickable(enabled = controlsVisible) { vm.zoomOut(); lastInteractionTime = System.currentTimeMillis() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Remove,
+                    contentDescription = "Zoom Out",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            // Center on Location (Bottom - slightly shifted left for curve)
+            val buttonBgColor = if (!uiState.followLocation) {
+                MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f)
+            } else {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+            }
+            val buttonIconColor = if (!uiState.followLocation) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onPrimary
+            }
+            val buttonIcon = if (uiState.followLocation && uiState.mapRotationMode == MapRotationMode.HEADING_UP) {
+                Icons.Default.Navigation
+            } else {
+                Icons.Default.MyLocation
+            }
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .offset(x = (-28).dp)
+                    .background(buttonBgColor, CircleShape)
+                    .clickable(enabled = controlsVisible) { vm.centerOnLocation(); lastInteractionTime = System.currentTimeMillis() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = buttonIcon,
+                    contentDescription = "Center on Location",
+                    modifier = Modifier.size(20.dp),
+                    tint = buttonIconColor
+                )
             }
         }
 
@@ -504,7 +512,7 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
     Row(
         modifier = modifier
             .background(
-                color = Color(0x66000000),
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f),
                 shape = CircleShape
             )
             .padding(horizontal = 12.dp, vertical = 2.dp),
@@ -515,9 +523,13 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
             text = arrow, 
             fontSize = 24.sp, 
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-            color = Color.Yellow
+            color = MaterialTheme.colorScheme.onSurface
         )
-        Text(distText, fontSize = 15.sp, color = Color.White)
+        Text(
+            text = distText, 
+            fontSize = 15.sp, 
+            color = MaterialTheme.colorScheme.onSurface
+        )
         if (navState.isOffTrack) {
             Text("⚠", fontSize = 13.sp, color = Color.Red)
         }

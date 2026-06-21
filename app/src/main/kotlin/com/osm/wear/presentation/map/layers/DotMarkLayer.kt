@@ -15,20 +15,22 @@ import org.mapsforge.core.util.MercatorProjection
 import kotlin.jvm.Volatile
 
 /**
- * Renders a distinct green dot with a black border at the tapped position.
+ * Renders a distinct dot with a black border at the tapped position,
+ * matching the button background color.
  */
 class DotMarkLayer(
     @Volatile private var latLong: LatLong,
-    private val mv: MapView
+    private val mv: MapView,
+    private var fillColor: Int
 ) : Layer() {
 
     private val fillPaint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.GREEN)
+        setColor(fillColor)
         setStyle(Style.FILL)
     }
 
     private val strokePaint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.BLACK)
+        setColor(Color.WHITE)
         strokeWidth = 3f
         setStyle(Style.STROKE)
     }
@@ -37,6 +39,12 @@ class DotMarkLayer(
 
     fun updatePosition(newLatLong: LatLong) {
         this.latLong = newLatLong
+        requestRedraw()
+    }
+
+    fun updateColor(newColor: Int) {
+        this.fillColor = newColor
+        fillPaint.setColor(newColor)
         requestRedraw()
     }
 
