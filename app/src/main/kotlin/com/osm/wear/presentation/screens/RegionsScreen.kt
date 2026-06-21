@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 
+import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.domain.model.DownloadState
 
 @Composable
@@ -184,6 +185,14 @@ fun RegionsScreen(
                     }
                 }
             }
+        }
+        
+        item {
+            Spacer(Modifier.height(8.dp))
+        }
+
+        item {
+            BackButton(onClick = onBack)
         }
     }
 }

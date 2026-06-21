@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationOn
+import com.osm.wear.presentation.components.BackButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -145,8 +146,7 @@ fun SettingsScreen(
                     val nextTheme = when (uiState.mapTheme) {
                         MapTheme.BIKER -> MapTheme.DARK
                         MapTheme.DARK -> MapTheme.DEFAULT
-                        MapTheme.DEFAULT -> MapTheme.HILLSHADING
-                        MapTheme.HILLSHADING -> MapTheme.INDIGO
+                        MapTheme.DEFAULT -> MapTheme.INDIGO
                         MapTheme.INDIGO -> MapTheme.MOTORIDER
                         MapTheme.MOTORIDER -> MapTheme.OSMARENDER
                         MapTheme.OSMARENDER -> MapTheme.BIKER
@@ -172,7 +172,6 @@ fun SettingsScreen(
                         MapTheme.BIKER -> "Biker"
                         MapTheme.DARK -> "Dark"
                         MapTheme.DEFAULT -> "Default"
-                        MapTheme.HILLSHADING -> "Hillshading"
                         MapTheme.INDIGO -> "Indigo"
                         MapTheme.MOTORIDER -> "Motorider"
                         MapTheme.OSMARENDER -> "Osmarender"
@@ -187,23 +186,7 @@ fun SettingsScreen(
         }
 
         item {
-            Button(
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        modifier = Modifier.size(24.dp),
-                        tint = androidx.compose.ui.graphics.Color.White
-                    )
-                },
-                label = { Text("Back", fontSize = 13.sp) }
-            )
+            BackButton(onClick = onBack)
         }
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsCar
+import com.osm.wear.presentation.components.BackButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -146,6 +147,14 @@ fun PathFinderScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp, start = 8.dp, end = 8.dp)
             )
+        }
+
+        item {
+            Spacer(Modifier.height(8.dp))
+        }
+
+        item {
+            BackButton(onClick = onBack)
         }
     }
 }

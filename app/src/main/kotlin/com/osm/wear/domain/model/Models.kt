@@ -113,7 +113,6 @@ enum class MapTheme {
     BIKER,
     DARK,
     DEFAULT,
-    HILLSHADING,
     INDIGO,
     MOTORIDER,
     OSMARENDER

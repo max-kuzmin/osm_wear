@@ -30,6 +30,7 @@ import androidx.wear.compose.material3.*
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Notifications
+import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.domain.model.NavigationAlertMode
 
 @Composable
@@ -225,6 +226,14 @@ fun GpxFilesScreen(
                     contentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
+        }
+
+        item {
+            Spacer(Modifier.height(8.dp))
+        }
+
+        item {
+            BackButton(onClick = onBack)
         }
     }
 }

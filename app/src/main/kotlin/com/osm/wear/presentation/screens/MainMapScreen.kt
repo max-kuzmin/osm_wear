@@ -580,7 +580,6 @@ private fun reloadTileLayer(
             MapTheme.BIKER -> MapsforgeThemes.BIKER
             MapTheme.DARK -> MapsforgeThemes.DARK
             MapTheme.DEFAULT -> MapsforgeThemes.DEFAULT
-            MapTheme.HILLSHADING -> MapsforgeThemes.HILLSHADING
             MapTheme.INDIGO -> MapsforgeThemes.INDIGO
             MapTheme.MOTORIDER -> MapsforgeThemes.MOTORIDER
             MapTheme.OSMARENDER -> MapsforgeThemes.OSMARENDER
