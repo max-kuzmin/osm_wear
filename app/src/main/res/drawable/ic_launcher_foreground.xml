@@ -5,52 +5,68 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Neon-mint glow effect under OSM letters -->
+    <!-- Neon-mint glow effect under OSM W letters -->
     <!-- Glow for O -->
     <path
-        android:pathData="M 31,42 C 34.8,42 38,45.2 38,49 L 38,59 C 38,62.8 34.8,66 31,66 C 27.2,66 24,62.8 24,59 L 24,49 C 24,45.2 27.2,42 31,42 Z"
-        android:strokeWidth="12"
+        android:pathData="M 38,36 C 40.7,36 43,38.5 43,41 L 43,49 C 43,51.5 40.7,54 38,54 C 35.3,54 33,51.5 33,49 L 33,41 C 33,38.5 35.3,36 38,36 Z"
+        android:strokeWidth="9"
         android:strokeColor="#2200FF88"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
         
     <!-- Glow for S -->
     <path
-        android:pathData="M 58,45 C 57,41 45,41 45,47 C 45,53 57,55 57,61 C 57,67 45,67 44,63"
-        android:strokeWidth="12"
+        android:pathData="M 57,39 C 56,36 48,36 48,40 C 48,44 56,46 56,50 C 56,54 48,54 47,51"
+        android:strokeWidth="9"
         android:strokeColor="#2200FF88"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
         
     <!-- Glow for M -->
     <path
-        android:pathData="M 64,66 L 64,42 L 74,55 L 84,42 L 84,66"
-        android:strokeWidth="12"
+        android:pathData="M 61,54 L 61,36 L 68,46 L 75,36 L 75,54"
+        android:strokeWidth="9"
         android:strokeColor="#2200FF88"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
 
-    <!-- Foreground OSM letters (Crisp White) -->
+    <!-- Glow for W -->
+    <path
+        android:pathData="M 47,60 L 47,72 L 54,65 L 61,72 L 61,60"
+        android:strokeWidth="9"
+        android:strokeColor="#2200FF88"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Foreground OSM W letters (Crisp White) -->
     <!-- Letter O -->
     <path
-        android:pathData="M 31,42 C 34.8,42 38,45.2 38,49 L 38,59 C 38,62.8 34.8,66 31,66 C 27.2,66 24,62.8 24,59 L 24,49 C 24,45.2 27.2,42 31,42 Z"
-        android:strokeWidth="6"
+        android:pathData="M 38,36 C 40.7,36 43,38.5 43,41 L 43,49 C 43,51.5 40.7,54 38,54 C 35.3,54 33,51.5 33,49 L 33,41 C 33,38.5 35.3,36 38,36 Z"
+        android:strokeWidth="4"
         android:strokeColor="#FFFFFF"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
 
     <!-- Letter S -->
     <path
-        android:pathData="M 58,45 C 57,41 45,41 45,47 C 45,53 57,55 57,61 C 57,67 45,67 44,63"
-        android:strokeWidth="6"
+        android:pathData="M 57,39 C 56,36 48,36 48,40 C 48,44 56,46 56,50 C 56,54 48,54 47,51"
+        android:strokeWidth="4"
         android:strokeColor="#FFFFFF"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
 
     <!-- Letter M -->
     <path
-        android:pathData="M 64,66 L 64,42 L 74,55 L 84,42 L 84,66"
-        android:strokeWidth="6"
+        android:pathData="M 61,54 L 61,36 L 68,46 L 75,36 L 75,54"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Letter W -->
+    <path
+        android:pathData="M 47,60 L 47,72 L 54,65 L 61,72 L 61,60"
+        android:strokeWidth="4"
         android:strokeColor="#FFFFFF"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
