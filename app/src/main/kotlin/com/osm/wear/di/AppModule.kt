@@ -1,10 +1,19 @@
 package com.osm.wear.di
 
 import android.content.Context
-import com.osm.wear.data.gpx.GpxRepository
-import com.osm.wear.data.location.LocationRepository
-import com.osm.wear.data.map.MapDownloadManager
-import com.osm.wear.data.navigation.NavigationEngine
+import com.osm.wear.repositories.GpxRepository
+import com.osm.wear.repositories.LocationRepository
+import com.osm.wear.repositories.MapDownloadRepository
+import com.osm.wear.repositories.RouteRepositoryImpl
+import com.osm.wear.repositories.SettingsRepositoryImpl
+import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.repositories.ILocationRepository
+import com.osm.wear.repositories.IRouteRepository
+import com.osm.wear.repositories.ISettingsRepository
+import com.osm.wear.services.INavigationService
+import com.osm.wear.services.IMapRegionCatalogService
+import com.osm.wear.services.MapRegionCatalogService
+import com.osm.wear.services.NavigationService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,7 +34,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideLocationRepository(@ApplicationContext context: Context): LocationRepository {
+    fun provideLocationRepository(@ApplicationContext context: Context): ILocationRepository {
         return LocationRepository(context)
     }
 
@@ -37,22 +46,41 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideSettingsRepository(prefs: android.content.SharedPreferences): ISettingsRepository {
+        return SettingsRepositoryImpl(prefs)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRouteRepository(client: OkHttpClient): IRouteRepository {
+        return RouteRepositoryImpl(client)
+    }
+
+    @Provides
+    @Singleton
     fun provideGpxRepository(
         @ApplicationContext context: Context,
         prefs: android.content.SharedPreferences
-    ): GpxRepository {
+    ): IGpxRepository {
         return GpxRepository(context, prefs)
     }
 
     @Provides
     @Singleton
-    fun provideMapDownloadManager(@ApplicationContext context: Context): MapDownloadManager {
-        return MapDownloadManager(context)
+    fun provideMapDownloadRepository(@ApplicationContext context: Context): MapDownloadRepository {
+        return MapDownloadRepository(context)
     }
 
     @Provides
     @Singleton
-    fun provideNavigationEngine(@ApplicationContext context: Context): NavigationEngine {
-        return NavigationEngine(context)
+    fun provideMapRegionCatalogService(): IMapRegionCatalogService {
+        return MapRegionCatalogService()
+    }
+
+    @Provides
+    @Singleton
+    fun provideNavigationService(@ApplicationContext context: Context): INavigationService {
+        return NavigationService(context)
     }
 }
+

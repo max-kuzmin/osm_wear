@@ -1,4 +1,4 @@
-package com.osm.wear.data.navigation
+package com.osm.wear.services
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -12,7 +12,7 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.osm.wear.presentation.MainActivity
 
-class NavigationService : Service() {
+class NavigationForegroundService : Service() {
 
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -108,3 +108,4 @@ class NavigationService : Service() {
         private const val NOTIFICATION_ID = 101
     }
 }
+

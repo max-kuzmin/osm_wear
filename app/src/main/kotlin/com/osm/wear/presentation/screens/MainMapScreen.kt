@@ -29,15 +29,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.*
-import com.osm.wear.domain.model.NavigationState
-import com.osm.wear.domain.model.UserLocation
+import com.osm.wear.models.NavigationState
+import com.osm.wear.models.UserLocation
 import com.osm.wear.presentation.map.layers.LocationArrowLayer
 import com.osm.wear.presentation.map.layers.TrackMarkersLayer
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.model.Rotation
-import com.osm.wear.domain.model.MapRotationMode
-import com.osm.wear.domain.model.MapTheme
+import com.osm.wear.models.MapRotationMode
+import com.osm.wear.models.MapTheme
 import org.mapsforge.map.rendertheme.internal.MapsforgeThemes
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.util.AndroidUtil
@@ -596,3 +596,4 @@ private fun reloadTileLayer(
         android.util.Log.e("MainMapScreen", "Failed to reload tile layer", e)
     }
 }
+

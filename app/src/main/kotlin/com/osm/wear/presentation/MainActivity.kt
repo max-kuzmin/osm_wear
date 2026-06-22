@@ -9,7 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.osm.wear.presentation.navigation.OsmWearNavGraph
 import com.osm.wear.presentation.theme.OsmWearTheme
-import com.osm.wear.presentation.screens.MapViewModel
+import com.osm.wear.view_models.MapViewModel
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -87,3 +87,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+

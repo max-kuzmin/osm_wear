@@ -31,7 +31,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Notifications
 import com.osm.wear.presentation.components.BackButton
-import com.osm.wear.domain.model.NavigationAlertMode
+import com.osm.wear.models.NavigationAlertMode
 
 @Composable
 fun GpxFilesScreen(
@@ -285,3 +285,4 @@ private fun NavigationButton(
         }
     }
 }
+

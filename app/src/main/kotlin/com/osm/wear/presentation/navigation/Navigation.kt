@@ -8,6 +8,7 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.osm.wear.presentation.screens.*
+import com.osm.wear.view_models.MapViewModel
 
 object Routes {
     const val MAP              = "map"

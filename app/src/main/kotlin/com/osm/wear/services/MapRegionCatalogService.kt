@@ -1,13 +1,16 @@
-package com.osm.wear.data.map
+package com.osm.wear.services
 
-import com.osm.wear.domain.model.MapRegion
+import com.osm.wear.models.MapRegion
 
 /**
  * Catalogue of downloadable Mapsforge map regions.
  * Download URLs point to https://download.mapsforge.org/maps/v5/
  * which serves free OpenStreetMap-derived .map files.
  */
-object MapRegionCatalog {
+import com.osm.wear.services.IMapRegionCatalogService
+import javax.inject.Inject
+
+class MapRegionCatalogService @Inject constructor() : IMapRegionCatalogService {
 
     private const val BASE = "https://download.mapsforge.org/maps/v5"
 
@@ -21,7 +24,7 @@ object MapRegionCatalog {
             fileName    = path.substringAfterLast('/')
         )
 
-    val all: List<MapRegion> = listOf(
+    override val all: List<MapRegion> = listOf(
 
         // ── Africa ────────────────────────────────────────────────────────────
         r("africa/egypt",           "Egypt",           "Africa",        "africa/egypt.map",                    173),
@@ -101,8 +104,10 @@ object MapRegionCatalog {
     )
 
     /** Unique continent names in display order. */
-    val continents: List<String> get() = all.map { it.continent }.distinct()
+    override val continents: List<String>
+        get() = all.map { it.continent }.distinct().sorted()
 
     /** Find a region by its id. */
-    fun findById(id: String): MapRegion? = all.find { it.id == id }
+    override fun findById(id: String): MapRegion? = all.find { it.id == id }
 }
+

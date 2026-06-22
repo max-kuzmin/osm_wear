@@ -13,7 +13,7 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 
 import com.osm.wear.presentation.components.BackButton
-import com.osm.wear.domain.model.DownloadState
+import com.osm.wear.models.DownloadState
 
 @Composable
 fun RegionsScreen(
@@ -196,3 +196,4 @@ fun RegionsScreen(
         }
     }
 }
+

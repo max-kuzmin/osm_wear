@@ -1,10 +1,10 @@
-package com.osm.wear.data.gpx
+package com.osm.wear.repositories
 
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import com.osm.wear.domain.model.GpxFile
-import com.osm.wear.domain.model.GpxPoint
+import com.osm.wear.models.GpxFile
+import com.osm.wear.models.GpxPoint
 import io.ticofab.androidgpxparser.parser.GPXParser
 import io.ticofab.androidgpxparser.parser.domain.TrackPoint as GpxTrackPoint
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +17,8 @@ import java.io.File
 import java.io.IOException
 import kotlin.math.*
 
+import com.osm.wear.repositories.IGpxRepository
+
 /**
  * Manages GPX file import, parsing, and storage.
  * Files are stored in [Context.getFilesDir]/gpx/.
@@ -25,20 +27,20 @@ import kotlin.math.*
 class GpxRepository(
     private val context: Context,
     private val prefs: android.content.SharedPreferences
-) {
+) : IGpxRepository {
 
     private val gpxDir: File get() = File(context.filesDir, "gpx").also { it.mkdirs() }
     private val parser = GPXParser()
 
     private val _files = MutableStateFlow<List<GpxFile>>(emptyList())
-    val files: StateFlow<List<GpxFile>> = _files.asStateFlow()
+    override val files: StateFlow<List<GpxFile>> = _files.asStateFlow()
 
     init { loadStoredFiles() }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
     /** Imports a GPX file from a content URI (file picker). */
-    suspend fun importFromUri(uri: Uri): Result<GpxFile> = withContext(Dispatchers.IO) {
+    override suspend fun importFromUri(uri: Uri): Result<GpxFile> = withContext(Dispatchers.IO) {
         try {
             val fileName = getFileNameFromUri(uri) ?: "track_${System.currentTimeMillis()}.gpx"
             val destFile = File(gpxDir, fileName)
@@ -55,7 +57,7 @@ class GpxRepository(
     }
 
     /** Imports a GPX file from a local [File]. */
-    suspend fun importFromFile(file: File): Result<GpxFile> = withContext(Dispatchers.IO) {
+    override suspend fun importFromFile(file: File): Result<GpxFile> = withContext(Dispatchers.IO) {
         try {
             val destFile = File(gpxDir, file.name)
             if (file.canonicalPath != destFile.canonicalPath) file.copyTo(destFile, overwrite = true)
@@ -69,7 +71,7 @@ class GpxRepository(
     }
 
     /** Deletes a GPX file from storage and state. */
-    suspend fun deleteFile(fileId: String) = withContext(Dispatchers.IO) {
+    override suspend fun deleteFile(fileId: String) = withContext(Dispatchers.IO) {
         val gpx = _files.value.find { it.id == fileId } ?: return@withContext
         File(gpx.filePath).delete()
         if (prefs.getString("active_gpx_id", null) == fileId) {
@@ -79,13 +81,13 @@ class GpxRepository(
     }
 
     /** Sets the active GPX file (only one can be active at a time). */
-    fun setActive(fileId: String) {
+    override fun setActive(fileId: String) {
         prefs.edit().putString("active_gpx_id", fileId).apply()
         _files.value = _files.value.map { it.copy(isActive = it.id == fileId) }
     }
 
     /** Clears the active GPX file. */
-    fun clearActive() {
+    override fun clearActive() {
         prefs.edit().remove("active_gpx_id").apply()
         _files.value = _files.value.map { it.copy(isActive = false) }
     }
@@ -207,3 +209,4 @@ class GpxRepository(
 
     companion object { private const val TAG = "GpxRepository" }
 }
+

@@ -1,10 +1,10 @@
-package com.osm.wear.data.map
+package com.osm.wear.repositories
 
 import android.content.Context
 import android.util.Log
-import com.osm.wear.domain.model.DownloadState
-import com.osm.wear.domain.model.DownloadedRegion
-import com.osm.wear.domain.model.MapRegion
+import com.osm.wear.models.DownloadState
+import com.osm.wear.models.DownloadedRegion
+import com.osm.wear.models.MapRegion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,12 +16,13 @@ import okhttp3.Call
 import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 /**
  * Downloads, stores, and manages Mapsforge .map files.
  * Files are stored in [Context.getFilesDir]/maps/.
  */
-class MapDownloadManager(private val context: Context) {
+class MapDownloadRepository @Inject constructor(private val context: Context) {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -156,5 +157,6 @@ class MapDownloadManager(private val context: Context) {
     private fun safeFileName(region: MapRegion): String =
         region.id.replace("/", "_") + ".map"
 
-    companion object { private const val TAG = "MapDownloadManager" }
+    companion object { private const val TAG = "MapDownloadRepository" }
 }
+

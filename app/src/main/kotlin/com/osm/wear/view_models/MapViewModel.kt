@@ -1,15 +1,13 @@
-package com.osm.wear.presentation.screens
+package com.osm.wear.view_models
 
 import android.net.Uri
 import android.os.Environment
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.osm.wear.data.gpx.GpxRepository
-import com.osm.wear.data.location.LocationRepository
-import com.osm.wear.data.map.MapDownloadManager
-import com.osm.wear.data.map.MapRegionCatalog
-import com.osm.wear.data.navigation.NavigationEngine
-import com.osm.wear.domain.model.*
+import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.repositories.ILocationRepository
+import com.osm.wear.repositories.IRouteRepository
+import com.osm.wear.repositories.ISettingsRepository
+import com.osm.wear.services.INavigationService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
@@ -17,51 +15,18 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
-// ─── UI state ────────────────────────────────────────────────────────────────
-
-data class MapUiState(
-    /** The .map file currently rendered on the main screen, or null if none. */
-    val activeMapFile: File? = null,
-    /** ID of the active region (used to highlight in the regions list). */
-    val activeRegionId: String? = null,
-    /** The GPX file currently overlaid on the map, or null if none. */
-    val activeGpxFile: GpxFile? = null,
-    /** Current zoom level (3..20). */
-    val zoomLevel: Int = 14,
-    /** Map centre latitude. */
-    val centerLat: Double = 0.0,
-    /** Map centre longitude. */
-    val centerLon: Double = 0.0,
-    /** Whether the map should snap to the user's current location. */
-    val followLocation: Boolean = true,
-    /** Current navigation state, or null when not navigating. */
-    val navigationState: NavigationState? = null,
-    /** Battery mode for GPS. */
-    val gpsBatteryMode: GpsBatteryMode = GpsBatteryMode.BALANCED,
-    /** Map rotation mode (North-up or Heading-up). */
-    val mapRotationMode: MapRotationMode = MapRotationMode.NORTH_UP,
-    /** Current manual rotation angle, used when MapRotationMode is MANUAL. */
-    val manualRotation: Float = 0f,
-    /** Map style theme. */
-    val mapTheme: MapTheme = MapTheme.OSMARENDER,
-    /** Navigation alert mode (Voice, Sound, Vibration, Silent). */
-    val navigationAlertMode: NavigationAlertMode = NavigationAlertMode.VOICE,
-    /** Tapped point coordinate (red dot) */
-    val tappedPoint: GpxPoint? = null,
-    /** Mode for point-to-point navigation (Walking, Cycling, Driving) */
-    val navigationMode: NavigationMode = NavigationMode.WALKING
-)
-
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
-    private val locationRepo: LocationRepository,
-    private val downloadManager: MapDownloadManager,
-    private val gpxRepo: GpxRepository,
-    private val navEngine: NavigationEngine,
-    private val prefs: android.content.SharedPreferences
+    private val locationRepo: ILocationRepository,
+    private val downloadManager: com.osm.wear.repositories.MapDownloadRepository,
+    private val gpxRepo: IGpxRepository,
+    private val routeRepo: IRouteRepository,
+    private val settingsRepository: ISettingsRepository,
+    private val navigationService: INavigationService,
+    private val mapRegionCatalogService: com.osm.wear.services.IMapRegionCatalogService
 ) : ViewModel() {
 
     // ── UI state ───────────────────────────────────────────────────────────────
@@ -86,7 +51,7 @@ class MapViewModel @Inject constructor(
     val downloadedRegions: StateFlow<List<DownloadedRegion>> = _downloadedRegions.asStateFlow()
 
     val groupedRegions: StateFlow<Map<String, List<MapRegion>>> = MutableStateFlow(
-        MapRegionCatalog.all.groupBy { it.continent }
+        mapRegionCatalogService.all.groupBy { it.continent }
     ).asStateFlow()
 
     init {
@@ -99,27 +64,14 @@ class MapViewModel @Inject constructor(
     }
 
     private fun loadMapState() {
-        val lat = prefs.getFloat("map_center_lat", 0.0f).toDouble()
-        val lon = prefs.getFloat("map_center_lon", 0.0f).toDouble()
-        val zoom = prefs.getInt("map_zoom_level", 14)
-        val follow = prefs.getBoolean("map_follow_location", true)
-        val themeStr = prefs.getString("map_theme", MapTheme.OSMARENDER.name) ?: MapTheme.OSMARENDER.name
-        val theme = try { MapTheme.valueOf(themeStr) } catch (e: Exception) { MapTheme.OSMARENDER }
-
-        val alertModeStr = prefs.getString("nav_alert_mode", NavigationAlertMode.VOICE.name) ?: NavigationAlertMode.VOICE.name
-        val alertMode = try { NavigationAlertMode.valueOf(alertModeStr) } catch (e: Exception) { NavigationAlertMode.VOICE }
-
-        val hasTapped = prefs.getBoolean("has_tapped_point", false)
-        val tappedPoint = if (hasTapped) {
-            val tLat = prefs.getFloat("tapped_point_lat", 0f).toDouble()
-            val tLon = prefs.getFloat("tapped_point_lon", 0f).toDouble()
-            GpxPoint(tLat, tLon)
-        } else {
-            null
-        }
-
-        val modeStr = prefs.getString("navigation_mode", NavigationMode.WALKING.name) ?: NavigationMode.WALKING.name
-        val mode = try { NavigationMode.valueOf(modeStr) } catch (e: Exception) { NavigationMode.WALKING }
+        val lat = settingsRepository.getMapCenterLat()
+        val lon = settingsRepository.getMapCenterLon()
+        val zoom = settingsRepository.getMapZoomLevel()
+        val follow = settingsRepository.getMapFollowLocation()
+        val theme = settingsRepository.getMapTheme()
+        val alertMode = settingsRepository.getNavigationAlertMode()
+        val tappedPoint = settingsRepository.getTappedPoint()
+        val mode = settingsRepository.getNavigationMode()
 
         _uiState.update { 
             it.copy(
@@ -133,7 +85,7 @@ class MapViewModel @Inject constructor(
                 navigationMode = mode
             ) 
         }
-        navEngine.alertMode = alertMode
+        navigationService.setAlertMode(alertMode)
 
         if (lat == 0.0 && lon == 0.0) {
             centerOnLocation()
@@ -142,24 +94,14 @@ class MapViewModel @Inject constructor(
 
     private fun persistMapState() {
         val state = _uiState.value
-        val editor = prefs.edit()
-            .putFloat("map_center_lat", state.centerLat.toFloat())
-            .putFloat("map_center_lon", state.centerLon.toFloat())
-            .putInt("map_zoom_level", state.zoomLevel)
-            .putBoolean("map_follow_location", state.followLocation)
-            .putString("map_theme", state.mapTheme.name)
-            .putString("nav_alert_mode", state.navigationAlertMode.name)
-            .putString("navigation_mode", state.navigationMode.name)
-
-        val pt = state.tappedPoint
-        if (pt != null) {
-            editor.putBoolean("has_tapped_point", true)
-                .putFloat("tapped_point_lat", pt.lat.toFloat())
-                .putFloat("tapped_point_lon", pt.lon.toFloat())
-        } else {
-            editor.putBoolean("has_tapped_point", false)
-        }
-        editor.apply()
+        settingsRepository.setMapCenterLat(state.centerLat)
+        settingsRepository.setMapCenterLon(state.centerLon)
+        settingsRepository.setMapZoomLevel(state.zoomLevel)
+        settingsRepository.setMapFollowLocation(state.followLocation)
+        settingsRepository.setMapTheme(state.mapTheme)
+        settingsRepository.setNavigationAlertMode(state.navigationAlertMode)
+        settingsRepository.setNavigationMode(state.navigationMode)
+        settingsRepository.setTappedPoint(state.tappedPoint)
     }
 
     // ── Location ───────────────────────────────────────────────────────────────
@@ -175,7 +117,7 @@ class MapViewModel @Inject constructor(
                 }
                 // Feed navigation engine
                 _uiState.value.navigationState?.let { nav ->
-                    val updated = navEngine.update(nav, loc)
+                    val updated = navigationService.updateNavigationState(nav, loc)
                     _uiState.update { it.copy(navigationState = updated) }
                 }
             }
@@ -258,7 +200,7 @@ class MapViewModel @Inject constructor(
 
     fun setNavigationAlertMode(mode: NavigationAlertMode) {
         _uiState.update { it.copy(navigationAlertMode = mode) }
-        navEngine.alertMode = mode
+        navigationService.setAlertMode(mode)
         persistMapState()
     }
 
@@ -296,7 +238,7 @@ class MapViewModel @Inject constructor(
                 activeRegionId = region.id
             )
         }
-        prefs.edit().putString("active_region_id", region.id).apply()
+        settingsRepository.setActiveRegionId(region.id)
         refreshDownloadedRegions()
     }
 
@@ -305,7 +247,7 @@ class MapViewModel @Inject constructor(
             downloadManager.deleteRegion(region)
             if (_uiState.value.activeRegionId == region.id) {
                 _uiState.update { it.copy(activeMapFile = null, activeRegionId = null) }
-                prefs.edit().remove("active_region_id").apply()
+                settingsRepository.setActiveRegionId(null)
             }
             refreshDownloadedRegions()
             autoLoadFirstRegion()
@@ -318,7 +260,7 @@ class MapViewModel @Inject constructor(
      */
     fun downloadRegion(region: MapRegion) {
         viewModelScope.launch {
-            downloadManager.downloadRegion(region)
+            offlineMapService.downloadRegion(region)
             refreshDownloadedRegions()
             // Auto-activate the first downloaded region if none is active
             if (_uiState.value.activeMapFile == null) {
@@ -328,29 +270,29 @@ class MapViewModel @Inject constructor(
     }
 
     fun cancelDownload() {
-        downloadManager.cancelDownload()
+        offlineMapService.cancelDownload()
     }
 
     fun refreshDownloadedRegions() {
         _downloadedRegions.value = downloadManager.getDownloadedRegions(
-            catalog = MapRegionCatalog.all,
+            catalog = mapRegionCatalogService.all,
             activeId = _uiState.value.activeRegionId
         )
     }
 
     private fun autoLoadFirstRegion() {
         if (_uiState.value.activeMapFile != null) return
-        val downloaded = downloadManager.getDownloadedRegions(MapRegionCatalog.all, null)
+        val downloaded = downloadManager.getDownloadedRegions(mapRegionCatalogService.all, null)
         if (downloaded.isEmpty()) return
 
-        val lastSelectedId = prefs.getString("active_region_id", null)
+        val lastSelectedId = settingsRepository.getActiveRegionId()
         val target = downloaded.find { it.region.id == lastSelectedId } ?: downloaded.first()
         
         val file = File(target.filePath)
         if (file.exists()) {
             _uiState.update { it.copy(activeMapFile = file, activeRegionId = target.region.id) }
             if (lastSelectedId != target.region.id) {
-                prefs.edit().putString("active_region_id", target.region.id).apply()
+                settingsRepository.setActiveRegionId(target.region.id)
             }
             refreshDownloadedRegions()
         }
@@ -395,28 +337,22 @@ class MapViewModel @Inject constructor(
     }
 
     fun scanGpxFolders() {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val foundFiles = mutableListOf<File>()
-            
-            // Scan Downloads folder recursively (including subfolders like Received)
-            val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            if (downloads.exists()) {
-                android.util.Log.i("MapViewModel", "Scanning downloads recursively: ${downloads.absolutePath}")
-                scanDirectory(downloads, foundFiles)
-            }
-
-            android.util.Log.i("MapViewModel", "Found ${foundFiles.size} GPX files total. Auto-importing...")
-            foundFiles.forEach { file ->
-                gpxRepo.importFromFile(file)
-            }
-
-            // Clean up files in internal storage that no longer exist in the scanned folders
-            val foundNames = foundFiles.map { it.name }.toSet()
-            val internalFiles = File(context.filesDir, "gpx").listFiles()?.filter { it.extension == "gpx" } ?: emptyList()
-            internalFiles.forEach { internalFile ->
-                if (!foundNames.contains(internalFile.name)) {
-                    android.util.Log.i("MapViewModel", "Deleting stale GPX file: ${internalFile.name}")
-                    gpxRepo.deleteFile(internalFile.name)
+        viewModelScope.launch {
+            withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val foundFiles = mutableListOf<File>()
+                val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (downloads.exists()) {
+                    scanDirectory(downloads, foundFiles)
+                }
+                foundFiles.forEach { file ->
+                    gpxRepo.importFromFile(file)
+                }
+                val foundNames = foundFiles.map { it.name }.toSet()
+                val internalFiles = File(context.filesDir, "gpx").listFiles()?.filter { it.extension == "gpx" } ?: emptyList()
+                internalFiles.forEach { internalFile ->
+                    if (!foundNames.contains(internalFile.name)) {
+                        gpxRepo.deleteFile(internalFile.name)
+                    }
                 }
             }
         }
@@ -426,11 +362,7 @@ class MapViewModel @Inject constructor(
         if (!dir.exists()) return
         val files = try {
             dir.listFiles()
-        } catch (e: SecurityException) {
-            android.util.Log.e("MapViewModel", "SecurityException listing files in: ${dir.absolutePath}", e)
-            null
         } catch (e: Exception) {
-            android.util.Log.e("MapViewModel", "Error listing files in: ${dir.absolutePath}", e)
             null
         }
         if (files == null) return
@@ -479,22 +411,11 @@ class MapViewModel @Inject constructor(
 
     fun startNavigation() {
         val gpx = _uiState.value.activeGpxFile ?: return
-        val waypoints = navEngine.buildWaypoints(gpx)
-        if (waypoints.isEmpty()) return
-        var nav = NavigationState(
-            isActive = true,
-            gpxFile = gpx,
-            waypoints = waypoints,
-            currentWaypointIndex = 0,
-            distanceToNextTurnM = waypoints.first().distanceToNextM,
-            bearingToNextTurn = waypoints.first().bearingToNext,
-            totalRemainingM = waypoints.sumOf { it.distanceToNextM.toDouble() }.toFloat(),
-            isOffTrack = false,
-            lastAlertedWaypointIndex = -1
-        )
+        var nav = navigationService.buildInitialNavigationState(gpx) ?: return
+        
         // Update navigation state immediately if location is available
         _currentLocation.value?.let { loc ->
-            nav = navEngine.update(nav, loc)
+            nav = navigationService.updateNavigationState(nav, loc)
         }
         _uiState.update { it.copy(navigationState = nav) }
         // Switch to high accuracy GPS for navigation
@@ -502,11 +423,8 @@ class MapViewModel @Inject constructor(
         // Auto-enable locate me mode
         centerOnLocation()
         
-        navEngine.announce("Navigation started")
-        
-        // Start Foreground Service for background navigation
-        val serviceIntent = android.content.Intent(context, com.osm.wear.data.navigation.NavigationService::class.java)
-        androidx.core.content.ContextCompat.startForegroundService(context, serviceIntent)
+        navigationService.announce("Navigation started")
+        navigationService.startForegroundService()
     }
 
     fun stopNavigation() {
@@ -519,11 +437,8 @@ class MapViewModel @Inject constructor(
         }
         setGpsBatteryMode(GpsBatteryMode.BALANCED)
         
-        navEngine.announce("Navigation stopped")
-        
-        // Stop Foreground Service
-        val serviceIntent = android.content.Intent(context, com.osm.wear.data.navigation.NavigationService::class.java)
-        context.stopService(serviceIntent)
+        navigationService.announce("Navigation stopped")
+        navigationService.stopForegroundService()
     }
 
     fun onMapTapped(lat: Double, lon: Double) {
@@ -569,7 +484,7 @@ class MapViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val routePoints = fetchRoute(startLat, startLon, target.lat, target.lon, mode)
+                val routePoints = routeRepo.fetchRoute(startLat, startLon, target.lat, target.lon, mode)
                 if (routePoints.isEmpty()) {
                     onFailure("Routing failed. Check your internet connection.")
                     return@launch
@@ -591,50 +506,6 @@ class MapViewModel @Inject constructor(
                 onFailure("Routing failed. Check your internet connection.")
             }
         }
-    }
-
-    private suspend fun fetchRoute(
-        startLat: Double,
-        startLon: Double,
-        endLat: Double,
-        endLon: Double,
-        mode: NavigationMode
-    ): List<GpxPoint> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val client = okhttp3.OkHttpClient()
-        val url = "https://router.project-osrm.org/route/v1/${mode.profile}/$startLon,$startLat;$endLon,$endLat?overview=full&geometries=geojson"
-        
-        try {
-            val request = okhttp3.Request.Builder()
-                .url(url)
-                .build()
-                
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val body = response.body?.string()
-                    if (body != null) {
-                        val json = org.json.JSONObject(body)
-                        val routes = json.getJSONArray("routes")
-                        if (routes.length() > 0) {
-                            val route = routes.getJSONObject(0)
-                            val geometry = route.getJSONObject("geometry")
-                            val coordinates = geometry.getJSONArray("coordinates")
-                            val pts = mutableListOf<GpxPoint>()
-                            for (i in 0 until coordinates.length()) {
-                                val coord = coordinates.getJSONArray(i)
-                                val lon = coord.getDouble(0)
-                                val lat = coord.getDouble(1)
-                                pts.add(GpxPoint(lat = lat, lon = lon))
-                            }
-                            return@withContext pts
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("MapViewModel", "Failed to fetch OSRM route: ${e.message}", e)
-        }
-        
-        return@withContext emptyList<GpxPoint>()
     }
 
     private fun calculateDistanceKm(points: List<GpxPoint>): Double {
@@ -660,6 +531,7 @@ class MapViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         locationJob?.cancel()
-        navEngine.release()
+        navigationService.release()
     }
 }
+

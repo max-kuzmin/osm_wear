@@ -1,34 +1,32 @@
-package com.osm.wear.data.navigation
+package com.osm.wear.services
 
 import android.content.Context
+import android.content.Intent
 import android.media.RingtoneManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import android.util.Log
-import com.osm.wear.domain.model.GpxFile
-import com.osm.wear.domain.model.GpxPoint
-import com.osm.wear.domain.model.NavigationState
-import com.osm.wear.domain.model.NavigationWaypoint
-import com.osm.wear.domain.model.NavigationAlertMode
-import com.osm.wear.domain.model.UserLocation
+import androidx.core.content.ContextCompat
+import com.osm.wear.models.GpxFile
+import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.NavigationAlertMode
+import com.osm.wear.models.NavigationState
+import com.osm.wear.models.NavigationWaypoint
+import com.osm.wear.models.UserLocation
+import com.osm.wear.models.SegmentProjection
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
+import javax.inject.Inject
 import kotlin.math.*
 
-/**
- * Computes turn-by-turn navigation from a [GpxFile] and the user's [UserLocation].
- *
- * A waypoint is classified as a "turn" when the bearing change between the incoming
- * and outgoing segments exceeds [TURN_THRESHOLD_DEG].
- *
- * Alarms (vibration + beep) fire when the user is within [ALARM_RADIUS_M] of a turn
- * and that turn has not yet been alerted.
- */
-class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListener {
+class NavigationService @Inject constructor(
+    @ApplicationContext private val context: Context
+) : INavigationService, TextToSpeech.OnInitListener {
 
     companion object {
-        private const val TAG               = "NavigationEngine"
+        private const val TAG               = "NavigationService"
         private const val TURN_THRESHOLD_DEG = 25.0  // degrees of bearing change = "turn"
         private const val ALARM_RADIUS_M     = 30.0  // metres – fire alarm when within this distance
         private const val OFF_TRACK_M        = 80.0  // metres – warn when this far from track
@@ -47,7 +45,7 @@ class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListen
     private var tts: TextToSpeech? = null
     private var isTtsInitialized = false
     
-    var alertMode: NavigationAlertMode = NavigationAlertMode.VOICE
+    private var alertMode: NavigationAlertMode = NavigationAlertMode.VOICE
 
     init {
         tts = TextToSpeech(context, this)
@@ -62,13 +60,49 @@ class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListen
         }
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    override fun startForegroundService() {
+        val serviceIntent = Intent(context, com.osm.wear.services.NavigationForegroundService::class.java)
+        ContextCompat.startForegroundService(context, serviceIntent)
+    }
 
-    /**
-     * Builds a list of [NavigationWaypoint]s from a [GpxFile].
-     * Call once when navigation starts; pass the result into [NavigationState].
-     */
-    fun buildWaypoints(gpxFile: GpxFile): List<NavigationWaypoint> {
+    override fun stopForegroundService() {
+        val serviceIntent = Intent(context, com.osm.wear.services.NavigationForegroundService::class.java)
+        context.stopService(serviceIntent)
+    }
+
+    override fun setAlertMode(mode: NavigationAlertMode) {
+        alertMode = mode
+    }
+
+    override fun announce(message: String) {
+        if (alertMode != NavigationAlertMode.VOICE) return
+        if (isTtsInitialized && tts != null) {
+            tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
+        }
+    }
+
+    override fun release() {
+        tts?.stop()
+        tts?.shutdown()
+    }
+
+    override fun buildInitialNavigationState(gpx: GpxFile): NavigationState? {
+        val waypoints = buildWaypoints(gpx)
+        if (waypoints.isEmpty()) return null
+        return NavigationState(
+            isActive = true,
+            gpxFile = gpx,
+            waypoints = waypoints,
+            currentWaypointIndex = 0,
+            distanceToNextTurnM = waypoints.first().distanceToNextM,
+            bearingToNextTurn = waypoints.first().bearingToNext,
+            totalRemainingM = waypoints.sumOf { it.distanceToNextM.toDouble() }.toFloat(),
+            isOffTrack = false,
+            lastAlertedWaypointIndex = -1
+        )
+    }
+
+    private fun buildWaypoints(gpxFile: GpxFile): List<NavigationWaypoint> {
         val pts = gpxFile.trackPoints
         if (pts.size < 2) return emptyList()
 
@@ -164,12 +198,6 @@ class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListen
         }
     }
 
-    data class SegmentProjection(
-        val projectedPoint: GpxPoint,
-        val distanceToSegmentM: Double,
-        val fraction: Double
-    )
-
     private fun projectPointToSegment(p: GpxPoint, a: GpxPoint, b: GpxPoint): SegmentProjection {
         val ab = haversineM(a, b)
         if (ab < 1.0) {
@@ -192,7 +220,7 @@ class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListen
      * Updates [state] based on the user's new [location].
      * Fires alarms when a turn waypoint is reached.
      */
-    fun update(state: NavigationState, location: UserLocation): NavigationState {
+    override fun updateNavigationState(state: NavigationState, location: UserLocation): NavigationState {
         if (!state.isActive || state.waypoints.isEmpty()) return state
 
         val userPt = GpxPoint(location.latitude, location.longitude)
@@ -319,56 +347,6 @@ class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListen
         )
     }
 
-    fun announce(message: String) {
-        if (alertMode != NavigationAlertMode.VOICE) return
-        if (isTtsInitialized && tts != null) {
-            tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
-        }
-    }
-
-    fun release() {
-        tts?.stop()
-        tts?.shutdown()
-    }
-
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    private fun findNearestWaypointIndex(
-        waypoints: List<NavigationWaypoint>,
-        user: GpxPoint,
-        fromIndex: Int
-    ): Int {
-        var bestIdx  = fromIndex
-        var bestDist = Double.MAX_VALUE
-        val end = minOf(fromIndex + 50, waypoints.size)
-        for (i in fromIndex until end) {
-            val d = haversineM(user, waypoints[i].point)
-            if (d < bestDist) { bestDist = d; bestIdx = i }
-        }
-        return bestIdx
-    }
-
-    private fun distToNearestSegment(track: List<GpxPoint>, user: GpxPoint): Double {
-        var min = Double.MAX_VALUE
-        for (i in 0 until track.size - 1) {
-            val d = pointToSegmentDist(user, track[i], track[i + 1])
-            if (d < min) min = d
-        }
-        return min
-    }
-
-    private fun pointToSegmentDist(p: GpxPoint, a: GpxPoint, b: GpxPoint): Double {
-        val ab = haversineM(a, b)
-        if (ab < 1.0) return haversineM(p, a)
-        val ap = haversineM(a, p)
-        val bp = haversineM(b, p)
-        val cosA = (ab * ab + ap * ap - bp * bp) / (2 * ab * ap)
-        val t = (ap * cosA).coerceIn(0.0, ab) / ab
-        val projLat = a.lat + t * (b.lat - a.lat)
-        val projLon = a.lon + t * (b.lon - a.lon)
-        return haversineM(p, GpxPoint(projLat, projLon))
-    }
-
     private fun fireAlarm(message: String) {
         if (alertMode == NavigationAlertMode.SILENT) return
 
@@ -429,3 +407,4 @@ class NavigationEngine(private val context: Context) : TextToSpeech.OnInitListen
         return if (diff > 180.0) 360.0 - diff else diff
     }
 }
+

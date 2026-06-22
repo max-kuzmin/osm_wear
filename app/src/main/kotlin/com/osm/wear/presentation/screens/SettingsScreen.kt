@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
-import com.osm.wear.domain.model.MapTheme
+import com.osm.wear.models.MapTheme
 
 @Composable
 fun SettingsScreen(
@@ -190,3 +190,4 @@ fun SettingsScreen(
         }
     }
 }
+

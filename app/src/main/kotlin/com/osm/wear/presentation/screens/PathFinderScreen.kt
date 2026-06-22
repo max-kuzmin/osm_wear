@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
-import com.osm.wear.domain.model.NavigationMode
+import com.osm.wear.models.NavigationMode
 
 @Composable
 fun PathFinderScreen(
@@ -158,3 +158,4 @@ fun PathFinderScreen(
         }
     }
 }
+
