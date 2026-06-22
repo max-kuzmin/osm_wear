@@ -17,5 +17,11 @@ data class MapUiState(
     /** Current manual rotation angle, used when MapRotationMode is MANUAL. */
     val manualRotation: Float = 0f,
     /** Tapped point coordinate (red dot) */
-    val tappedPoint: GpxPoint? = null
+    val tappedPoint: GpxPoint? = null,
+    /** Tapped point name/object name */
+    val tappedPointName: String? = null,
+    /** Tapped point address string */
+    val tappedPointAddress: String? = null,
+    /** Whether reverse geocoding is currently in progress */
+    val isResolvingAddress: Boolean = false
 )

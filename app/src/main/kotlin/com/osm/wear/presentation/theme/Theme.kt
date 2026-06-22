@@ -18,6 +18,9 @@ val AppColorScheme = ColorScheme(
     onErrorContainer = OnErrorContainerColor
 )
 
+// Transparency of map UI elements
+const val MapUiAlpha = 0.6f
+
 @Composable
 fun OsmWearTheme(content: @Composable () -> Unit) {
     MaterialTheme(

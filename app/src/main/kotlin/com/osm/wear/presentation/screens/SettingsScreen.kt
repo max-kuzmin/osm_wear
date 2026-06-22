@@ -132,7 +132,11 @@ fun SettingsScreen(
                 secondaryLabel = {
                     val tappedPoint = uiState.tappedPoint
                     val pointText = if (tappedPoint != null) {
-                        "%.4f, %.4f".format(tappedPoint.lat, tappedPoint.lon)
+                        when {
+                            !uiState.tappedPointName.isNullOrBlank() -> uiState.tappedPointName ?: ""
+                            !uiState.tappedPointAddress.isNullOrBlank() -> uiState.tappedPointAddress ?: ""
+                            else -> "%.4f, %.4f".format(tappedPoint.lat, tappedPoint.lon)
+                        }
                     } else {
                         "No point selected"
                     }

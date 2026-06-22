@@ -12,7 +12,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -31,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.osm.wear.presentation.theme.AppDimensions
 import com.osm.wear.presentation.theme.MapLayerColors
+import com.osm.wear.presentation.theme.MapUiAlpha
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.*
@@ -38,6 +43,8 @@ import com.osm.wear.models.NavigationState
 import com.osm.wear.models.UserLocation
 import com.osm.wear.presentation.map.layers.LocationArrowLayer
 import com.osm.wear.presentation.map.layers.TrackMarkersLayer
+import com.osm.wear.presentation.map.layers.DotMarkLayer
+import com.osm.wear.presentation.map.layers.AddressPopupLayer
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.model.Rotation
@@ -96,7 +103,9 @@ fun MainMapScreen(
     val locationMarker  = remember { mutableStateOf<LocationArrowLayer?>(null) }
     val trackLayer      = remember { mutableStateOf<TrackMarkersLayer?>(null) }
     val tileLayerRef    = remember { mutableStateOf<TileRendererLayer?>(null) }
-    val dotMarkLayer    = remember { mutableStateOf<com.osm.wear.presentation.map.layers.DotMarkLayer?>(null) }
+    val dotMarkLayer    = remember { mutableStateOf<DotMarkLayer?>(null) }
+    val popupLayerRef   = remember { mutableStateOf<AddressPopupLayer?>(null) }
+    val parentLayoutRef = remember { mutableStateOf<android.widget.FrameLayout?>(null) }
 
     // ── Smooth Location Animation ──────────────────────────────────────────
     // We animate Lat/Long and Bearing to interpolate between GPS updates.
@@ -226,23 +235,45 @@ fun MainMapScreen(
         reloadTileLayer(context, mv, activeMapFile, settingsState.mapTheme, tileLayerRef)
     }
 
-    // Update DotMarkLayer dynamically based on tappedPoint changes
-    LaunchedEffect(uiState.tappedPoint) {
+    // Update DotMarkLayer and AddressPopupLayer dynamically based on tappedPoint changes
+    LaunchedEffect(uiState.tappedPoint, parentLayoutRef.value) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
         val pt = uiState.tappedPoint
         if (pt == null) {
             dotMarkLayer.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
             dotMarkLayer.value = null
+            
+            popupLayerRef.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
+            popupLayerRef.value = null
         } else {
             val latLong = LatLong(pt.lat, pt.lon)
-            val currentLayer = dotMarkLayer.value
-            if (currentLayer == null) {
-                val layer = com.osm.wear.presentation.map.layers.DotMarkLayer(latLong, mv, pointMarkColor)
+            
+            // Handle DotMarkLayer
+            val currentDotLayer = dotMarkLayer.value
+            if (currentDotLayer == null) {
+                val layer = DotMarkLayer(latLong, mv, pointMarkColor)
                 mv.layerManager.layers.add(layer)
                 dotMarkLayer.value = layer
             } else {
-                currentLayer.updatePosition(latLong)
-                currentLayer.updateColor(pointMarkColor)
+                currentDotLayer.updatePosition(latLong)
+                currentDotLayer.updateColor(pointMarkColor)
+            }
+
+            // Handle AddressPopupLayer
+            val parentLayout = parentLayoutRef.value
+            if (popupLayerRef.value == null && parentLayout != null) {
+                val layer = AddressPopupLayer(
+                    context = context,
+                    mv = mv,
+                    parentLayout = parentLayout,
+                    uiStateFlow = mapVm.uiState,
+                    controlsVisibleState = derivedStateOf { controlsVisible },
+                    onInteraction = {
+                        lastInteractionTime = System.currentTimeMillis()
+                    }
+                )
+                mv.layerManager.layers.add(layer)
+                popupLayerRef.value = layer
             }
         }
     }
@@ -275,106 +306,130 @@ fun MainMapScreen(
             }
     ) {
 
-        // ── Mapsforge MapView ────────────────────────────────────────────────
+        // ── Mapsforge MapView & Overlay Popup ────────────────────────────────
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
-                createMapView(ctx).also { mv ->
-                    mapViewRef.value = mv
+                val parentLayout = android.widget.FrameLayout(ctx)
 
+                val mv = createMapView(ctx).apply {
                     // Initialize position from ViewModel state
-                    mv.model.mapViewPosition.setCenter(LatLong(uiState.centerLat, uiState.centerLon))
-                    mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
-
-                    // Load initial tile layer
-                    activeMapFile?.let { f ->
-                        reloadTileLayer(ctx, mv, f, settingsState.mapTheme, tileLayerRef)
-                    }
-
-                    // Draw initial GPX
-                    activeGpxFile?.let { gpx ->
-                        val pts = gpx.trackPoints.map { LatLong(it.lat, it.lon) }
-                        val layer = TrackMarkersLayer(pts, mv)
-                        mv.layerManager.layers.add(layer)
-                        trackLayer.value = layer
-                    }
-
-                    // Draw initial dot (DotMarkLayer)
-                    uiState.tappedPoint?.let { pt ->
-                        val latLong = LatLong(pt.lat, pt.lon)
-                        val layer = com.osm.wear.presentation.map.layers.DotMarkLayer(latLong, mv, pointMarkColor)
-                        mv.layerManager.layers.add(layer)
-                        dotMarkLayer.value = layer
-                    }
-
-                    // Bezel rotation → zoom
-                    mv.setOnGenericMotionListener { _, event ->
-                        if (event.action == MotionEvent.ACTION_SCROLL) {
-                            val scroll = event.getAxisValue(MotionEvent.AXIS_SCROLL)
-                            if (scroll > 0) mapVm.zoomIn() else mapVm.zoomOut()
-                            true
-                        } else false
-                    }
-
-                    // Detect panning and rotation
-                    var startX = 0f
-                    var startY = 0f
-                    val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
-                    
-                    mv.setOnTouchListener { _, event ->
-                        gestureDetector.onTouchEvent(event)
-                        
-                        when (event.actionMasked) {
-                            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                                lastInteractionTime = System.currentTimeMillis()
-                            }
-                        }
-
-                        if (event.pointerCount == 2) {
-                            when (event.actionMasked) {
-                                MotionEvent.ACTION_POINTER_DOWN -> {
-                                    mapVm.onPinchDown(event.getX(0), event.getY(0), event.getX(1), event.getY(1))
-                                }
-                                MotionEvent.ACTION_MOVE -> {
-                                    val currentRot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
-                                    val newRot = mapVm.onPinchMove(event.getX(0), event.getY(0), event.getX(1), event.getY(1), currentRot)
-                                    if (newRot != null) {
-                                        // Update MapView rotation directly for smooth visual feedback
-                                        val (pivotX, pivotY) = mapVm.getMapPivot(mv.width, mv.height)
-                                        mv.model.mapViewPosition.setRotation(Rotation(newRot, pivotX, pivotY))
-                                        mv.postInvalidate()
-                                    }
-                                }
-                                MotionEvent.ACTION_POINTER_UP -> {
-                                    mapVm.onPinchUp()
-                                }
-                            }
-                            return@setOnTouchListener true // Consume the event to prevent MapView from processing pinch-to-zoom
-                        } else {
-                            mapVm.onPinchUp()
-                            when (event.actionMasked) {
-                                MotionEvent.ACTION_DOWN -> {
-                                    startX = event.x
-                                    startY = event.y
-                                }
-                                MotionEvent.ACTION_MOVE -> {
-                                    val dx = event.x - startX
-                                    val dy = event.y - startY
-                                    if (dx * dx + dy * dy > touchSlop * touchSlop) {
-                                        val mvPos = mv.model.mapViewPosition
-                                        mapVm.onMapPanned(
-                                            mvPos.center.latitude,
-                                            mvPos.center.longitude
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        false
-                    }
+                    model.mapViewPosition.setCenter(LatLong(uiState.centerLat, uiState.centerLon))
+                    model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
                 }
+                mapViewRef.value = mv
+
+                parentLayout.addView(mv, android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                ))
+
+                parentLayoutRef.value = parentLayout
+
+                // Load initial tile layer
+                activeMapFile?.let { f ->
+                    reloadTileLayer(ctx, mv, f, settingsState.mapTheme, tileLayerRef)
+                }
+
+                // Draw initial GPX
+                activeGpxFile?.let { gpx ->
+                    val pts = gpx.trackPoints.map { LatLong(it.lat, it.lon) }
+                    val layer = TrackMarkersLayer(pts, mv)
+                    mv.layerManager.layers.add(layer)
+                    trackLayer.value = layer
+                }
+
+                // Draw initial dot (DotMarkLayer) & AddressPopupLayer
+                uiState.tappedPoint?.let { pt ->
+                    val latLong = LatLong(pt.lat, pt.lon)
+                    val dotLayer = DotMarkLayer(latLong, mv, pointMarkColor)
+                    mv.layerManager.layers.add(dotLayer)
+                    dotMarkLayer.value = dotLayer
+
+                    val popupLayer = AddressPopupLayer(
+                        context = ctx,
+                        mv = mv,
+                        parentLayout = parentLayout,
+                        uiStateFlow = mapVm.uiState,
+                        controlsVisibleState = derivedStateOf { controlsVisible },
+                        onInteraction = {
+                            lastInteractionTime = System.currentTimeMillis()
+                        }
+                    )
+                    mv.layerManager.layers.add(popupLayer)
+                    popupLayerRef.value = popupLayer
+                }
+
+                // Bezel rotation → zoom
+                mv.setOnGenericMotionListener { _, event ->
+                    if (event.action == MotionEvent.ACTION_SCROLL) {
+                        val scroll = event.getAxisValue(MotionEvent.AXIS_SCROLL)
+                        if (scroll > 0) mapVm.zoomIn() else mapVm.zoomOut()
+                        true
+                    } else false
+                }
+
+                // Detect panning and rotation
+                var startX = 0f
+                var startY = 0f
+                val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
+
+                mv.setOnTouchListener { _, event ->
+                    gestureDetector.onTouchEvent(event)
+
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                            lastInteractionTime = System.currentTimeMillis()
+                        }
+                    }
+
+                    if (event.pointerCount == 2) {
+                        when (event.actionMasked) {
+                            MotionEvent.ACTION_POINTER_DOWN -> {
+                                mapVm.onPinchDown(event.getX(0), event.getY(0), event.getX(1), event.getY(1))
+                            }
+                            MotionEvent.ACTION_MOVE -> {
+                                val currentRot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
+                                val newRot = mapVm.onPinchMove(event.getX(0), event.getY(0), event.getX(1), event.getY(1), currentRot)
+                                if (newRot != null) {
+                                    val (pivotX, pivotY) = mapVm.getMapPivot(mv.width, mv.height)
+                                    mv.model.mapViewPosition.setRotation(Rotation(newRot, pivotX, pivotY))
+                                    mv.postInvalidate()
+                                }
+                            }
+                            MotionEvent.ACTION_POINTER_UP -> {
+                                mapVm.onPinchUp()
+                            }
+                        }
+                        return@setOnTouchListener true
+                    } else {
+                        mapVm.onPinchUp()
+                        when (event.actionMasked) {
+                            MotionEvent.ACTION_DOWN -> {
+                                startX = event.x
+                                startY = event.y
+                            }
+                            MotionEvent.ACTION_MOVE -> {
+                                val dx = event.x - startX
+                                val dy = event.y - startY
+                                if (dx * dx + dy * dy > touchSlop * touchSlop) {
+                                    val mvPos = mv.model.mapViewPosition
+                                    mapVm.onMapPanned(
+                                        mvPos.center.latitude,
+                                        mvPos.center.longitude
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    false
+                }
+
+                parentLayout
             },
-            update = { mv ->
+            update = { parentLayout ->
+                val mv = parentLayout.getChildAt(0) as MapView
+
                 // Ensure initial marker exists
                 if (locationMarker.value == null && location != null) {
                     val loc = location!!
@@ -382,7 +437,7 @@ fun MainMapScreen(
                     mv.layerManager.layers.add(newMarker)
                     locationMarker.value = newMarker
                 }
-                
+
                 val (pivotX, pivotY) = mapVm.getMapPivot(mv.width, mv.height)
 
                 if (uiState.followLocation) {
@@ -415,7 +470,7 @@ fun MainMapScreen(
                 modifier = Modifier
                     .size(AppDimensions.MapControlBox)
                     .offset(x = AppDimensions.MapControlOffsetOuter)
-                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha), CircleShape)
                     .clickable(enabled = controlsVisible) { onOpenSettings(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
@@ -431,7 +486,7 @@ fun MainMapScreen(
                 modifier = Modifier
                     .size(AppDimensions.MapControlBox)
                     .offset(x = AppDimensions.MapControlOffsetInner)
-                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha), CircleShape)
                     .clickable(enabled = controlsVisible) { mapVm.zoomIn(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
@@ -447,7 +502,7 @@ fun MainMapScreen(
                 modifier = Modifier
                     .size(AppDimensions.MapControlBox)
                     .offset(x = AppDimensions.MapControlOffsetInner)
-                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha), CircleShape)
                     .clickable(enabled = controlsVisible) { mapVm.zoomOut(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
@@ -460,9 +515,9 @@ fun MainMapScreen(
             }
             // Center on Location (Bottom - slightly shifted left for curve)
             val buttonBgColor = if (!uiState.followLocation) {
-                MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f)
+                MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha)
             } else {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                MaterialTheme.colorScheme.primary.copy(alpha = MapUiAlpha)
             }
             val buttonIconColor = if (!uiState.followLocation) {
                 MaterialTheme.colorScheme.onSurface
@@ -491,6 +546,8 @@ fun MainMapScreen(
             }
         }
 
+        // The popup is rendered natively as an overlay sibling to MapView to move perfectly together with the map
+
         // ── Navigation overlay ────────────────────────────────────────────────
         val currentNavState = navState
         if (currentNavState != null && currentNavState.isActive && currentNavState.waypoints.isNotEmpty()) {
@@ -516,7 +573,7 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
     Row(
         modifier = modifier
             .background(
-                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha),
                 shape = CircleShape
             )
             .padding(

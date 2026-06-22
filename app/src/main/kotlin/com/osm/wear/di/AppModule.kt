@@ -10,6 +10,10 @@ import com.osm.wear.repositories.IGpxRepository
 import com.osm.wear.repositories.ILocationRepository
 import com.osm.wear.repositories.IRouteRepository
 import com.osm.wear.repositories.ISettingsRepository
+import com.osm.wear.repositories.IBookmarkRepository
+import com.osm.wear.repositories.BookmarkRepositoryImpl
+import com.osm.wear.repositories.IGeocodingRepository
+import com.osm.wear.repositories.GeocodingRepositoryImpl
 import com.osm.wear.services.INavigationService
 import com.osm.wear.services.IMapRegionCatalogService
 import com.osm.wear.services.MapRegionCatalogService
@@ -82,5 +86,16 @@ object AppModule {
     fun provideNavigationService(@ApplicationContext context: Context): INavigationService {
         return NavigationService(context)
     }
-}
 
+    @Provides
+    @Singleton
+    fun provideBookmarkRepository(prefs: android.content.SharedPreferences): IBookmarkRepository {
+        return BookmarkRepositoryImpl(prefs)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGeocodingRepository(client: OkHttpClient): IGeocodingRepository {
+        return GeocodingRepositoryImpl(client)
+    }
+}

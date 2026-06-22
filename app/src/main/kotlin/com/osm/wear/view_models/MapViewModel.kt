@@ -8,6 +8,9 @@ import com.osm.wear.models.MapRotationMode
 import com.osm.wear.models.UserLocation
 import com.osm.wear.repositories.ILocationRepository
 import com.osm.wear.repositories.ISettingsRepository
+import com.osm.wear.repositories.IGeocodingRepository
+import com.osm.wear.repositories.IBookmarkRepository
+import com.osm.wear.models.Bookmark
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +23,9 @@ import javax.inject.Inject
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val locationRepo: ILocationRepository,
-    private val settingsRepository: ISettingsRepository
+    private val settingsRepository: ISettingsRepository,
+    private val geocodingRepository: IGeocodingRepository,
+    private val bookmarkRepository: IBookmarkRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
@@ -42,14 +47,24 @@ class MapViewModel @Inject constructor(
         val follow = settingsRepository.getMapFollowLocation()
         val tappedPoint = settingsRepository.getTappedPoint()
 
+        val matchingBookmark = if (tappedPoint != null) {
+            bookmarkRepository.bookmarks.value.find { it.lat == tappedPoint.lat && it.lon == tappedPoint.lon }
+        } else null
+
         _uiState.update { 
             it.copy(
                 centerLat = lat, 
                 centerLon = lon, 
                 zoomLevel = zoom, 
                 followLocation = follow,
-                tappedPoint = tappedPoint
+                tappedPoint = tappedPoint,
+                tappedPointName = matchingBookmark?.name,
+                tappedPointAddress = matchingBookmark?.address
             ) 
+        }
+
+        if (tappedPoint != null && matchingBookmark == null) {
+            resolveAddressForPoint(tappedPoint)
         }
 
         if (lat == 0.0 && lon == 0.0) {
@@ -199,8 +214,105 @@ class MapViewModel @Inject constructor(
 
     fun onMapTapped(lat: Double, lon: Double) {
         val pt = GpxPoint(lat, lon)
-        _uiState.update { it.copy(tappedPoint = pt) }
+        _uiState.update {
+            it.copy(
+                tappedPoint = pt,
+                tappedPointName = null,
+                tappedPointAddress = null,
+                isResolvingAddress = true
+            )
+        }
         persistMapState()
+        resolveAddressForPoint(pt)
+    }
+
+    val bookmarks: StateFlow<List<Bookmark>> = bookmarkRepository.bookmarks
+
+    fun saveBookmarkFromMap(pt: GpxPoint, resolvedName: String?, resolvedAddress: String? = null) {
+        viewModelScope.launch {
+            var name = resolvedName
+            var address = resolvedAddress
+            
+            if (name == null || address == null) {
+                try {
+                    val res = geocodingRepository.reverseGeocode(pt.lat, pt.lon)
+                    if (res != null) {
+                        if (name == null) name = res.name
+                        if (address == null) address = res.address
+                    }
+                } catch (e: Exception) {
+                    // Ignore
+                }
+            }
+            
+            val finalName = name ?: "Point (%.4f, %.4f)".format(pt.lat, pt.lon)
+
+            bookmarkRepository.addBookmark(
+                Bookmark(
+                    name = finalName,
+                    address = address,
+                    lat = pt.lat,
+                    lon = pt.lon
+                )
+            )
+        }
+    }
+
+    fun saveSearchBookmark(name: String, address: String?, lat: Double, lon: Double) {
+        bookmarkRepository.addBookmark(
+            Bookmark(
+                name = name,
+                address = address,
+                lat = lat,
+                lon = lon
+            )
+        )
+    }
+
+    fun deleteBookmark(bookmark: Bookmark) {
+        bookmarkRepository.removeBookmark(bookmark)
+    }
+
+    fun selectBookmark(bookmark: Bookmark) {
+        val pt = GpxPoint(bookmark.lat, bookmark.lon)
+        _uiState.update {
+            it.copy(
+                tappedPoint = pt,
+                tappedPointName = bookmark.name,
+                tappedPointAddress = null,
+                isResolvingAddress = true
+            )
+        }
+        persistMapState()
+        resolveAddressForPoint(pt, overrideName = bookmark.name)
+    }
+
+    private val _searchResults = MutableStateFlow<List<com.osm.wear.repositories.GeocodeResult>>(emptyList())
+    val searchResults: StateFlow<List<com.osm.wear.repositories.GeocodeResult>> = _searchResults.asStateFlow()
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    fun searchAddresses(query: String) {
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            return
+        }
+        _isSearching.value = true
+        viewModelScope.launch {
+            try {
+                val results = geocodingRepository.searchAddress(query)
+                _searchResults.value = results
+            } catch (e: Exception) {
+                _searchResults.value = emptyList()
+            } finally {
+                _isSearching.value = false
+            }
+        }
+    }
+
+    fun clearSearchResults() {
+        _searchResults.value = emptyList()
     }
 
     fun onPinchUp() {
@@ -210,6 +322,28 @@ class MapViewModel @Inject constructor(
     fun clearTappedPoint() {
         _uiState.update { it.copy(tappedPoint = null) }
         persistMapState()
+    }
+
+    private fun resolveAddressForPoint(pt: GpxPoint, overrideName: String? = null) {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isResolvingAddress = true) }
+                val result = geocodingRepository.reverseGeocode(pt.lat, pt.lon)
+                if (result != null) {
+                    _uiState.update {
+                        it.copy(
+                            tappedPointName = overrideName ?: result.name,
+                            tappedPointAddress = result.address,
+                            isResolvingAddress = false
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(isResolvingAddress = false) }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isResolvingAddress = false) }
+            }
+        }
     }
 
     override fun onCleared() {

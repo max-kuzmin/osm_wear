@@ -11,7 +11,7 @@ val OnSurfaceColor = Color(0xFFE3E3E3)
 val OnSurfaceVariantColor = Color(0xFF9E9E9E)
 val ErrorColor = Color(0xFFD32F2F)
 val OnErrorColor = Color.White
-val ErrorContainerColor = Color(0xFFF44336)
+val ErrorContainerColor = Color(0xFFB71C1C)
 val OnErrorContainerColor = Color.White
 
 // Android Graphics Colors (used in Mapsforge overlays)

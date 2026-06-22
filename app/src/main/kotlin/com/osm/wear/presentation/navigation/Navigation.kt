@@ -17,6 +17,7 @@ object Routes {
     const val REGIONS          = "regions"
     const val GPX_FILES        = "gpx_files"
     const val PATH_FINDER      = "path_finder"
+    const val SEARCH_ADDRESS   = "search_address"
 }
 
 @Composable
@@ -116,10 +117,24 @@ fun OsmWearNavGraph() {
                 mapVm = mapVm,
                 settingsVm = settingsVm,
                 gpxVm = gpxVm,
+                onOpenSearch = {
+                    navController.navigate(Routes.SEARCH_ADDRESS)
+                },
                 onStartNavigation = {
                     navController.popBackStack(Routes.MAP, false)
                 },
                 onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Routes.SEARCH_ADDRESS) {
+            SearchAddressScreen(
+                mapVm = mapVm,
+                onAddressSelected = {
+                    navController.popBackStack()
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
             )
         }
     }
