@@ -194,7 +194,8 @@ fun MainMapScreen(
         
         val pts = if (nav != null && nav.isActive) {
             val rawPoints = gpx?.trackPoints ?: emptyList()
-            val nextWp = nav.currentWaypointIndex + 1
+            val currentWp = nav.waypoints.getOrNull(nav.currentWaypointIndex)
+            val nextWp = (currentWp?.rawIndex ?: nav.currentWaypointIndex) + 1
             if (nextWp < rawPoints.size) {
                 val remaining = rawPoints.drop(nextWp).map { LatLong(it.lat, it.lon) }
                 val userLocation = location

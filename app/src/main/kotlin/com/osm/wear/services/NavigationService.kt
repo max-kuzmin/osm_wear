@@ -102,57 +102,226 @@ class NavigationService @Inject constructor(
         )
     }
 
+    private data class Point2D(val x: Double, val y: Double) {
+        fun distanceTo(other: Point2D): Double {
+            return sqrt((x - other.x).pow(2) + (y - other.y).pow(2))
+        }
+    }
+
+    private class LocalProjection(val origin: GpxPoint) {
+        private val latRad = Math.toRadians(origin.lat)
+        private val metersPerLat = 111132.9
+        private val metersPerLon = 111132.9 * cos(latRad)
+
+        fun project(p: GpxPoint): Point2D {
+            return Point2D((p.lon - origin.lon) * metersPerLon, (p.lat - origin.lat) * metersPerLat)
+        }
+
+        fun unproject(pt: Point2D): GpxPoint {
+            return GpxPoint(origin.lat + pt.y / metersPerLat, origin.lon + pt.x / metersPerLon)
+        }
+    }
+
+    private data class IndexedPoint(val originalIndex: Int, val point: GpxPoint, val projected: Point2D)
+
+    private data class SegmentProjection2D(
+        val projectedPoint: Point2D,
+        val distanceToSegmentM: Double,
+        val fraction: Double
+    )
+
+    private fun perpendicularDistance2D(p: Point2D, a: Point2D, b: Point2D): Double {
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val len2 = dx * dx + dy * dy
+        if (len2 < 1e-4) {
+            return p.distanceTo(a)
+        }
+        val numerator = abs((p.x - a.x) * dy - (p.y - a.y) * dx)
+        return numerator / sqrt(len2)
+    }
+
+    private fun simplifyRdp(points: List<GpxPoint>, epsilon: Double): List<IndexedPoint> {
+        if (points.size < 3) {
+            val origin = points.firstOrNull() ?: GpxPoint(0.0, 0.0)
+            val proj = LocalProjection(origin)
+            return points.mapIndexed { idx, pt -> IndexedPoint(idx, pt, proj.project(pt)) }
+        }
+
+        val origin = points.first()
+        val proj = LocalProjection(origin)
+        val projectedPoints = points.mapIndexed { idx, pt -> IndexedPoint(idx, pt, proj.project(pt)) }
+
+        val keep = BooleanArray(points.size)
+        keep[0] = true
+        keep[points.size - 1] = true
+
+        simplifyRdpStep(projectedPoints, 0, points.size - 1, epsilon, keep)
+
+        val result = mutableListOf<IndexedPoint>()
+        for (i in points.indices) {
+            if (keep[i]) {
+                result.add(projectedPoints[i])
+            }
+        }
+        return result
+    }
+
+    private fun simplifyRdpStep(
+        pts: List<IndexedPoint>,
+        start: Int,
+        end: Int,
+        epsilon: Double,
+        keep: BooleanArray
+    ) {
+        if (end <= start + 1) return
+
+        var maxDist = 0.0
+        var index = -1
+        val a = pts[start].projected
+        val b = pts[end].projected
+
+        for (i in start + 1 until end) {
+            val p = pts[i].projected
+            val dist = perpendicularDistance2D(p, a, b)
+            if (dist > maxDist) {
+                maxDist = dist
+                index = i
+            }
+        }
+
+        if (maxDist > epsilon) {
+            keep[index] = true
+            simplifyRdpStep(pts, start, index, epsilon, keep)
+            simplifyRdpStep(pts, index, end, epsilon, keep)
+        }
+    }
+
+    private fun findPointAlongTrackBackward(
+        pts: List<IndexedPoint>,
+        cumDist: DoubleArray,
+        startIndex: Int,
+        distance: Double
+    ): Point2D {
+        val targetDist = cumDist[startIndex] - distance
+        if (targetDist <= 0.0) return pts.first().projected
+        var j = startIndex
+        while (j > 0 && cumDist[j] > targetDist) {
+            j--
+        }
+        val dSegment = cumDist[j + 1] - cumDist[j]
+        if (dSegment < 1e-4) return pts[j].projected
+        val ratio = (targetDist - cumDist[j]) / dSegment
+        val a = pts[j].projected
+        val b = pts[j + 1].projected
+        return Point2D(a.x + ratio * (b.x - a.x), a.y + ratio * (b.y - a.y))
+    }
+
+    private fun findPointAlongTrackForward(
+        pts: List<IndexedPoint>,
+        cumDist: DoubleArray,
+        startIndex: Int,
+        distance: Double
+    ): Point2D {
+        val targetDist = cumDist[startIndex] + distance
+        val maxDist = cumDist.last()
+        if (targetDist >= maxDist) return pts.last().projected
+        var j = startIndex
+        while (j < pts.size - 1 && cumDist[j] < targetDist) {
+            j++
+        }
+        val dSegment = cumDist[j] - cumDist[j - 1]
+        if (dSegment < 1e-4) return pts[j].projected
+        val ratio = (targetDist - cumDist[j - 1]) / dSegment
+        val a = pts[j - 1].projected
+        val b = pts[j].projected
+        return Point2D(a.x + ratio * (b.x - a.x), a.y + ratio * (b.y - a.y))
+    }
+
+    private fun bearingDeg2D(from: Point2D, to: Point2D): Float {
+        val dx = to.x - from.x
+        val dy = to.y - from.y
+        val rad = atan2(dx, dy)
+        return ((Math.toDegrees(rad) + 360.0) % 360.0).toFloat()
+    }
+
+    private fun projectPointToSegment2D(p: Point2D, a: Point2D, b: Point2D): SegmentProjection2D {
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val len2 = dx * dx + dy * dy
+        if (len2 < 1e-4) {
+            return SegmentProjection2D(a, p.distanceTo(a), 0.0)
+        }
+        val t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2
+        val clampedT = t.coerceIn(0.0, 1.0)
+        val projPt = Point2D(a.x + clampedT * dx, a.y + clampedT * dy)
+        return SegmentProjection2D(projPt, p.distanceTo(projPt), clampedT)
+    }
+
     private fun buildWaypoints(gpxFile: GpxFile): List<NavigationWaypoint> {
         val pts = gpxFile.trackPoints
         if (pts.size < 2) return emptyList()
 
-        val cumDist = DoubleArray(pts.size)
+        // Simplify trackpoints using RDP with epsilon = 5.0 meters
+        val simplifiedPts = simplifyRdp(pts, 5.0)
+        val finalPts = if (simplifiedPts.size < 2) {
+            val origin = pts.first()
+            val proj = LocalProjection(origin)
+            pts.mapIndexed { idx, pt -> IndexedPoint(idx, pt, proj.project(pt)) }
+        } else {
+            simplifiedPts
+        }
+
+        val n = finalPts.size
+        val cumDist = DoubleArray(n)
         cumDist[0] = 0.0
-        for (j in 1 until pts.size) {
-            cumDist[j] = cumDist[j - 1] + haversineM(pts[j - 1], pts[j])
+        for (i in 1 until n) {
+            cumDist[i] = cumDist[i - 1] + finalPts[i - 1].projected.distanceTo(finalPts[i].projected)
         }
 
-        val lookDistance = 15.0 // meters
-        val minBaseline = 3.0 // meters
-        val turnAngles = DoubleArray(pts.size)
-        val isTurnCandidate = BooleanArray(pts.size)
-        val turnBearingChanges = FloatArray(pts.size)
+        val distShort = 15.0
+        val distLong = 40.0
+        val turnAngles = DoubleArray(n)
+        val isTurnCandidate = BooleanArray(n)
+        val turnBearingChanges = FloatArray(n)
 
-        for (i in 1 until pts.size - 1) {
-            var prevIdx = i
-            while (prevIdx > 0 && cumDist[i] - cumDist[prevIdx] < lookDistance) {
-                prevIdx--
-            }
-            var nextIdx = i
-            while (nextIdx < pts.size - 1 && cumDist[nextIdx] - cumDist[i] < lookDistance) {
-                nextIdx++
-            }
+        for (i in 1 until n - 1) {
+            val pt = finalPts[i].projected
+            
+            // Short window (15m) for measuring immediate/sharp corner turn
+            val ptBackShort = findPointAlongTrackBackward(finalPts, cumDist, i, distShort)
+            val ptAheadShort = findPointAlongTrackForward(finalPts, cumDist, i, distShort)
+            val bInShort = bearingDeg2D(ptBackShort, pt)
+            val bOutShort = bearingDeg2D(pt, ptAheadShort)
+            val angleShort = angleDiff(bInShort, bOutShort)
 
-            val distBack = cumDist[i] - cumDist[prevIdx]
-            val distAhead = cumDist[nextIdx] - cumDist[i]
-            if (distBack < minBaseline || distAhead < minBaseline) {
-                continue
-            }
+            // Long window (40m) for measuring overall heading change
+            val ptBackLong = findPointAlongTrackBackward(finalPts, cumDist, i, distLong)
+            val ptAheadLong = findPointAlongTrackForward(finalPts, cumDist, i, distLong)
+            val bInLong = bearingDeg2D(ptBackLong, pt)
+            val bOutLong = bearingDeg2D(pt, ptAheadLong)
+            val angleLong = angleDiff(bInLong, bOutLong)
 
-            val bIn = bearingDeg(pts[prevIdx], pts[i])
-            val bOut = bearingDeg(pts[i], pts[nextIdx])
-            val angle = angleDiff(bIn, bOut)
+            // Classifier logic: turn must be significant in the long window,
+            // and concentrated within the short window (ratio >= 0.65) or sharp on its own.
+            val meetsThreshold = angleLong >= TURN_THRESHOLD_DEG
+            val isConcentrated = (angleLong > 0.0 && (angleShort / angleLong) >= 0.65) || (angleShort >= TURN_THRESHOLD_DEG)
 
-            turnAngles[i] = angle
-            if (angle >= TURN_THRESHOLD_DEG) {
+            if (meetsThreshold && isConcentrated) {
                 isTurnCandidate[i] = true
-                turnBearingChanges[i] = ((bOut - bIn + 360f) % 360f)
+                turnAngles[i] = angleLong
+                turnBearingChanges[i] = ((bOutLong - bInLong + 360f) % 360f)
             }
         }
 
-        val isTurn = BooleanArray(pts.size)
-        val nmsDistance = 20.0 // meters
-        for (i in 1 until pts.size - 1) {
+        val isTurn = BooleanArray(n)
+        val nmsDistance = 30.0 // meters
+        for (i in 1 until n - 1) {
             if (!isTurnCandidate[i]) continue
 
             val currentAngle = turnAngles[i]
             var isMax = true
-            
+
             // Search backward in NMS window
             var j = i - 1
             while (j > 0 && cumDist[i] - cumDist[j] < nmsDistance) {
@@ -162,13 +331,12 @@ class NavigationService @Inject constructor(
                 }
                 j--
             }
-            
+
             if (!isMax) continue
 
             // Search forward in NMS window
             j = i + 1
-            while (j < pts.size - 1 && cumDist[j] - cumDist[i] < nmsDistance) {
-                // To break ties cleanly, use >= for forward comparison so that only the first peak wins
+            while (j < n - 1 && cumDist[j] - cumDist[i] < nmsDistance) {
                 if (isTurnCandidate[j] && turnAngles[j] >= currentAngle) {
                     isMax = false
                     break
@@ -181,39 +349,26 @@ class NavigationService @Inject constructor(
             }
         }
 
-        return pts.mapIndexed { i, point ->
-            val bearingIn  = if (i > 0) bearingDeg(pts[i - 1], point) else 0f
-            val bearingOut = if (i < pts.size - 1) bearingDeg(point, pts[i + 1]) else bearingIn
-            val distToNext = if (i < pts.size - 1)
-                haversineM(point, pts[i + 1]).toFloat() else 0f
+        val waypoints = mutableListOf<NavigationWaypoint>()
+        for (i in 0 until n) {
+            val indexedPt = finalPts[i]
+            val bearingIn  = if (i > 0) bearingDeg2D(finalPts[i - 1].projected, indexedPt.projected) else 0f
+            val bearingOut = if (i < n - 1) bearingDeg2D(indexedPt.projected, finalPts[i + 1].projected) else bearingIn
+            val distToNext = if (i < n - 1) indexedPt.projected.distanceTo(finalPts[i + 1].projected).toFloat() else 0f
 
-            NavigationWaypoint(
-                index             = i,
-                point             = point,
-                bearingToNext     = bearingOut,
-                distanceToNextM   = distToNext,
-                isTurn            = isTurn[i],
-                turnBearingChange = if (isTurn[i]) turnBearingChanges[i] else 0f
+            waypoints.add(
+                NavigationWaypoint(
+                    index             = i,
+                    rawIndex          = indexedPt.originalIndex,
+                    point             = indexedPt.point,
+                    bearingToNext     = bearingOut,
+                    distanceToNextM   = distToNext,
+                    isTurn            = isTurn[i],
+                    turnBearingChange = if (isTurn[i]) turnBearingChanges[i] else 0f
+                )
             )
         }
-    }
-
-    private fun projectPointToSegment(p: GpxPoint, a: GpxPoint, b: GpxPoint): SegmentProjection {
-        val ab = haversineM(a, b)
-        if (ab < 1.0) {
-            return SegmentProjection(a, haversineM(p, a), 0.0)
-        }
-        val ap = haversineM(a, p)
-        if (ap < 0.1) {
-            return SegmentProjection(a, ap, 0.0)
-        }
-        val bp = haversineM(b, p)
-        val cosA = (ab * ab + ap * ap - bp * bp) / (2 * ab * ap)
-        val t = (ap * cosA).coerceIn(0.0, ab) / ab
-        val projLat = a.lat + t * (b.lat - a.lat)
-        val projLon = a.lon + t * (b.lon - a.lon)
-        val projPt = GpxPoint(projLat, projLon)
-        return SegmentProjection(projPt, haversineM(p, projPt), t)
+        return waypoints
     }
 
     /**
@@ -236,13 +391,20 @@ class NavigationService @Inject constructor(
         var bestProjection: SegmentProjection? = null
         var bestSegIdx = -1
 
+        val origin = state.waypoints.first().point
+        val proj = LocalProjection(origin)
+        val userPtProj = proj.project(userPt)
+
         // Check local window first
         for (i in startIdx..endIdx) {
-            val a = state.waypoints[i].point
-            val b = state.waypoints[i + 1].point
-            val proj = projectPointToSegment(userPt, a, b)
-            if (bestProjection == null || proj.distanceToSegmentM < bestProjection.distanceToSegmentM) {
-                bestProjection = proj
+            val a = proj.project(state.waypoints[i].point)
+            val b = proj.project(state.waypoints[i + 1].point)
+            val proj2D = projectPointToSegment2D(userPtProj, a, b)
+            val projPt = proj.unproject(proj2D.projectedPoint)
+            val projObj = SegmentProjection(projPt, proj2D.distanceToSegmentM, proj2D.fraction)
+
+            if (bestProjection == null || projObj.distanceToSegmentM < bestProjection.distanceToSegmentM) {
+                bestProjection = projObj
                 bestSegIdx = i
             }
         }
@@ -252,24 +414,27 @@ class NavigationService @Inject constructor(
         if (localDist > 50.0) {
             var globalProjection: SegmentProjection? = null
             var globalSegIdx = -1
-            
+
             val maxGoBack = 10 // allow slight backwards jitter
             val maxGoForward = state.waypoints.size / 2 // prevent cutting off more than half the track
-            
+
             val globalStartIdx = maxOf(0, currentSegIdx - maxGoBack)
             val globalEndIdx = minOf(state.waypoints.size - 2, currentSegIdx + maxGoForward)
-            
+
             for (i in globalStartIdx..globalEndIdx) {
-                val a = state.waypoints[i].point
-                val b = state.waypoints[i + 1].point
-                val proj = projectPointToSegment(userPt, a, b)
-                if (globalProjection == null || proj.distanceToSegmentM < globalProjection.distanceToSegmentM) {
-                    globalProjection = proj
+                val a = proj.project(state.waypoints[i].point)
+                val b = proj.project(state.waypoints[i + 1].point)
+                val proj2D = projectPointToSegment2D(userPtProj, a, b)
+                val projPt = proj.unproject(proj2D.projectedPoint)
+                val projObj = SegmentProjection(projPt, proj2D.distanceToSegmentM, proj2D.fraction)
+
+                if (globalProjection == null || projObj.distanceToSegmentM < globalProjection.distanceToSegmentM) {
+                    globalProjection = projObj
                     globalSegIdx = i
-                } else if (abs(proj.distanceToSegmentM - globalProjection.distanceToSegmentM) < 5.0) {
+                } else if (abs(projObj.distanceToSegmentM - globalProjection.distanceToSegmentM) < 5.0) {
                     // Tie-breaker: prefer the segment with the smaller index to prevent jumping ahead on loop routes
                     if (i < globalSegIdx) {
-                        globalProjection = proj
+                        globalProjection = projObj
                         globalSegIdx = i
                     }
                 }
@@ -468,14 +633,6 @@ class NavigationService @Inject constructor(
         return r * 2 * atan2(sqrt(clampedH), sqrt(1.0 - clampedH))
     }
 
-    private fun bearingDeg(from: GpxPoint, to: GpxPoint): Float {
-        val dLon = Math.toRadians(to.lon - from.lon)
-        val lat1 = Math.toRadians(from.lat)
-        val lat2 = Math.toRadians(to.lat)
-        val y    = sin(dLon) * cos(lat2)
-        val x    = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
-        return ((Math.toDegrees(atan2(y, x)) + 360) % 360).toFloat()
-    }
 
     private fun angleDiff(a: Float, b: Float): Double {
         val diff = abs(a - b) % 360.0
