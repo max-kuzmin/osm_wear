@@ -17,6 +17,11 @@ import com.osm.wear.models.NavigationWaypoint
 import com.osm.wear.models.UserLocation
 import com.osm.wear.models.SegmentProjection
 import dagger.hilt.android.qualifiers.ApplicationContext
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import androidx.core.app.NotificationCompat
+import com.osm.wear.presentation.MainActivity
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.*
@@ -78,6 +83,8 @@ class NavigationService @Inject constructor(
         if (alertMode != NavigationAlertMode.VOICE) return
         if (isTtsInitialized && tts != null) {
             tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
+        } else {
+            showDeviceNotification(message)
         }
     }
 
@@ -607,9 +614,52 @@ class NavigationService @Inject constructor(
                 tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
             } else {
                 playNotificationSound()
+                showDeviceNotification(message)
             }
         } else if (alertMode == NavigationAlertMode.SOUND) {
             playNotificationSound()
+        }
+    }
+
+    private fun showDeviceNotification(message: String) {
+        try {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                ?: return
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    "navigation_channel",
+                    "Navigation",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Shows ongoing navigation status"
+                }
+                notificationManager.createNotificationChannel(channel)
+            }
+
+            val intent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            val pendingIntentFlags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+            val pendingIntent = PendingIntent.getActivity(context, 0, intent, pendingIntentFlags)
+
+            val notification = NotificationCompat.Builder(context, "navigation_channel")
+                .setContentTitle("Navigation Alert")
+                .setContentText(message)
+                .setSmallIcon(android.R.drawable.ic_menu_directions)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setAutoCancel(true)
+                .build()
+
+            notificationManager.notify(102, notification)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show device notification", e)
         }
     }
 
