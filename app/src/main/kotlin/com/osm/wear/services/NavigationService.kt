@@ -318,16 +318,67 @@ class NavigationService @Inject constructor(
             totalRemaining += state.waypoints[k].distanceToNextM
         }
 
-        // Alarm when approaching a turn (based on distance along track)
+        // Alarm/voice warning logic when approaching a turn
+        val isNewTurnTarget = nextTurnWp.index != state.lastNextTurnIndex
+        
+        var warnedRightAfter = if (isNewTurnTarget) false else state.warnedRightAfterPrevious
+        var warned1k = if (isNewTurnTarget) false else state.warned1km
+        var warned300 = if (isNewTurnTarget) false else state.warned300m
+        var warnedDuring = if (isNewTurnTarget) false else state.warnedDuringTurn
         var lastAlerted = state.lastAlertedWaypointIndex
-        if (nextTurnWp.isTurn &&
-            nextTurnWp.index != lastAlerted &&
-            distToNextTurn <= ALARM_RADIUS_M
-        ) {
+
+        if (nextTurnWp.isTurn) {
             val direction = if (relativeTurnBearing > 180f) "left" else "right"
-            fireAlarm("Turn $direction")
-            lastAlerted = nextTurnWp.index
-            Log.d(TAG, "Alarm fired at waypoint ${nextTurnWp.index}")
+            
+            // 1. Right after previous turn
+            if (!warnedRightAfter) {
+                val distStr = formatDistanceForSpeech(distToNextTurn)
+                announce("In $distStr, turn $direction")
+                warnedRightAfter = true
+                
+                // Skip subsequent warnings if we started closer than their thresholds
+                if (distToNextTurn <= 1000f) {
+                    warned1k = true
+                }
+                if (distToNextTurn <= 300f) {
+                    warned300 = true
+                }
+                if (distToNextTurn <= ALARM_RADIUS_M) {
+                    warnedDuring = true
+                    lastAlerted = nextTurnWp.index
+                }
+            }
+            
+            // 2. 1 km before turn
+            if (!warned1k && distToNextTurn <= 1000f) {
+                announce("In 1 kilometer, turn $direction")
+                warned1k = true
+                if (distToNextTurn <= 300f) {
+                    warned300 = true
+                }
+                if (distToNextTurn <= ALARM_RADIUS_M) {
+                    warnedDuring = true
+                    lastAlerted = nextTurnWp.index
+                }
+            }
+            
+            // 3. 300 meters before turn
+            if (!warned300 && distToNextTurn <= 300f) {
+                announce("In 300 meters, turn $direction")
+                warned300 = true
+                if (distToNextTurn <= ALARM_RADIUS_M) {
+                    warnedDuring = true
+                    lastAlerted = nextTurnWp.index
+                }
+            }
+            
+            // 4. During turn (ALARM_RADIUS_M, i.e., 30m)
+            if (!warnedDuring && distToNextTurn <= ALARM_RADIUS_M) {
+                fireAlarm("Turn $direction")
+                warnedDuring = true
+                lastAlerted = nextTurnWp.index
+                Log.d(TAG, "Alarm fired at waypoint ${nextTurnWp.index}")
+            }
         }
 
         // Destination reached check (remaining track distance < ALARM_RADIUS_M)
@@ -343,8 +394,32 @@ class NavigationService @Inject constructor(
             bearingToNextTurn        = relativeTurnBearing,
             totalRemainingM          = totalRemaining,
             isOffTrack               = isOffTrack,
-            lastAlertedWaypointIndex = lastAlerted
+            lastAlertedWaypointIndex = lastAlerted,
+            lastNextTurnIndex        = nextTurnWp.index,
+            warnedRightAfterPrevious = warnedRightAfter,
+            warned1km                = warned1k,
+            warned300m               = warned300,
+            warnedDuringTurn         = warnedDuring
         )
+    }
+
+    private fun formatDistanceForSpeech(distanceM: Float): String {
+        return if (distanceM >= 1000f) {
+            val km = distanceM / 1000f
+            if (abs(km - 1.0f) < 0.05f) {
+                "1 kilometer"
+            } else {
+                val formattedKm = String.format(Locale.US, "%.1f", km)
+                "$formattedKm kilometers"
+            }
+        } else {
+            val roundedMeters = (round(distanceM / 50f) * 50).toInt()
+            if (roundedMeters <= 0) {
+                "now"
+            } else {
+                "$roundedMeters meters"
+            }
+        }
     }
 
     private fun fireAlarm(message: String) {

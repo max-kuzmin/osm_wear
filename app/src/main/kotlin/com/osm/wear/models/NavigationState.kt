@@ -9,6 +9,10 @@ data class NavigationState(
     val bearingToNextTurn: Float = 0f,
     val totalRemainingM: Float = 0f,
     val isOffTrack: Boolean = false,
-    val lastAlertedWaypointIndex: Int = -1
+    val lastAlertedWaypointIndex: Int = -1,
+    val lastNextTurnIndex: Int = -1,
+    val warnedRightAfterPrevious: Boolean = false,
+    val warned1km: Boolean = false,
+    val warned300m: Boolean = false,
+    val warnedDuringTurn: Boolean = false
 )
-
