@@ -150,8 +150,7 @@ fun MainMapScreen(
         val mv = mapViewRef.value ?: return@SideEffect
         locationMarker.value?.updatePosition(LatLong(currentLat, currentLon), currentBearing)
         
-        val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
-        val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+        val (pivotX, pivotY) = mapVm.getMapPivot(mv.width, mv.height)
 
         if (uiState.followLocation) {
             mv.model.mapViewPosition.setCenter(LatLong(currentLat, currentLon))
@@ -251,8 +250,13 @@ fun MainMapScreen(
         android.view.GestureDetector(context, object : android.view.GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
                 val mv = mapViewRef.value ?: return
+                
+                // Account for map rotation when calculating the tapped coordinate
+                val rot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
+                val (finalX, finalY) = mapVm.getUnrotatedTapPoint(e.x, e.y, mv.width, mv.height, rot)
+
                 val projection = org.mapsforge.map.util.MapViewProjection(mv)
-                val latLong = projection.fromPixels(e.x.toDouble(), e.y.toDouble())
+                val latLong = projection.fromPixels(finalX, finalY)
                 if (latLong != null) {
                     mapVm.onMapTapped(latLong.latitude, latLong.longitude)
                 }
@@ -314,8 +318,6 @@ fun MainMapScreen(
                     // Detect panning and rotation
                     var startX = 0f
                     var startY = 0f
-                    var previousAngle = 0f
-                    var isRotating = false
                     val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
                     
                     mv.setOnTouchListener { _, event ->
@@ -328,39 +330,27 @@ fun MainMapScreen(
                         }
 
                         if (event.pointerCount == 2) {
-                            val dx = event.getX(1) - event.getX(0)
-                            val dy = event.getY(1) - event.getY(0)
-                            val angle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
-                            
                             when (event.actionMasked) {
                                 MotionEvent.ACTION_POINTER_DOWN -> {
-                                    previousAngle = angle
-                                    isRotating = true
+                                    mapVm.onPinchDown(event.getX(0), event.getY(0), event.getX(1), event.getY(1))
                                 }
                                 MotionEvent.ACTION_MOVE -> {
-                                    if (isRotating) {
-                                        val delta = angle - previousAngle
-                                        previousAngle = angle
-                                        
-                                        val currentRot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
-                                        val newRot = currentRot + delta
-                                        
+                                    val currentRot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
+                                    val newRot = mapVm.onPinchMove(event.getX(0), event.getY(0), event.getX(1), event.getY(1), currentRot)
+                                    if (newRot != null) {
                                         // Update MapView rotation directly for smooth visual feedback
-                                        val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
-                                        val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+                                        val (pivotX, pivotY) = mapVm.getMapPivot(mv.width, mv.height)
                                         mv.model.mapViewPosition.setRotation(Rotation(newRot, pivotX, pivotY))
                                         mv.postInvalidate()
-                                        
-                                        mapVm.onMapRotated(newRot)
                                     }
                                 }
                                 MotionEvent.ACTION_POINTER_UP -> {
-                                    isRotating = false
+                                    mapVm.onPinchUp()
                                 }
                             }
                             return@setOnTouchListener true // Consume the event to prevent MapView from processing pinch-to-zoom
                         } else {
-                            isRotating = false
+                            mapVm.onPinchUp()
                             when (event.actionMasked) {
                                 MotionEvent.ACTION_DOWN -> {
                                     startX = event.x
@@ -392,8 +382,7 @@ fun MainMapScreen(
                     locationMarker.value = newMarker
                 }
                 
-                val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
-                val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+                val (pivotX, pivotY) = mapVm.getMapPivot(mv.width, mv.height)
 
                 if (uiState.followLocation) {
                     mv.model.mapViewPosition.setCenter(LatLong(currentLat, currentLon))

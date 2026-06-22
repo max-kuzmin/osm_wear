@@ -148,21 +148,63 @@ class MapViewModel @Inject constructor(
         persistMapState()
     }
 
-    fun onMapRotated(rotation: Float) {
+    private var isRotating = false
+    private var previousPinchAngle = 0f
+
+    fun onPinchDown(x1: Float, y1: Float, x2: Float, y2: Float) {
+        val dx = x2 - x1
+        val dy = y2 - y1
+        previousPinchAngle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+        isRotating = true
+    }
+
+    fun onPinchMove(x1: Float, y1: Float, x2: Float, y2: Float, currentRot: Float): Float? {
+        if (!isRotating) return null
+        val dx = x2 - x1
+        val dy = y2 - y1
+        val angle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+        val delta = angle - previousPinchAngle
+        previousPinchAngle = angle
+        val newRot = currentRot + delta
+        
         _uiState.update { 
             it.copy(
                 mapRotationMode = MapRotationMode.MANUAL,
-                manualRotation = rotation,
+                manualRotation = newRot,
                 followLocation = false
             ) 
         }
         persistMapState()
+        return newRot
+    }
+
+    fun getMapPivot(width: Int, height: Int): Pair<Float, Float> {
+        val pivotX = if (width > 0) width * 0.5f else 0f
+        val pivotY = if (height > 0) height * 0.5f else 0f
+        return Pair(pivotX, pivotY)
+    }
+
+    fun getUnrotatedTapPoint(x: Float, y: Float, width: Int, height: Int, rotation: Float): Pair<Double, Double> {
+        val (pivotX, pivotY) = getMapPivot(width, height)
+        val angleRad = Math.toRadians(-rotation.toDouble())
+        
+        val dx = x.toDouble() - pivotX
+        val dy = y.toDouble() - pivotY
+        
+        val rx = dx * Math.cos(angleRad) - dy * Math.sin(angleRad)
+        val ry = dx * Math.sin(angleRad) + dy * Math.cos(angleRad)
+        
+        return Pair(rx + pivotX, ry + pivotY)
     }
 
     fun onMapTapped(lat: Double, lon: Double) {
         val pt = GpxPoint(lat, lon)
         _uiState.update { it.copy(tappedPoint = pt) }
         persistMapState()
+    }
+
+    fun onPinchUp() {
+        isRotating = false
     }
 
     fun clearTappedPoint() {
