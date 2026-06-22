@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.GpsFixed
+import com.osm.wear.models.GpsBatteryMode
 import com.osm.wear.presentation.components.BackButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -186,6 +188,39 @@ fun SettingsScreen(
                     }
                     Text(
                         text = themeText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
+                }
+            )
+        }
+
+        item {
+            Button(
+                onClick = {
+                    val nextMode = when (settingsState.gpsBatteryMode) {
+                        GpsBatteryMode.HIGH_ACCURACY -> GpsBatteryMode.BALANCED
+                        GpsBatteryMode.BALANCED      -> GpsBatteryMode.LOW_POWER
+                        GpsBatteryMode.LOW_POWER     -> GpsBatteryMode.HIGH_ACCURACY
+                    }
+                    settingsVm.setGpsBatteryMode(nextMode)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.GpsFixed,
+                        contentDescription = null,
+                        modifier = Modifier.size(AppDimensions.IconNormal)
+                    )
+                },
+                label = { Text("GPS Mode", style = MaterialTheme.typography.labelMedium) },
+                secondaryLabel = {
+                    Text(
+                        text = settingsState.gpsBatteryMode.label,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
