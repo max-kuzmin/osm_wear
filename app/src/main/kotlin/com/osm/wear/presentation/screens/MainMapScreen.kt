@@ -28,6 +28,8 @@ import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.osm.wear.presentation.theme.AppDimensions
+import com.osm.wear.presentation.theme.MapLayerColors
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.*
@@ -66,7 +68,7 @@ fun MainMapScreen(
     val activeGpxFile by gpxVm.activeGpxFile.collectAsStateWithLifecycle()
     val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
     
-    val pointMarkColor = android.graphics.Color.argb(220, 30, 136, 229)
+    val pointMarkColor = MapLayerColors.DOT_MARK_FILL
 
     val focusRequester = remember { FocusRequester() }
 
@@ -409,18 +411,18 @@ fun MainMapScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 6.dp)
+                .padding(end = AppDimensions.MapControlMarginEnd)
                 .graphicsLayer {
                     alpha = controlsAlpha
                 },
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(AppDimensions.MapControlSpacing),
             horizontalAlignment = Alignment.End
         ) {
             // Settings Button (Top - shifted further left for curve)
             Box(
                 modifier = Modifier
-                    .size(28.dp)
-                    .offset(x = (-28).dp)
+                    .size(AppDimensions.MapControlBox)
+                    .offset(x = AppDimensions.MapControlOffsetOuter)
                     .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
                     .clickable(enabled = controlsVisible) { onOpenSettings(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
@@ -428,15 +430,15 @@ fun MainMapScreen(
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(AppDimensions.IconSmall),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
             // Zoom In (Middle-Top - slightly shifted left for curve)
             Box(
                 modifier = Modifier
-                    .size(28.dp)
-                    .offset(x = (-8).dp)
+                    .size(AppDimensions.MapControlBox)
+                    .offset(x = AppDimensions.MapControlOffsetInner)
                     .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
                     .clickable(enabled = controlsVisible) { mapVm.zoomIn(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
@@ -444,15 +446,15 @@ fun MainMapScreen(
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Zoom In",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(AppDimensions.IconSmall),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
             // Zoom Out (Middle-Bottom - stays at the edge)
             Box(
                 modifier = Modifier
-                    .size(28.dp)
-                    .offset(x = (-8).dp)
+                    .size(AppDimensions.MapControlBox)
+                    .offset(x = AppDimensions.MapControlOffsetInner)
                     .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
                     .clickable(enabled = controlsVisible) { mapVm.zoomOut(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
@@ -460,7 +462,7 @@ fun MainMapScreen(
                 Icon(
                     imageVector = Icons.Default.Remove,
                     contentDescription = "Zoom Out",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(AppDimensions.IconSmall),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -482,8 +484,8 @@ fun MainMapScreen(
             }
             Box(
                 modifier = Modifier
-                    .size(28.dp)
-                    .offset(x = (-28).dp)
+                    .size(AppDimensions.MapControlBox)
+                    .offset(x = AppDimensions.MapControlOffsetOuter)
                     .background(buttonBgColor, CircleShape)
                     .clickable(enabled = controlsVisible) { mapVm.centerOnLocation(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
@@ -491,7 +493,7 @@ fun MainMapScreen(
                 Icon(
                     imageVector = buttonIcon,
                     contentDescription = "Center on Location",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(AppDimensions.IconSmall),
                     tint = buttonIconColor
                 )
             }
@@ -504,7 +506,7 @@ fun MainMapScreen(
                 navState = currentNavState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 6.dp)
+                    .padding(bottom = AppDimensions.NavOverlayPaddingBottom)
             )
         }
     }
@@ -526,23 +528,29 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
                 color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f),
                 shape = CircleShape
             )
-            .padding(horizontal = 12.dp, vertical = 2.dp),
+            .padding(
+                horizontal = AppDimensions.NavOverlayPaddingHorizontal,
+                vertical = AppDimensions.NavOverlayPaddingVertical
+            ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(AppDimensions.NavOverlaySpacing)
     ) {
         Text(
             text = arrow, 
-            fontSize = 24.sp, 
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = distText, 
-            fontSize = 15.sp, 
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
         if (navState.isOffTrack) {
-            Text("⚠", fontSize = 13.sp, color = Color.Red)
+            Text(
+                text = "⚠",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }

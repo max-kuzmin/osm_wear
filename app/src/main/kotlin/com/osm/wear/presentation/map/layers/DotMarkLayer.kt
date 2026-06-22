@@ -1,6 +1,7 @@
 package com.osm.wear.presentation.map.layers
 
 import android.graphics.Color
+import com.osm.wear.presentation.theme.MapLayerColors
 import org.mapsforge.core.graphics.Canvas
 import org.mapsforge.core.graphics.Paint
 import org.mapsforge.core.graphics.Style
@@ -30,7 +31,7 @@ class DotMarkLayer(
     }
 
     private val strokePaint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.WHITE)
+        setColor(MapLayerColors.DOT_MARK_STROKE)
         strokeWidth = 3f
         setStyle(Style.STROKE)
     }

@@ -20,9 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,9 +29,11 @@ import androidx.wear.compose.material3.*
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Notifications
+import androidx.core.content.ContextCompat
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.models.NavigationAlertMode
 import com.osm.wear.models.GpxFile
+import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
 fun GpxFilesScreen(
@@ -118,16 +117,19 @@ fun GpxFilesScreen(
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        contentPadding = PaddingValues(vertical = 24.dp, horizontal = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        contentPadding = PaddingValues(
+            vertical = AppDimensions.ScreenVerticalPadding,
+            horizontal = AppDimensions.ScreenHorizontalPadding
+        ),
+        verticalArrangement = Arrangement.spacedBy(AppDimensions.ListSpacingTight)
     ) {
         item {
             Text(
                 text = "GPX Files",
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 4.dp)
+                modifier = Modifier.padding(bottom = AppDimensions.PaddingTitleBottom)
             )
         }
 
@@ -161,11 +163,10 @@ fun GpxFilesScreen(
                     Icon(
                         imageVector = Icons.Default.Notifications,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = androidx.compose.ui.graphics.Color.White
+                        modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("Nav Alerts", fontSize = 13.sp) },
+                label = { Text("Nav Alerts", style = MaterialTheme.typography.labelMedium) },
                 secondaryLabel = {
                     val modeText = when (settingsState.navigationAlertMode) {
                         NavigationAlertMode.VOICE -> "Voice"
@@ -175,7 +176,7 @@ fun GpxFilesScreen(
                     }
                     Text(
                         text = modeText,
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                 }
@@ -186,18 +187,22 @@ fun GpxFilesScreen(
             item {
                 Text(
                     "No GPX files found on device",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(top = AppDimensions.PaddingHeaderTop)
                 )
             }
             item {
                 Text(
                     "To add GPX files, copy them to the watch directory:\n/Download/",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 4.dp)
+                    modifier = Modifier.padding(
+                        start = AppDimensions.GpxFilesAlertPaddingHorizontal,
+                        end = AppDimensions.GpxFilesAlertPaddingHorizontal,
+                        top = AppDimensions.GpxFilesAlertPaddingTop
+                    )
                 )
             }
         }
@@ -212,13 +217,13 @@ fun GpxFilesScreen(
                 label = {
                     Text(
                         gpx.name,
-                        fontSize = 13.sp
+                        style = MaterialTheme.typography.labelMedium
                     )
                 },
                 secondaryLabel = {
                     Text(
                         text = "%.1f km${if (gpx.isActive) " ✓" else ""}".format(gpx.totalDistanceKm),
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = if (gpx.isActive) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f) 
                                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
@@ -234,7 +239,7 @@ fun GpxFilesScreen(
         }
 
         item {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppDimensions.SpacerHeight))
         }
 
         item {
@@ -262,11 +267,11 @@ private fun NavigationButton(
                     Icon(
                         imageVector = Icons.Default.Stop,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 }
             ) {
-                Text("Stop Navigation", fontSize = 13.sp)
+                Text("Stop Navigation", style = MaterialTheme.typography.labelMedium)
             }
         } else {
             Button(
@@ -281,15 +286,11 @@ private fun NavigationButton(
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = androidx.compose.ui.graphics.Color.White
+                        modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("Start Navigation", fontSize = 13.sp) }
+                label = { Text("Start Navigation", style = MaterialTheme.typography.labelMedium) }
             )
         }
     }
 }
-
-
-

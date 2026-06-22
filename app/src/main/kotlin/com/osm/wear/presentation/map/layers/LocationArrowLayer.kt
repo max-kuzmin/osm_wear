@@ -1,6 +1,7 @@
 package com.osm.wear.presentation.map.layers
 
 import android.graphics.Color
+import com.osm.wear.presentation.theme.MapLayerColors
 import org.mapsforge.core.graphics.Canvas
 import org.mapsforge.core.graphics.Cap
 import org.mapsforge.core.graphics.Paint
@@ -26,12 +27,12 @@ class LocationArrowLayer(
 ) : Layer() {
 
     private val fillPaint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.argb(220, 30, 136, 229))
+        setColor(MapLayerColors.LOCATION_ARROW_FILL)
         setStyle(Style.FILL)
     }
 
     private val strokePaint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.WHITE)
+        setColor(MapLayerColors.LOCATION_ARROW_STROKE)
         strokeWidth = 3f
         setStyle(Style.STROKE)
         setStrokeCap(Cap.ROUND)

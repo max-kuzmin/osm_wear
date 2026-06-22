@@ -6,9 +6,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.*
+import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
 fun BackButton(
@@ -26,10 +25,9 @@ fun BackButton(
             Icon(
                 imageVector = Icons.Default.ArrowBack,
                 contentDescription = "Back",
-                modifier = Modifier.size(24.dp),
-                tint = androidx.compose.ui.graphics.Color.White
+                modifier = Modifier.size(AppDimensions.IconNormal)
             )
         },
-        label = { Text("Back", fontSize = 13.sp) }
+        label = { Text("Back", style = MaterialTheme.typography.labelMedium) }
     )
 }

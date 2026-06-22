@@ -8,14 +8,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.models.DownloadState
+import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
 fun RegionsScreen(
@@ -34,16 +33,19 @@ fun RegionsScreen(
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        contentPadding = PaddingValues(vertical = 24.dp, horizontal = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        contentPadding = PaddingValues(
+            vertical = AppDimensions.ScreenVerticalPadding,
+            horizontal = AppDimensions.ScreenHorizontalPadding
+        ),
+        verticalArrangement = Arrangement.spacedBy(AppDimensions.ListSpacingTight)
     ) {
         item {
             Text(
                 text = "Map Regions",
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 4.dp)
+                modifier = Modifier.padding(bottom = AppDimensions.PaddingTitleBottom)
             )
         }
 
@@ -53,7 +55,7 @@ fun RegionsScreen(
             item {
                 Text(
                     "Failed: ${ds.error}",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center
                 )
@@ -65,18 +67,18 @@ fun RegionsScreen(
             item {
                 Text(
                     "Downloaded",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(top = AppDimensions.PaddingHeaderTop)
                 )
             }
         } else {
             item {
                 Text(
                     "No regions downloaded yet",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(top = AppDimensions.PaddingHeaderTop)
                 )
             }
         }
@@ -96,13 +98,13 @@ fun RegionsScreen(
                     label = {
                         Text(
                             dr.region.name,
-                            fontSize = 13.sp
+                            style = MaterialTheme.typography.labelMedium
                         )
                     },
                     secondaryLabel = {
                         Text(
                             text = "${dr.fileSizeMb} MB${if (dr.isActive) " ✓" else ""}",
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             color = if (dr.isActive) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f) 
                                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                         )
@@ -115,7 +117,7 @@ fun RegionsScreen(
                         contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(AppDimensions.SpacerWidth))
                 com.osm.wear.presentation.components.RemoveButton(
                     onClick = { regionsVm.deleteRegion(dr.region) }
                 )
@@ -130,9 +132,9 @@ fun RegionsScreen(
                 item {
                     Text(
                         continent,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = AppDimensions.PaddingHeaderTop)
                     )
                 }
                 
@@ -141,56 +143,56 @@ fun RegionsScreen(
                     val isDownloading = downloadState is DownloadState.Downloading &&
                             (downloadState as DownloadState.Downloading).region.id == region.id
                     val isBusy = downloadState is DownloadState.Downloading
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Button(
-                            onClick = { if (!isBusy) regionsVm.downloadRegion(region) },
-                            modifier = Modifier.weight(1f),
-                            enabled = !isBusy,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            ),
-                            label = {
-                                Text(
-                                    region.name,
-                                    fontSize = 13.sp
-                                )
-                            },
-                            secondaryLabel = {
-                                if (isDownloading) {
-                                    val ds = downloadState as DownloadState.Downloading
-                                    Text(
-                                        text = "${ds.progressPercent}% (${ds.downloadedMb.toInt()} MB)",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Text(
-                                        text = "~${region.fileSizeMb} MB",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                                    )
-                                }
-                            }
-                        )
-                        
-                        if (isDownloading) {
-                            com.osm.wear.presentation.components.RemoveButton(
-                                onClick = { regionsVm.cancelDownload() }
-                            )
-                        }
-                    }
+ 
+                     Row(
+                         modifier = Modifier.fillMaxWidth(),
+                         verticalAlignment = Alignment.CenterVertically,
+                         horizontalArrangement = Arrangement.spacedBy(AppDimensions.SpacerWidth)
+                     ) {
+                         Button(
+                             onClick = { if (!isBusy) regionsVm.downloadRegion(region) },
+                             modifier = Modifier.weight(1f),
+                             enabled = !isBusy,
+                             colors = ButtonDefaults.buttonColors(
+                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                 contentColor = MaterialTheme.colorScheme.onSurface
+                             ),
+                             label = {
+                                 Text(
+                                     region.name,
+                                     style = MaterialTheme.typography.labelMedium
+                                 )
+                             },
+                             secondaryLabel = {
+                                 if (isDownloading) {
+                                     val ds = downloadState as DownloadState.Downloading
+                                     Text(
+                                         text = "${ds.progressPercent}% (${ds.downloadedMb.toInt()} MB)",
+                                         style = MaterialTheme.typography.labelSmall,
+                                         color = MaterialTheme.colorScheme.primary
+                                     )
+                                 } else {
+                                     Text(
+                                         text = "~${region.fileSizeMb} MB",
+                                         style = MaterialTheme.typography.labelSmall,
+                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                     )
+                                 }
+                             }
+                         )
+                         
+                         if (isDownloading) {
+                             com.osm.wear.presentation.components.RemoveButton(
+                                 onClick = { regionsVm.cancelDownload() }
+                             )
+                         }
+                     }
                 }
             }
         }
         
         item {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppDimensions.SpacerHeight))
         }
 
         item {
@@ -198,5 +200,3 @@ fun RegionsScreen(
         }
     }
 }
-
-

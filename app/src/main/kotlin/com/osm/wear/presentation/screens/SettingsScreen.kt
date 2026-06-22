@@ -16,12 +16,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 import com.osm.wear.models.MapTheme
+import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
 fun SettingsScreen(
@@ -44,16 +43,19 @@ fun SettingsScreen(
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        contentPadding = PaddingValues(vertical = 24.dp, horizontal = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(
+            vertical = AppDimensions.ScreenVerticalPadding,
+            horizontal = AppDimensions.ScreenHorizontalPadding
+        ),
+        verticalArrangement = Arrangement.spacedBy(AppDimensions.ListSpacingNormal)
     ) {
         item {
             Text(
                 text = "Settings",
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 4.dp)
+                modifier = Modifier.padding(bottom = AppDimensions.PaddingTitleBottom)
             )
         }
 
@@ -70,15 +72,14 @@ fun SettingsScreen(
                     Icon(
                         imageVector = Icons.Default.Map,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = androidx.compose.ui.graphics.Color.White
+                        modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("Map Regions", fontSize = 13.sp) },
+                label = { Text("Map Regions", style = MaterialTheme.typography.labelMedium) },
                 secondaryLabel = { 
                     Text(
                         text = activeRegion?.region?.name ?: "None selected", 
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     ) 
                 }
@@ -98,15 +99,14 @@ fun SettingsScreen(
                     Icon(
                         imageVector = Icons.Default.Route,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = androidx.compose.ui.graphics.Color.White
+                        modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("GPX Files", fontSize = 13.sp) },
+                label = { Text("GPX Files", style = MaterialTheme.typography.labelMedium) },
                 secondaryLabel = { 
                     Text(
                         text = activeGpx?.name ?: "None selected", 
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     ) 
                 }
@@ -125,11 +125,10 @@ fun SettingsScreen(
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = androidx.compose.ui.graphics.Color.White
+                        modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("Path Finder", fontSize = 13.sp) },
+                label = { Text("Path Finder", style = MaterialTheme.typography.labelMedium) },
                 secondaryLabel = {
                     val tappedPoint = uiState.tappedPoint
                     val pointText = if (tappedPoint != null) {
@@ -139,7 +138,7 @@ fun SettingsScreen(
                     }
                     Text(
                         text = pointText,
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                 }
@@ -168,11 +167,10 @@ fun SettingsScreen(
                     Icon(
                         imageVector = Icons.Default.Map,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = androidx.compose.ui.graphics.Color.White
+                        modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("Map Theme", fontSize = 13.sp) },
+                label = { Text("Map Theme", style = MaterialTheme.typography.labelMedium) },
                 secondaryLabel = {
                     val themeText = when (settingsState.mapTheme) {
                         MapTheme.BIKER -> "Biker"
@@ -184,7 +182,7 @@ fun SettingsScreen(
                     }
                     Text(
                         text = themeText,
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                 }
@@ -196,5 +194,3 @@ fun SettingsScreen(
         }
     }
 }
-
-

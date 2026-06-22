@@ -10,9 +10,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
+import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
 fun RemoveButton(
@@ -21,7 +21,7 @@ fun RemoveButton(
 ) {
     Box(
         modifier = modifier
-            .size(28.dp)
+            .size(AppDimensions.RemoveButtonBox)
             .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
@@ -29,7 +29,7 @@ fun RemoveButton(
         Icon(
             imageVector = Icons.Default.Close,
             contentDescription = "Remove",
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(AppDimensions.IconSmall),
             tint = MaterialTheme.colorScheme.onErrorContainer
         )
     }

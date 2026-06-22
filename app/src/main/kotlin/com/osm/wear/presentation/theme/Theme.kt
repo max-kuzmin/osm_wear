@@ -2,10 +2,27 @@ package com.osm.wear.presentation.theme
 
 import androidx.compose.runtime.Composable
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.darkColorScheme
+
+val AppColorScheme = darkColorScheme(
+    primary = PrimaryColor,
+    onPrimary = OnPrimaryColor,
+    background = BackgroundColor,
+    onBackground = OnSurfaceColor,
+    surfaceContainer = SurfaceContainerColor,
+    onSurface = OnSurfaceColor,
+    onSurfaceVariant = OnSurfaceVariantColor,
+    error = ErrorColor,
+    onError = OnErrorColor,
+    errorContainer = ErrorContainerColor,
+    onErrorContainer = OnErrorContainerColor
+)
 
 @Composable
 fun OsmWearTheme(content: @Composable () -> Unit) {
-    // Wear OS Material3 uses device-defined color scheme by default.
-    // We rely on the system dark theme which is standard on Wear OS.
-    MaterialTheme(content = content)
+    MaterialTheme(
+        colorScheme = AppColorScheme,
+        typography = AppTypography,
+        content = content
+    )
 }

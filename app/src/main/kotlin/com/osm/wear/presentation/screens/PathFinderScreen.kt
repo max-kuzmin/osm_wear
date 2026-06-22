@@ -17,12 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 import com.osm.wear.models.NavigationMode
+import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
 fun PathFinderScreen(
@@ -44,16 +43,19 @@ fun PathFinderScreen(
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        contentPadding = PaddingValues(vertical = 24.dp, horizontal = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        contentPadding = PaddingValues(
+            vertical = AppDimensions.ScreenVerticalPadding,
+            horizontal = AppDimensions.ScreenHorizontalPadding
+        ),
+        verticalArrangement = Arrangement.spacedBy(AppDimensions.ListSpacingTight)
     ) {
         item {
             Text(
                 text = "Path Finder",
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 4.dp)
+                modifier = Modifier.padding(bottom = AppDimensions.PaddingTitleBottom)
             )
         }
 
@@ -73,18 +75,28 @@ fun PathFinderScreen(
                         Icon(
                             imageVector = Icons.Default.Stop,
                             contentDescription = "Stop Navigation",
-                            modifier = Modifier.size(24.dp),
-                            tint = androidx.compose.ui.graphics.Color.White
+                            modifier = Modifier.size(AppDimensions.IconNormal)
                         )
                     },
-                    label = { Text("Stop Navigation", fontSize = 13.sp) }
+                    label = { Text("Stop Navigation", style = MaterialTheme.typography.labelMedium) }
                 )
             } else {
                 Button(
                     onClick = {
-                        navVm.startNavigationToPoint(tappedPoint!!, mapVm.currentLocation.value, uiState.centerLat, uiState.centerLon, settingsState.navigationMode, onGpxCreated = { gpx -> gpxVm.setActiveGpxFile(gpx); navVm.startNavigation(gpx, mapVm.currentLocation.value) { } }, onFailure = { error ->
-                            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-                        })
+                        navVm.startNavigationToPoint(
+                            tappedPoint!!,
+                            mapVm.currentLocation.value,
+                            uiState.centerLat,
+                            uiState.centerLon,
+                            settingsState.navigationMode,
+                            onGpxCreated = { gpx ->
+                                gpxVm.setActiveGpxFile(gpx)
+                                navVm.startNavigation(gpx, mapVm.currentLocation.value) { }
+                            },
+                            onFailure = { error ->
+                                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                            }
+                        )
                         onStartNavigation() // Navigate back to the map screen
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -97,11 +109,10 @@ fun PathFinderScreen(
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
                             contentDescription = "Start Navigation",
-                            modifier = Modifier.size(24.dp),
-                            tint = androidx.compose.ui.graphics.Color.White
+                            modifier = Modifier.size(AppDimensions.IconNormal)
                         )
                     },
-                    label = { Text("Start Navigation", fontSize = 13.sp) }
+                    label = { Text("Start Navigation", style = MaterialTheme.typography.labelMedium) }
                 )
             }
         }
@@ -125,15 +136,14 @@ fun PathFinderScreen(
                     Icon(
                         imageVector = modeIcon,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = androidx.compose.ui.graphics.Color.White
+                        modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("Travel Mode", fontSize = 13.sp) },
+                label = { Text("Travel Mode", style = MaterialTheme.typography.labelMedium) },
                 secondaryLabel = {
                     Text(
                         text = settingsState.navigationMode.label,
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                 }
@@ -149,15 +159,19 @@ fun PathFinderScreen(
             }
             Text(
                 text = statusText,
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp, start = 8.dp, end = 8.dp)
+                modifier = Modifier.padding(
+                    top = AppDimensions.PaddingLabelTop,
+                    start = AppDimensions.ScreenHorizontalPadding,
+                    end = AppDimensions.ScreenHorizontalPadding
+                )
             )
         }
 
         item {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppDimensions.SpacerHeight))
         }
 
         item {
@@ -165,7 +179,3 @@ fun PathFinderScreen(
         }
     }
 }
-
-
-
-

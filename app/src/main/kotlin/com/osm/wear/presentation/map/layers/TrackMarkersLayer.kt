@@ -1,6 +1,7 @@
 package com.osm.wear.presentation.map.layers
 
 import android.graphics.Color
+import com.osm.wear.presentation.theme.MapLayerColors
 import org.mapsforge.core.graphics.Canvas
 import org.mapsforge.core.graphics.Paint
 import org.mapsforge.core.graphics.Style
@@ -23,18 +24,18 @@ class TrackMarkersLayer(
 ) : Layer() {
 
     private val linePaint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.argb(200, 255, 80, 0))
+        setColor(MapLayerColors.TRACK_LINE)
         strokeWidth = 6f
         setStyle(Style.STROKE)
     }
 
     private val endPaint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.RED)
+        setColor(MapLayerColors.TRACK_END)
         setStyle(Style.FILL)
     }
 
     private val strokePaint: Paint = AndroidGraphicFactory.INSTANCE.createPaint().apply {
-        setColor(Color.BLACK)
+        setColor(MapLayerColors.TRACK_STROKE)
         strokeWidth = 2f
         setStyle(Style.STROKE)
     }
