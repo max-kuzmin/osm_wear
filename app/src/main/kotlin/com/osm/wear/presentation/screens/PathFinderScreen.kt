@@ -36,7 +36,7 @@ import com.osm.wear.presentation.theme.AppDimensions
 @Composable
 fun PathFinderScreen(
     navVm: NavigationViewModel,
-    mapVm: MapViewModel,
+    dotMarkVm: DotMarkViewModel,
     settingsVm: SettingsViewModel,
     gpxVm: GpxFilesViewModel,
     onOpenSearch: () -> Unit,
@@ -44,14 +44,14 @@ fun PathFinderScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val uiState by mapVm.uiState.collectAsStateWithLifecycle()
+    val dotMarkState by dotMarkVm.uiState.collectAsStateWithLifecycle()
     val navState by navVm.navigationState.collectAsStateWithLifecycle()
     val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
-    val tappedPoint = uiState.tappedPoint
+    val tappedPoint = dotMarkState.tappedPoint
 
     BackHandler { onBack() }
 
-    val bookmarks by mapVm.bookmarks.collectAsStateWithLifecycle()
+    val bookmarks by dotMarkVm.bookmarks.collectAsStateWithLifecycle()
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -102,13 +102,11 @@ fun PathFinderScreen(
                         if (tappedPoint != null) {
                             navVm.startNavigationToPoint(
                                 tappedPoint,
-                                mapVm.currentLocation.value,
-                                uiState.centerLat,
-                                uiState.centerLon,
+                                dotMarkVm.currentLocation.value,
                                 settingsState.navigationMode,
                                 onGpxCreated = { gpx ->
                                     gpxVm.setActiveGpxFile(gpx)
-                                    navVm.startNavigation(gpx, mapVm.currentLocation.value) { newMode ->
+                                    navVm.startNavigation(gpx, dotMarkVm.currentLocation.value) { newMode ->
                                         settingsVm.setGpsBatteryMode(newMode)
                                     }
                                 },
@@ -179,7 +177,7 @@ fun PathFinderScreen(
                 Button(
                     onClick = {
                         if (tappedPoint != null) {
-                            mapVm.saveBookmarkFromMap(tappedPoint, uiState.tappedPointName, uiState.tappedPointAddress)
+                            dotMarkVm.saveBookmarkFromMap(tappedPoint, dotMarkState.tappedPointName, dotMarkState.tappedPointAddress)
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -249,7 +247,7 @@ fun PathFinderScreen(
                 ) {
                     Button(
                         onClick = {
-                            mapVm.selectBookmark(bookmark)
+                            dotMarkVm.selectBookmark(bookmark)
                         },
                         modifier = Modifier.weight(1f),
                         colors = if (isSelected) {
@@ -307,7 +305,7 @@ fun PathFinderScreen(
 
                     RemoveButton(
                         onClick = {
-                            mapVm.deleteBookmark(bookmark)
+                            dotMarkVm.deleteBookmark(bookmark)
                         }
                     )
                 }

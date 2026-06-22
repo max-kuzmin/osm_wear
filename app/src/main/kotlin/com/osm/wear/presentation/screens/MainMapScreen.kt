@@ -61,6 +61,7 @@ import java.io.File
 @Composable
 fun MainMapScreen(
     mapVm: MapViewModel,
+    dotMarkVm: DotMarkViewModel,
     navVm: NavigationViewModel,
     regionsVm: RegionsViewModel,
     gpxVm: GpxFilesViewModel,
@@ -70,6 +71,7 @@ fun MainMapScreen(
     val context = LocalContext.current
     val uiState  by mapVm.uiState.collectAsStateWithLifecycle()
     val location by mapVm.currentLocation.collectAsStateWithLifecycle()
+    val dotMarkState by dotMarkVm.uiState.collectAsStateWithLifecycle()
     
     val navState by navVm.navigationState.collectAsStateWithLifecycle()
     val activeMapFile by regionsVm.activeMapFile.collectAsStateWithLifecycle()
@@ -236,9 +238,9 @@ fun MainMapScreen(
     }
 
     // Update DotMarkLayer and AddressPopupLayer dynamically based on tappedPoint changes
-    LaunchedEffect(uiState.tappedPoint, parentLayoutRef.value) {
+    LaunchedEffect(dotMarkState.tappedPoint, parentLayoutRef.value) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        val pt = uiState.tappedPoint
+        val pt = dotMarkState.tappedPoint
         if (pt == null) {
             dotMarkLayer.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
             dotMarkLayer.value = null
@@ -266,7 +268,7 @@ fun MainMapScreen(
                     context = context,
                     mv = mv,
                     parentLayout = parentLayout,
-                    uiStateFlow = mapVm.uiState,
+                    uiStateFlow = dotMarkVm.uiState,
                     controlsVisibleState = derivedStateOf { controlsVisible },
                     onInteraction = {
                         lastInteractionTime = System.currentTimeMillis()
@@ -290,7 +292,7 @@ fun MainMapScreen(
                 val projection = org.mapsforge.map.util.MapViewProjection(mv)
                 val latLong = projection.fromPixels(finalX, finalY)
                 if (latLong != null) {
-                    mapVm.onMapTapped(latLong.latitude, latLong.longitude)
+                    dotMarkVm.onMapTapped(latLong.latitude, latLong.longitude)
                 }
             }
         })
@@ -340,7 +342,7 @@ fun MainMapScreen(
                 }
 
                 // Draw initial dot (DotMarkLayer) & AddressPopupLayer
-                uiState.tappedPoint?.let { pt ->
+                dotMarkState.tappedPoint?.let { pt ->
                     val latLong = LatLong(pt.lat, pt.lon)
                     val dotLayer = DotMarkLayer(latLong, mv, pointMarkColor)
                     mv.layerManager.layers.add(dotLayer)
@@ -350,7 +352,7 @@ fun MainMapScreen(
                         context = ctx,
                         mv = mv,
                         parentLayout = parentLayout,
-                        uiStateFlow = mapVm.uiState,
+                        uiStateFlow = dotMarkVm.uiState,
                         controlsVisibleState = derivedStateOf { controlsVisible },
                         onInteraction = {
                             lastInteractionTime = System.currentTimeMillis()

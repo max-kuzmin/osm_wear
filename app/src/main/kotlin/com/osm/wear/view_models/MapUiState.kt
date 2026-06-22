@@ -1,6 +1,5 @@
 package com.osm.wear.view_models
 
-import com.osm.wear.models.GpxPoint
 import com.osm.wear.models.MapRotationMode
 
 data class MapUiState(
@@ -15,13 +14,5 @@ data class MapUiState(
     /** Map rotation mode (North-up, Heading-up, or Manual). */
     val mapRotationMode: MapRotationMode = MapRotationMode.NORTH_UP,
     /** Current manual rotation angle, used when MapRotationMode is MANUAL. */
-    val manualRotation: Float = 0f,
-    /** Tapped point coordinate (red dot) */
-    val tappedPoint: GpxPoint? = null,
-    /** Tapped point name/object name */
-    val tappedPointName: String? = null,
-    /** Tapped point address string */
-    val tappedPointAddress: String? = null,
-    /** Whether reverse geocoding is currently in progress */
-    val isResolvingAddress: Boolean = false
+    val manualRotation: Float = 0f
 )

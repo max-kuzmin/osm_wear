@@ -25,7 +25,7 @@ import com.osm.wear.presentation.theme.AppDimensions
 @Composable
 fun SettingsScreen(
     settingsVm: SettingsViewModel,
-    mapVm: MapViewModel,
+    dotMarkVm: DotMarkViewModel,
     regionsVm: RegionsViewModel,
     gpxVm: GpxFilesViewModel,
     onOpenRegions: () -> Unit,
@@ -33,7 +33,7 @@ fun SettingsScreen(
     onOpenPathFinder: () -> Unit,
     onBack: () -> Unit
 ) {
-    val uiState         by mapVm.uiState.collectAsStateWithLifecycle()
+    val dotMarkState    by dotMarkVm.uiState.collectAsStateWithLifecycle()
     val settingsState   by settingsVm.uiState.collectAsStateWithLifecycle()
     val downloadedRegions by regionsVm.downloadedRegions.collectAsStateWithLifecycle()
     val gpxFiles        by gpxVm.gpxFiles.collectAsStateWithLifecycle()
@@ -130,11 +130,11 @@ fun SettingsScreen(
                 },
                 label = { Text("Path Finder", style = MaterialTheme.typography.labelMedium) },
                 secondaryLabel = {
-                    val tappedPoint = uiState.tappedPoint
+                    val tappedPoint = dotMarkState.tappedPoint
                     val pointText = if (tappedPoint != null) {
                         when {
-                            !uiState.tappedPointName.isNullOrBlank() -> uiState.tappedPointName ?: ""
-                            !uiState.tappedPointAddress.isNullOrBlank() -> uiState.tappedPointAddress ?: ""
+                            !dotMarkState.tappedPointName.isNullOrBlank() -> dotMarkState.tappedPointName ?: ""
+                            !dotMarkState.tappedPointAddress.isNullOrBlank() -> dotMarkState.tappedPointAddress ?: ""
                             else -> "%.4f, %.4f".format(tappedPoint.lat, tappedPoint.lon)
                         }
                     } else {

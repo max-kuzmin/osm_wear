@@ -9,6 +9,7 @@ import com.osm.wear.models.NavigationMode
 import com.osm.wear.models.NavigationState
 import com.osm.wear.models.UserLocation
 import com.osm.wear.repositories.IRouteRepository
+import com.osm.wear.repositories.ISettingsRepository
 import com.osm.wear.services.INavigationService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,7 +25,8 @@ import javax.inject.Inject
 @HiltViewModel
 class NavigationViewModel @Inject constructor(
     private val navigationService: INavigationService,
-    private val routeRepo: IRouteRepository
+    private val routeRepo: IRouteRepository,
+    private val settingsRepository: ISettingsRepository
 ) : ViewModel() {
 
     private val _navigationState = MutableStateFlow<NavigationState?>(null)
@@ -69,16 +71,14 @@ class NavigationViewModel @Inject constructor(
     }
 
     fun startNavigationToPoint(
-        target: GpxPoint, 
-        currentLoc: UserLocation?, 
-        mapCenterLat: Double, 
-        mapCenterLon: Double, 
+        target: GpxPoint,
+        currentLoc: UserLocation?,
         mode: NavigationMode,
         onGpxCreated: (GpxFile) -> Unit,
         onFailure: (String) -> Unit
     ) {
-        val startLat = currentLoc?.latitude ?: mapCenterLat
-        val startLon = currentLoc?.longitude ?: mapCenterLon
+        val startLat = currentLoc?.latitude ?: settingsRepository.getMapCenterLat()
+        val startLon = currentLoc?.longitude ?: settingsRepository.getMapCenterLon()
 
         viewModelScope.launch {
             try {

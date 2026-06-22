@@ -1,6 +1,6 @@
 package com.osm.wear.presentation.screens
 
-import com.osm.wear.view_models.MapViewModel
+import com.osm.wear.view_models.DotMarkViewModel
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,16 +22,16 @@ import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
 fun SearchAddressScreen(
-    mapVm: MapViewModel,
+    dotMarkVm: DotMarkViewModel,
     onAddressSelected: () -> Unit,
     onBack: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val searchResults by mapVm.searchResults.collectAsStateWithLifecycle()
-    val isSearching by mapVm.isSearching.collectAsStateWithLifecycle()
+    val searchResults by dotMarkVm.searchResults.collectAsStateWithLifecycle()
+    val isSearching by dotMarkVm.isSearching.collectAsStateWithLifecycle()
 
     BackHandler {
-        mapVm.clearSearchResults()
+        dotMarkVm.clearSearchResults()
         onBack()
     }
 
@@ -66,7 +66,7 @@ fun SearchAddressScreen(
                     value = searchQuery,
                     onValueChange = {
                         searchQuery = it
-                        mapVm.searchAddresses(it)
+                        dotMarkVm.searchAddresses(it)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = LocalTextStyle.current.copy(
@@ -126,8 +126,8 @@ fun SearchAddressScreen(
 
                 Button(
                     onClick = {
-                        mapVm.saveSearchBookmark(result.name, result.address, result.lat, result.lon)
-                        mapVm.clearSearchResults()
+                        dotMarkVm.saveSearchBookmark(result.name, result.address, result.lat, result.lon)
+                        dotMarkVm.clearSearchResults()
                         onAddressSelected()
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -162,7 +162,7 @@ fun SearchAddressScreen(
 
         item {
             BackButton(onClick = {
-                mapVm.clearSearchResults()
+                dotMarkVm.clearSearchResults()
                 onBack()
             })
         }

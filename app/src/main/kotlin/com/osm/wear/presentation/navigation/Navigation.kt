@@ -26,6 +26,7 @@ fun OsmWearNavGraph() {
     
     // Instantiate all view models at the nav graph scope to share their states across screens
     val mapVm: MapViewModel = hiltViewModel()
+    val dotMarkVm: DotMarkViewModel = hiltViewModel()
     val navVm: NavigationViewModel = hiltViewModel()
     val regionsVm: RegionsViewModel = hiltViewModel()
     val gpxVm: GpxFilesViewModel = hiltViewModel()
@@ -41,11 +42,12 @@ fun OsmWearNavGraph() {
         }
     }
 
-    // Connect location updates from map to navigation engine
+    // Connect location updates from map to navigation engine and dot mark view model
     LaunchedEffect(Unit) {
         mapVm.currentLocation.collect { loc ->
             if (loc != null) {
                 navVm.updateLocation(loc)
+                dotMarkVm.updateCurrentLocation(loc)
             }
         }
     }
@@ -68,6 +70,7 @@ fun OsmWearNavGraph() {
         composable(Routes.MAP) {
             MainMapScreen(
                 mapVm = mapVm,
+                dotMarkVm = dotMarkVm,
                 navVm = navVm,
                 regionsVm = regionsVm,
                 gpxVm = gpxVm,
@@ -78,7 +81,7 @@ fun OsmWearNavGraph() {
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 settingsVm = settingsVm,
-                mapVm = mapVm,
+                dotMarkVm = dotMarkVm,
                 regionsVm = regionsVm,
                 gpxVm = gpxVm,
                 onOpenRegions          = { navController.navigate(Routes.REGIONS) },
@@ -114,7 +117,7 @@ fun OsmWearNavGraph() {
         composable(Routes.PATH_FINDER) {
             PathFinderScreen(
                 navVm = navVm,
-                mapVm = mapVm,
+                dotMarkVm = dotMarkVm,
                 settingsVm = settingsVm,
                 gpxVm = gpxVm,
                 onOpenSearch = {
@@ -128,7 +131,7 @@ fun OsmWearNavGraph() {
         }
         composable(Routes.SEARCH_ADDRESS) {
             SearchAddressScreen(
-                mapVm = mapVm,
+                dotMarkVm = dotMarkVm,
                 onAddressSelected = {
                     navController.popBackStack()
                 },
@@ -139,4 +142,3 @@ fun OsmWearNavGraph() {
         }
     }
 }
-
