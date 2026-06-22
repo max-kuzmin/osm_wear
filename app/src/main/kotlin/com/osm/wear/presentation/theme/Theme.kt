@@ -2,9 +2,9 @@ package com.osm.wear.presentation.theme
 
 import androidx.compose.runtime.Composable
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.darkColorScheme
+import androidx.wear.compose.material3.ColorScheme
 
-val AppColorScheme = darkColorScheme(
+val AppColorScheme = ColorScheme(
     primary = PrimaryColor,
     onPrimary = OnPrimaryColor,
     background = BackgroundColor,
