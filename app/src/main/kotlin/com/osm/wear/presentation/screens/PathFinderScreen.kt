@@ -1,5 +1,7 @@
 package com.osm.wear.presentation.screens
 
+import com.osm.wear.view_models.*
+
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -24,13 +26,17 @@ import com.osm.wear.models.NavigationMode
 
 @Composable
 fun PathFinderScreen(
-    vm: MapViewModel,
+    navVm: NavigationViewModel,
+    mapVm: MapViewModel,
+    settingsVm: SettingsViewModel,
+    gpxVm: GpxFilesViewModel,
     onStartNavigation: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val uiState by vm.uiState.collectAsStateWithLifecycle()
-    val navState = uiState.navigationState
+    val uiState by mapVm.uiState.collectAsStateWithLifecycle()
+    val navState by navVm.navigationState.collectAsStateWithLifecycle()
+    val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
     val tappedPoint = uiState.tappedPoint
 
     BackHandler { onBack() }
@@ -53,11 +59,12 @@ fun PathFinderScreen(
 
         // ── Start / Stop Navigation ────────────────────────────────────
         item {
-            val isNavActive = navState?.isActive == true && navState.gpxFile?.id == "path_finder"
+            val currentNavState = navState
+            val isNavActive = currentNavState?.isActive == true && currentNavState.gpxFile?.id == "path_finder"
             
             if (isNavActive) {
                 Button(
-                    onClick = { vm.stopNavigation() },
+                    onClick = { navVm.stopNavigation { /* Handle battery locally if needed */ } },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error
@@ -75,9 +82,9 @@ fun PathFinderScreen(
             } else {
                 Button(
                     onClick = {
-                        vm.startNavigationToPoint { error ->
+                        navVm.startNavigationToPoint(tappedPoint!!, mapVm.currentLocation.value, uiState.centerLat, uiState.centerLon, settingsState.navigationMode, onGpxCreated = { gpx -> gpxVm.setActiveGpxFile(gpx); navVm.startNavigation(gpx, mapVm.currentLocation.value) { } }, onFailure = { error ->
                             Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-                        }
+                        })
                         onStartNavigation() // Navigate back to the map screen
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -101,14 +108,14 @@ fun PathFinderScreen(
 
         // ── Navigation selection mode (Walking, Cycling, Driving) ──────
         item {
-            val modeIcon = when (uiState.navigationMode) {
+            val modeIcon = when (settingsState.navigationMode) {
                 NavigationMode.WALKING -> Icons.Default.DirectionsWalk
                 NavigationMode.CYCLING -> Icons.Default.DirectionsBike
                 NavigationMode.DRIVING -> Icons.Default.DirectionsCar
             }
             
             Button(
-                onClick = { vm.cycleNavigationMode() },
+                onClick = { settingsVm.cycleNavigationMode() },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -125,7 +132,7 @@ fun PathFinderScreen(
                 label = { Text("Travel Mode", fontSize = 13.sp) },
                 secondaryLabel = {
                     Text(
-                        text = uiState.navigationMode.label,
+                        text = settingsState.navigationMode.label,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
@@ -158,4 +165,7 @@ fun PathFinderScreen(
         }
     }
 }
+
+
+
 

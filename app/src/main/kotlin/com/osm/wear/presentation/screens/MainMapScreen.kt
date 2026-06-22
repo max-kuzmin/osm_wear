@@ -1,5 +1,7 @@
 package com.osm.wear.presentation.screens
 
+import com.osm.wear.view_models.*
+
 import android.content.Context
 import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
@@ -48,14 +50,22 @@ import java.io.File
 
 @Composable
 fun MainMapScreen(
-    vm: MapViewModel,
+    mapVm: MapViewModel,
+    navVm: NavigationViewModel,
+    regionsVm: RegionsViewModel,
+    gpxVm: GpxFilesViewModel,
+    settingsVm: SettingsViewModel,
     onOpenSettings: () -> Unit
 ) {
     val context = LocalContext.current
-    val uiState  by vm.uiState.collectAsStateWithLifecycle()
-    val location by vm.currentLocation.collectAsStateWithLifecycle()
-
-    val navState = uiState.navigationState
+    val uiState  by mapVm.uiState.collectAsStateWithLifecycle()
+    val location by mapVm.currentLocation.collectAsStateWithLifecycle()
+    
+    val navState by navVm.navigationState.collectAsStateWithLifecycle()
+    val activeMapFile by regionsVm.activeMapFile.collectAsStateWithLifecycle()
+    val activeGpxFile by gpxVm.activeGpxFile.collectAsStateWithLifecycle()
+    val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
+    
     val pointMarkColor = android.graphics.Color.argb(220, 30, 136, 229)
 
     val focusRequester = remember { FocusRequester() }
@@ -92,14 +102,14 @@ fun MainMapScreen(
     val animBearing = remember { Animatable(0f) }
 
     // Update GPS dot and centering when location changes
-    LaunchedEffect(location, uiState.navigationState?.currentWaypointIndex) {
+    LaunchedEffect(location, navState?.currentWaypointIndex) {
         val loc = location ?: return@LaunchedEffect
 
         // Target values
         val targetLat = loc.latitude.toFloat()
         val targetLon = loc.longitude.toFloat()
         
-        val nav = uiState.navigationState
+        val nav = navState
         var targetBearing = if (nav != null && nav.isActive && nav.waypoints.isNotEmpty() && !nav.isOffTrack) {
             val idx = nav.currentWaypointIndex
             if (idx >= 0 && idx < nav.waypoints.size) {
@@ -174,10 +184,10 @@ fun MainMapScreen(
     }
 
     // Update GPX layer dynamically based on GPX changes and navigation progress
-    LaunchedEffect(uiState.activeGpxFile, uiState.navigationState?.currentWaypointIndex, location) {
+    LaunchedEffect(activeGpxFile, navState?.currentWaypointIndex, location) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        val gpx = uiState.activeGpxFile
-        val nav = uiState.navigationState
+        val gpx = activeGpxFile
+        val nav = navState
         
         val pts = if (nav != null && nav.isActive) {
             val rawPoints = gpx?.trackPoints ?: emptyList()
@@ -207,9 +217,9 @@ fun MainMapScreen(
     }
 
     // Reload tile layer when active map file or theme changes
-    LaunchedEffect(uiState.activeMapFile, uiState.mapTheme) {
+    LaunchedEffect(activeMapFile, settingsState.mapTheme) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        reloadTileLayer(context, mv, uiState.activeMapFile, uiState.mapTheme, tileLayerRef)
+        reloadTileLayer(context, mv, activeMapFile, settingsState.mapTheme, tileLayerRef)
     }
 
     // Update DotMarkLayer dynamically based on tappedPoint changes
@@ -240,7 +250,7 @@ fun MainMapScreen(
                 val projection = org.mapsforge.map.util.MapViewProjection(mv)
                 val latLong = projection.fromPixels(e.x.toDouble(), e.y.toDouble())
                 if (latLong != null) {
-                    vm.onMapTapped(latLong.latitude, latLong.longitude)
+                    mapVm.onMapTapped(latLong.latitude, latLong.longitude)
                 }
             }
         })
@@ -251,7 +261,7 @@ fun MainMapScreen(
             .fillMaxSize()
             .focusRequester(focusRequester)
             .onRotaryScrollEvent {
-                if (it.verticalScrollPixels > 0) vm.zoomOut() else vm.zoomIn()
+                if (it.verticalScrollPixels > 0) mapVm.zoomOut() else mapVm.zoomIn()
                 true
             }
     ) {
@@ -268,12 +278,12 @@ fun MainMapScreen(
                     mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
 
                     // Load initial tile layer
-                    uiState.activeMapFile?.let { f ->
-                        reloadTileLayer(ctx, mv, f, uiState.mapTheme, tileLayerRef)
+                    activeMapFile?.let { f ->
+                        reloadTileLayer(ctx, mv, f, settingsState.mapTheme, tileLayerRef)
                     }
 
                     // Draw initial GPX
-                    uiState.activeGpxFile?.let { gpx ->
+                    activeGpxFile?.let { gpx ->
                         val pts = gpx.trackPoints.map { LatLong(it.lat, it.lon) }
                         val layer = TrackMarkersLayer(pts, mv)
                         mv.layerManager.layers.add(layer)
@@ -292,7 +302,7 @@ fun MainMapScreen(
                     mv.setOnGenericMotionListener { _, event ->
                         if (event.action == MotionEvent.ACTION_SCROLL) {
                             val scroll = event.getAxisValue(MotionEvent.AXIS_SCROLL)
-                            if (scroll > 0) vm.zoomIn() else vm.zoomOut()
+                            if (scroll > 0) mapVm.zoomIn() else mapVm.zoomOut()
                             true
                         } else false
                     }
@@ -337,7 +347,7 @@ fun MainMapScreen(
                                         mv.model.mapViewPosition.setRotation(Rotation(newRot, pivotX, pivotY))
                                         mv.postInvalidate()
                                         
-                                        vm.onMapRotated(newRot)
+                                        mapVm.onMapRotated(newRot)
                                     }
                                 }
                                 MotionEvent.ACTION_POINTER_UP -> {
@@ -357,7 +367,7 @@ fun MainMapScreen(
                                     val dy = event.y - startY
                                     if (dx * dx + dy * dy > touchSlop * touchSlop) {
                                         val mvPos = mv.model.mapViewPosition
-                                        vm.onMapPanned(
+                                        mapVm.onMapPanned(
                                             mvPos.center.latitude,
                                             mvPos.center.longitude
                                         )
@@ -428,7 +438,7 @@ fun MainMapScreen(
                     .size(28.dp)
                     .offset(x = (-8).dp)
                     .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
-                    .clickable(enabled = controlsVisible) { vm.zoomIn(); lastInteractionTime = System.currentTimeMillis() },
+                    .clickable(enabled = controlsVisible) { mapVm.zoomIn(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -444,7 +454,7 @@ fun MainMapScreen(
                     .size(28.dp)
                     .offset(x = (-8).dp)
                     .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f), CircleShape)
-                    .clickable(enabled = controlsVisible) { vm.zoomOut(); lastInteractionTime = System.currentTimeMillis() },
+                    .clickable(enabled = controlsVisible) { mapVm.zoomOut(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -475,7 +485,7 @@ fun MainMapScreen(
                     .size(28.dp)
                     .offset(x = (-28).dp)
                     .background(buttonBgColor, CircleShape)
-                    .clickable(enabled = controlsVisible) { vm.centerOnLocation(); lastInteractionTime = System.currentTimeMillis() },
+                    .clickable(enabled = controlsVisible) { mapVm.centerOnLocation(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -488,9 +498,10 @@ fun MainMapScreen(
         }
 
         // ── Navigation overlay ────────────────────────────────────────────────
-        if (navState != null && navState.isActive && navState.waypoints.isNotEmpty()) {
+        val currentNavState = navState
+        if (currentNavState != null && currentNavState.isActive && currentNavState.waypoints.isNotEmpty()) {
             NavigationOverlay(
-                navState = navState,
+                navState = currentNavState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 6.dp)
@@ -596,4 +607,6 @@ private fun reloadTileLayer(
         android.util.Log.e("MainMapScreen", "Failed to reload tile layer", e)
     }
 }
+
+
 

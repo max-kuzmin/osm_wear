@@ -1,5 +1,7 @@
 package com.osm.wear.presentation.screens
 
+import com.osm.wear.view_models.*
+
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -32,18 +34,21 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Notifications
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.models.NavigationAlertMode
+import com.osm.wear.models.GpxFile
 
 @Composable
 fun GpxFilesScreen(
-    vm: MapViewModel,
-    onStartNavigation: () -> Unit,
+    gpxVm: GpxFilesViewModel,
+    navVm: NavigationViewModel,
+    settingsVm: SettingsViewModel,
+    onStartNavigation: (GpxFile) -> Unit,
     onStopNavigation: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val uiState by vm.uiState.collectAsStateWithLifecycle()
-    val gpxFiles by vm.gpxFiles.collectAsStateWithLifecycle()
-    val navState = uiState.navigationState
+    val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
+    val gpxFiles by gpxVm.gpxFiles.collectAsStateWithLifecycle()
+    val navState by navVm.navigationState.collectAsStateWithLifecycle()
 
     val hasAllFilesAccess = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         Environment.isExternalStorageManager() ||
@@ -56,7 +61,7 @@ fun GpxFilesScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            vm.scanGpxFolders()
+            gpxVm.scanGpxFolders()
         }
     }
 
@@ -99,7 +104,7 @@ fun GpxFilesScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                vm.scanGpxFolders()
+                gpxVm.scanGpxFolders()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -131,7 +136,7 @@ fun GpxFilesScreen(
             NavigationButton(
                 isActive = navState?.isActive == true,
                 hasActiveGpx = gpxFiles.any { it.isActive },
-                onStart = onStartNavigation,
+                onStart = { gpxFiles.find { it.isActive }?.let { onStartNavigation(it) } },
                 onStop = onStopNavigation
             )
         }
@@ -139,13 +144,13 @@ fun GpxFilesScreen(
         item {
             Button(
                 onClick = {
-                    val nextMode = when (uiState.navigationAlertMode) {
+                    val nextMode = when (settingsState.navigationAlertMode) {
                         NavigationAlertMode.VOICE -> NavigationAlertMode.SOUND
                         NavigationAlertMode.SOUND -> NavigationAlertMode.VIBRATION
                         NavigationAlertMode.VIBRATION -> NavigationAlertMode.SILENT
                         NavigationAlertMode.SILENT -> NavigationAlertMode.VOICE
                     }
-                    vm.setNavigationAlertMode(nextMode)
+                    settingsVm.setNavigationAlertMode(nextMode)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -162,7 +167,7 @@ fun GpxFilesScreen(
                 },
                 label = { Text("Nav Alerts", fontSize = 13.sp) },
                 secondaryLabel = {
-                    val modeText = when (uiState.navigationAlertMode) {
+                    val modeText = when (settingsState.navigationAlertMode) {
                         NavigationAlertMode.VOICE -> "Voice"
                         NavigationAlertMode.SOUND -> "Sound"
                         NavigationAlertMode.VIBRATION -> "Vibration"
@@ -201,7 +206,7 @@ fun GpxFilesScreen(
             val gpx = gpxFiles[idx]
             Button(
                 onClick = {
-                    vm.setActiveGpxFile(gpx)
+                    gpxVm.setActiveGpxFile(gpx)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
@@ -285,4 +290,6 @@ private fun NavigationButton(
         }
     }
 }
+
+
 

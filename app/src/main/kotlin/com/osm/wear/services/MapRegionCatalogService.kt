@@ -12,7 +12,9 @@ import javax.inject.Inject
 
 class MapRegionCatalogService @Inject constructor() : IMapRegionCatalogService {
 
-    private const val BASE = "https://download.mapsforge.org/maps/v5"
+    companion object {
+        private const val BASE = "https://download.mapsforge.org/maps/v5"
+    }
 
     private fun r(id: String, name: String, continent: String, path: String, sizeMb: Int) =
         MapRegion(

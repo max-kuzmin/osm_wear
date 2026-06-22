@@ -19,4 +19,4 @@
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
 
 # Keep data classes
--keepclassmembers class com.osm.wear.domain.model.** { *; }
+-keepclassmembers class com.osm.wear.models.** { *; }

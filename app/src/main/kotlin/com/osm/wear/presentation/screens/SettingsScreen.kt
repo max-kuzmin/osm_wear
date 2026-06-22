@@ -1,5 +1,7 @@
 package com.osm.wear.presentation.screens
 
+import com.osm.wear.view_models.*
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -23,15 +25,19 @@ import com.osm.wear.models.MapTheme
 
 @Composable
 fun SettingsScreen(
-    vm: MapViewModel,
+    settingsVm: SettingsViewModel,
+    mapVm: MapViewModel,
+    regionsVm: RegionsViewModel,
+    gpxVm: GpxFilesViewModel,
     onOpenRegions: () -> Unit,
     onOpenGpxFiles: () -> Unit,
     onOpenPathFinder: () -> Unit,
     onBack: () -> Unit
 ) {
-    val uiState         by vm.uiState.collectAsStateWithLifecycle()
-    val downloadedRegions by vm.downloadedRegions.collectAsStateWithLifecycle()
-    val gpxFiles        by vm.gpxFiles.collectAsStateWithLifecycle()
+    val uiState         by mapVm.uiState.collectAsStateWithLifecycle()
+    val settingsState   by settingsVm.uiState.collectAsStateWithLifecycle()
+    val downloadedRegions by regionsVm.downloadedRegions.collectAsStateWithLifecycle()
+    val gpxFiles        by gpxVm.gpxFiles.collectAsStateWithLifecycle()
 
     BackHandler { onBack() }
 
@@ -143,7 +149,7 @@ fun SettingsScreen(
         item {
             Button(
                 onClick = {
-                    val nextTheme = when (uiState.mapTheme) {
+                    val nextTheme = when (settingsState.mapTheme) {
                         MapTheme.BIKER -> MapTheme.DARK
                         MapTheme.DARK -> MapTheme.DEFAULT
                         MapTheme.DEFAULT -> MapTheme.INDIGO
@@ -151,7 +157,7 @@ fun SettingsScreen(
                         MapTheme.MOTORIDER -> MapTheme.OSMARENDER
                         MapTheme.OSMARENDER -> MapTheme.BIKER
                     }
-                    vm.setMapTheme(nextTheme)
+                    settingsVm.setMapTheme(nextTheme)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -168,7 +174,7 @@ fun SettingsScreen(
                 },
                 label = { Text("Map Theme", fontSize = 13.sp) },
                 secondaryLabel = {
-                    val themeText = when (uiState.mapTheme) {
+                    val themeText = when (settingsState.mapTheme) {
                         MapTheme.BIKER -> "Biker"
                         MapTheme.DARK -> "Dark"
                         MapTheme.DEFAULT -> "Default"
@@ -190,4 +196,5 @@ fun SettingsScreen(
         }
     }
 }
+
 

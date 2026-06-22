@@ -8,7 +8,8 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.osm.wear.presentation.screens.*
-import com.osm.wear.view_models.MapViewModel
+import com.osm.wear.view_models.*
+import androidx.compose.runtime.LaunchedEffect
 
 object Routes {
     const val MAP              = "map"
@@ -21,15 +22,37 @@ object Routes {
 @Composable
 fun OsmWearNavGraph() {
     val navController = rememberSwipeDismissableNavController()
-    val vm: MapViewModel = hiltViewModel()
+    
+    // Instantiate all view models at the nav graph scope to share their states across screens
+    val mapVm: MapViewModel = hiltViewModel()
+    val navVm: NavigationViewModel = hiltViewModel()
+    val regionsVm: RegionsViewModel = hiltViewModel()
+    val gpxVm: GpxFilesViewModel = hiltViewModel()
+    val settingsVm: SettingsViewModel = hiltViewModel()
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        vm.navigationEvents.collect { route ->
+    LaunchedEffect(Unit) {
+        navVm.navigationEvents.collect { route ->
             if (route == Routes.MAP) {
                 navController.popBackStack(Routes.MAP, false)
             } else {
                 navController.navigate(route)
             }
+        }
+    }
+
+    // Connect location updates from map to navigation engine
+    LaunchedEffect(Unit) {
+        mapVm.currentLocation.collect { loc ->
+            if (loc != null) {
+                navVm.updateLocation(loc)
+            }
+        }
+    }
+    
+    // Connect settings battery mode to location tracking
+    LaunchedEffect(Unit) {
+        settingsVm.uiState.collect { state ->
+            mapVm.startLocationTracking(state.gpsBatteryMode)
         }
     }
 
@@ -43,13 +66,20 @@ fun OsmWearNavGraph() {
     ) {
         composable(Routes.MAP) {
             MainMapScreen(
-                vm = vm,
+                mapVm = mapVm,
+                navVm = navVm,
+                regionsVm = regionsVm,
+                gpxVm = gpxVm,
+                settingsVm = settingsVm,
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) }
             )
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(
-                vm = vm,
+                settingsVm = settingsVm,
+                mapVm = mapVm,
+                regionsVm = regionsVm,
+                gpxVm = gpxVm,
                 onOpenRegions          = { navController.navigate(Routes.REGIONS) },
                 onOpenGpxFiles         = { navController.navigate(Routes.GPX_FILES) },
                 onOpenPathFinder       = { navController.navigate(Routes.PATH_FINDER) },
@@ -58,25 +88,34 @@ fun OsmWearNavGraph() {
         }
         composable(Routes.REGIONS) {
             RegionsScreen(
-                vm = vm,
+                regionsVm = regionsVm,
                 onRegionSelected      = { navController.popBackStack(Routes.MAP, false) },
                 onBack                = { navController.popBackStack() }
             )
         }
         composable(Routes.GPX_FILES) {
             GpxFilesScreen(
-                vm = vm,
-                onStartNavigation = {
-                    vm.startNavigation()
+                gpxVm = gpxVm,
+                navVm = navVm,
+                settingsVm = settingsVm,
+                onStartNavigation = { gpx ->
+                    navVm.startNavigation(gpx, mapVm.currentLocation.value) { newMode ->
+                        settingsVm.setGpsBatteryMode(newMode)
+                    }
                     navController.popBackStack(Routes.MAP, false)
                 },
-                onStopNavigation  = { vm.stopNavigation() },
+                onStopNavigation  = { 
+                    navVm.stopNavigation { newMode -> settingsVm.setGpsBatteryMode(newMode) }
+                },
                 onBack            = { navController.popBackStack() }
             )
         }
         composable(Routes.PATH_FINDER) {
             PathFinderScreen(
-                vm = vm,
+                navVm = navVm,
+                mapVm = mapVm,
+                settingsVm = settingsVm,
+                gpxVm = gpxVm,
                 onStartNavigation = {
                     navController.popBackStack(Routes.MAP, false)
                 },
@@ -85,3 +124,4 @@ fun OsmWearNavGraph() {
         }
     }
 }
+

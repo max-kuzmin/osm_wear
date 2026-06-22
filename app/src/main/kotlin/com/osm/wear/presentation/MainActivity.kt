@@ -10,6 +10,8 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.osm.wear.presentation.navigation.OsmWearNavGraph
 import com.osm.wear.presentation.theme.OsmWearTheme
 import com.osm.wear.view_models.MapViewModel
+import com.osm.wear.view_models.GpxFilesViewModel
+import com.osm.wear.view_models.NavigationViewModel
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -20,14 +22,15 @@ import kotlinx.coroutines.launch
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private val vm: MapViewModel by viewModels()
+    private val gpxVm: GpxFilesViewModel by viewModels()
+    private val navVm: NavigationViewModel by viewModels()
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
         if (granted) {
-            vm.onPermissionsGranted()
+            // Location permission handled by map
         }
         android.util.Log.d("MainActivity", "Location permission granted: $granted")
     }
@@ -81,10 +84,11 @@ class MainActivity : ComponentActivity() {
             }
             if (uri != null) {
                 android.util.Log.d("MainActivity", "Handling intent to import GPX from: $uri")
-                vm.importGpxFile(uri, autoActivate = true)
-                vm.navigateTo(com.osm.wear.presentation.navigation.Routes.MAP)
+                gpxVm.importGpxFile(uri, autoActivate = true)
+                navVm.navigateTo(com.osm.wear.presentation.navigation.Routes.MAP)
             }
         }
     }
 }
+
 
