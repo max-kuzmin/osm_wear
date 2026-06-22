@@ -12,7 +12,9 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.GpsFixed
+import androidx.compose.material.icons.filled.Notifications
 import com.osm.wear.models.GpsBatteryMode
+import com.osm.wear.models.NavigationAlertMode
 import com.osm.wear.presentation.components.BackButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -134,10 +136,16 @@ fun SettingsScreen(
                 secondaryLabel = {
                     val tappedPoint = dotMarkState.tappedPoint
                     val pointText = if (tappedPoint != null) {
-                        when {
-                            !dotMarkState.tappedPointName.isNullOrBlank() -> dotMarkState.tappedPointName ?: ""
-                            !dotMarkState.tappedPointAddress.isNullOrBlank() -> dotMarkState.tappedPointAddress ?: ""
-                            else -> "%.4f, %.4f".format(tappedPoint.lat, tappedPoint.lon)
+                        val name = dotMarkState.tappedPointName?.takeIf { it.isNotBlank() }
+                        val addr = dotMarkState.tappedPointAddress?.takeIf { it.isNotBlank() }
+                        val coords = "%.4f, %.4f".format(tappedPoint.lat, tappedPoint.lon)
+                        buildString {
+                            if (name != null) append(name)
+                            if (addr != null) {
+                                if (isNotEmpty()) append(" · ")
+                                append(addr)
+                            }
+                            if (isEmpty()) append(coords)
                         }
                     } else {
                         "No point selected"
@@ -221,6 +229,46 @@ fun SettingsScreen(
                 secondaryLabel = {
                     Text(
                         text = settingsState.gpsBatteryMode.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
+                }
+            )
+        }
+
+        item {
+            Button(
+                onClick = {
+                    val nextMode = when (settingsState.navigationAlertMode) {
+                        NavigationAlertMode.VOICE      -> NavigationAlertMode.SOUND
+                        NavigationAlertMode.SOUND      -> NavigationAlertMode.VIBRATION
+                        NavigationAlertMode.VIBRATION  -> NavigationAlertMode.SILENT
+                        NavigationAlertMode.SILENT     -> NavigationAlertMode.VOICE
+                    }
+                    settingsVm.setNavigationAlertMode(nextMode)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        modifier = Modifier.size(AppDimensions.IconNormal)
+                    )
+                },
+                label = { Text("Nav Alerts", style = MaterialTheme.typography.labelMedium) },
+                secondaryLabel = {
+                    val modeText = when (settingsState.navigationAlertMode) {
+                        NavigationAlertMode.VOICE      -> "Voice"
+                        NavigationAlertMode.SOUND      -> "Sound"
+                        NavigationAlertMode.VIBRATION  -> "Vibration"
+                        NavigationAlertMode.SILENT     -> "Silent"
+                    }
+                    Text(
+                        text = modeText,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )

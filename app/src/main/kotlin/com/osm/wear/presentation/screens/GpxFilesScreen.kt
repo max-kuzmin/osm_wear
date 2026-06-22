@@ -28,10 +28,8 @@ import androidx.wear.compose.material3.*
 
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Notifications
 import androidx.core.content.ContextCompat
 import com.osm.wear.presentation.components.BackButton
-import com.osm.wear.models.NavigationAlertMode
 import com.osm.wear.models.GpxFile
 import com.osm.wear.presentation.theme.AppDimensions
 
@@ -45,7 +43,6 @@ fun GpxFilesScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
     val gpxFiles by gpxVm.gpxFiles.collectAsStateWithLifecycle()
     val navState by navVm.navigationState.collectAsStateWithLifecycle()
 
@@ -143,46 +140,6 @@ fun GpxFilesScreen(
             )
         }
 
-        item {
-            Button(
-                onClick = {
-                    val nextMode = when (settingsState.navigationAlertMode) {
-                        NavigationAlertMode.VOICE -> NavigationAlertMode.SOUND
-                        NavigationAlertMode.SOUND -> NavigationAlertMode.VIBRATION
-                        NavigationAlertMode.VIBRATION -> NavigationAlertMode.SILENT
-                        NavigationAlertMode.SILENT -> NavigationAlertMode.VOICE
-                    }
-                    settingsVm.setNavigationAlertMode(nextMode)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = null,
-                        modifier = Modifier.size(AppDimensions.IconNormal)
-                    )
-                },
-                label = { Text("Nav Alerts", style = MaterialTheme.typography.labelMedium) },
-                secondaryLabel = {
-                    val modeText = when (settingsState.navigationAlertMode) {
-                        NavigationAlertMode.VOICE -> "Voice"
-                        NavigationAlertMode.SOUND -> "Sound"
-                        NavigationAlertMode.VIBRATION -> "Vibration"
-                        NavigationAlertMode.SILENT -> "Silent"
-                    }
-                    Text(
-                        text = modeText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                    )
-                }
-            )
-        }
-
         if (gpxFiles.isEmpty()) {
             item {
                 Text(
@@ -222,7 +179,7 @@ fun GpxFilesScreen(
                 },
                 secondaryLabel = {
                     Text(
-                        text = "%.1f km${if (gpx.isActive) " ✓" else ""}".format(gpx.totalDistanceKm),
+                        text = "%.1f km".format(gpx.totalDistanceKm),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (gpx.isActive) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f) 
                                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)

@@ -29,7 +29,7 @@ object AppDimensions {
     val MapControlOffsetInner = (-8).dp
 
     // Navigation Overlay Styling
-    val NavOverlayPaddingBottom = 6.dp
+    val NavOverlayPaddingBottom = 8.dp
     val NavOverlayPaddingHorizontal = 12.dp
     val NavOverlayPaddingVertical = 2.dp
     val NavOverlaySpacing = 8.dp

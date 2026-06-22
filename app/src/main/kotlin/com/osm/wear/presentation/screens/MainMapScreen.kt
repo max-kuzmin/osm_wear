@@ -270,6 +270,7 @@ fun MainMapScreen(
                     parentLayout = parentLayout,
                     uiStateFlow = dotMarkVm.uiState,
                     controlsVisibleState = derivedStateOf { controlsVisible },
+                    zoomLevelState = derivedStateOf { uiState.zoomLevel },
                     onInteraction = {
                         lastInteractionTime = System.currentTimeMillis()
                     }
@@ -354,6 +355,7 @@ fun MainMapScreen(
                         parentLayout = parentLayout,
                         uiStateFlow = dotMarkVm.uiState,
                         controlsVisibleState = derivedStateOf { controlsVisible },
+                        zoomLevelState = derivedStateOf { uiState.zoomLevel },
                         onInteraction = {
                             lastInteractionTime = System.currentTimeMillis()
                         }

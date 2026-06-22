@@ -5,7 +5,7 @@ import android.view.View
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -42,6 +42,7 @@ class AddressPopupLayer(
     private val parentLayout: FrameLayout,
     private val uiStateFlow: StateFlow<DotMarkUiState>,
     private val controlsVisibleState: State<Boolean>,
+    private val zoomLevelState: State<Int>,
     private val onInteraction: () -> Unit
 ) : Layer() {
 
@@ -60,9 +61,10 @@ class AddressPopupLayer(
         setContent {
             val uiState by uiStateFlow.collectAsState()
             val controlsVisible by controlsVisibleState
+            val zoomLevel by zoomLevelState
             
             val tappedPoint = uiState.tappedPoint
-            val isVisible = controlsVisible && tappedPoint != null && !uiState.isResolvingAddress
+            val isVisible = controlsVisible && tappedPoint != null && !uiState.isResolvingAddress && zoomLevel >= 15
             
             LaunchedEffect(isVisible) {
                 popupContainer.visibility = if (isVisible) View.VISIBLE else View.GONE
@@ -82,9 +84,6 @@ class AddressPopupLayer(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
                             shape = RoundedCornerShape(12.dp)
                         )
-                        .clickable {
-                            onInteraction()
-                        }
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
