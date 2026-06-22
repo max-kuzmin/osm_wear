@@ -24,6 +24,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -521,7 +522,6 @@ fun MainMapScreen(
 private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Modifier) {
     val distM = navState.distanceToNextTurnM
     val distText = if (distM >= 1000f) "%.1f km".format(distM / 1000f) else "${distM.toInt()} m"
-    val arrow = bearingToArrow(navState.bearingToNextTurn)
 
     Row(
         modifier = modifier
@@ -536,10 +536,11 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(AppDimensions.NavOverlaySpacing)
     ) {
-        Text(
-            text = arrow, 
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
+        Icon(
+            imageVector = Icons.Default.ArrowUpward,
+            contentDescription = "Turn direction",
+            modifier = Modifier.size(AppDimensions.NavOverlayIconSize).rotate(navState.bearingToNextTurn),
+            tint = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = distText, 
@@ -556,16 +557,7 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
     }
 }
 
-private fun bearingToArrow(b: Float) = when {
-    b < 22.5f  || b >= 337.5f -> "↑"
-    b < 67.5f  -> "↗"
-    b < 112.5f -> "→"
-    b < 157.5f -> "↘"
-    b < 202.5f -> "↓"
-    b < 247.5f -> "↙"
-    b < 292.5f -> "←"
-    else       -> "↖"
-}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mapsforge helpers

@@ -33,6 +33,7 @@ object AppDimensions {
     val NavOverlayPaddingHorizontal = 12.dp
     val NavOverlayPaddingVertical = 2.dp
     val NavOverlaySpacing = 8.dp
+    val NavOverlayIconSize = 24.dp
     val GpxFilesAlertPaddingHorizontal = 12.dp
     val GpxFilesAlertPaddingTop = 4.dp
 }
