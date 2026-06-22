@@ -142,8 +142,7 @@ class MapViewModel @Inject constructor(
             it.copy(
                 centerLat = newLat, 
                 centerLon = newLon, 
-                followLocation = false,
-                mapRotationMode = if (it.mapRotationMode == MapRotationMode.HEADING_UP) MapRotationMode.NORTH_UP else it.mapRotationMode
+                followLocation = false
             ) 
         }
         persistMapState()

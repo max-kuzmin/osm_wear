@@ -149,18 +149,19 @@ fun MainMapScreen(
         val mv = mapViewRef.value ?: return@SideEffect
         locationMarker.value?.updatePosition(LatLong(currentLat, currentLon), currentBearing)
         
+        val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
+        val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+
         if (uiState.followLocation) {
             mv.model.mapViewPosition.setCenter(LatLong(currentLat, currentLon))
-            val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
-            val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
-            val targetRotation = if (uiState.mapRotationMode == MapRotationMode.HEADING_UP) -currentBearing else 0f
-            mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
-        } else {
-            val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
-            val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
-            val targetRotation = if (uiState.mapRotationMode == MapRotationMode.MANUAL) uiState.manualRotation else 0f
-            mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
         }
+        
+        val targetRotation = when (uiState.mapRotationMode) {
+            MapRotationMode.HEADING_UP -> -currentBearing
+            MapRotationMode.MANUAL -> uiState.manualRotation
+            else -> 0f
+        }
+        mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
     }
 
     // Update GPS dot when location changes (Handled by Animatable + SideEffect now)
@@ -390,20 +391,20 @@ fun MainMapScreen(
                     locationMarker.value = newMarker
                 }
                 
+                val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
+                val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
+
                 if (uiState.followLocation) {
                     mv.model.mapViewPosition.setCenter(LatLong(currentLat, currentLon))
                     mv.model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
-                    
-                    val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
-                    val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
-                    val targetRotation = if (uiState.mapRotationMode == MapRotationMode.HEADING_UP) -currentBearing else 0f
-                    mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
-                } else {
-                    val pivotX = if (mv.width > 0) mv.width * 0.5f else 0f
-                    val pivotY = if (mv.height > 0) mv.height * 0.5f else 0f
-                    val targetRotation = if (uiState.mapRotationMode == MapRotationMode.MANUAL) uiState.manualRotation else 0f
-                    mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
                 }
+
+                val targetRotation = when (uiState.mapRotationMode) {
+                    MapRotationMode.HEADING_UP -> -currentBearing
+                    MapRotationMode.MANUAL -> uiState.manualRotation
+                    else -> 0f
+                }
+                mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
             }
         )
 
