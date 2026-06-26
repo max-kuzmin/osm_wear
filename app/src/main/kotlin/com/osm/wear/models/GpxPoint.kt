@@ -6,6 +6,3 @@ data class GpxPoint(
     val ele: Double = 0.0,
     val time: Long = 0L
 )
-
-// ─── Navigation ──────────────────────────────────────────────────────────────
-

@@ -4,29 +4,22 @@ import com.osm.wear.view_models.*
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.presentation.components.RemoveButton
+import com.osm.wear.presentation.components.NavigationButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
@@ -75,64 +68,32 @@ fun PathFinderScreen(
         // ── Start / Stop Navigation ────────────────────────────────────
         item {
             val currentNavState = navState
-            val isNavActive = currentNavState?.isActive == true && currentNavState.gpxFile?.id == "path_finder"
-
-            if (isNavActive) {
-                Button(
-                    onClick = {
-                        navVm.stopNavigation { newMode -> settingsVm.setGpsBatteryMode(newMode) }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    ),
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Stop,
-                            contentDescription = "Stop Navigation",
-                            modifier = Modifier.size(AppDimensions.IconNormal)
-                        )
-                    },
-                    label = { Text("Stop Navigation", style = MaterialTheme.typography.labelMedium) }
-                )
-            } else {
-                Button(
-                    onClick = {
-                        if (tappedPoint != null) {
-                            navVm.startNavigationToPoint(
-                                tappedPoint,
-                                dotMarkVm.currentLocation.value,
-                                settingsState.navigationMode,
-                                onGpxCreated = { gpx ->
-                                    gpxVm.setActiveGpxFile(gpx)
-                                    navVm.startNavigation(gpx, dotMarkVm.currentLocation.value) { newMode ->
-                                        settingsVm.setGpsBatteryMode(newMode)
-                                    }
-                                },
-                                onFailure = { error ->
-                                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+            NavigationButton(
+                isActive = currentNavState?.isActive == true && currentNavState.gpxFile?.id == "path_finder",
+                enabled = tappedPoint != null,
+                onStart = {
+                    if (tappedPoint != null) {
+                        navVm.startNavigationToPoint(
+                            tappedPoint,
+                            dotMarkVm.currentLocation.value,
+                            settingsState.navigationMode,
+                            onGpxCreated = { gpx ->
+                                gpxVm.setActiveGpxFile(gpx)
+                                navVm.startNavigation(gpx, dotMarkVm.currentLocation.value) { newMode ->
+                                    settingsVm.setGpsBatteryMode(newMode)
                                 }
-                            )
-                            onStartNavigation()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = tappedPoint != null,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Start Navigation",
-                            modifier = Modifier.size(AppDimensions.IconNormal)
+                            },
+                            onFailure = { error ->
+                                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                            }
                         )
-                    },
-                    label = { Text("Start Navigation", style = MaterialTheme.typography.labelMedium) }
-                )
-            }
+                        onStartNavigation()
+                    }
+                },
+                onStop = {
+                    navVm.stopNavigation { newMode -> settingsVm.setGpsBatteryMode(newMode) }
+                }
+            )
         }
 
         // ── Navigation selection mode (Walking, Cycling, Driving) ──────

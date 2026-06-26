@@ -98,15 +98,20 @@ fun OsmWearNavGraph() {
             )
         }
         composable(Routes.GPX_FILES) {
+            val context = androidx.compose.ui.platform.LocalContext.current
             GpxFilesScreen(
                 gpxVm = gpxVm,
                 navVm = navVm,
                 settingsVm = settingsVm,
                 onStartNavigation = { gpx ->
-                    navVm.startNavigation(gpx, mapVm.currentLocation.value) { newMode ->
+                    val error = navVm.startNavigation(gpx, mapVm.currentLocation.value) { newMode ->
                         settingsVm.setGpsBatteryMode(newMode)
                     }
-                    navController.popBackStack(Routes.MAP, false)
+                    if (error != null) {
+                        android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                    } else {
+                        navController.popBackStack(Routes.MAP, false)
+                    }
                 },
                 onStopNavigation  = { 
                     navVm.stopNavigation { newMode -> settingsVm.setGpsBatteryMode(newMode) }

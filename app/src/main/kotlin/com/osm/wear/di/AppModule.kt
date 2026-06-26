@@ -16,8 +16,12 @@ import com.osm.wear.repositories.IGeocodingRepository
 import com.osm.wear.repositories.GeocodingRepositoryImpl
 import com.osm.wear.services.INavigationService
 import com.osm.wear.services.IMapRegionCatalogService
+import com.osm.wear.repositories.IMapFileRepository
 import com.osm.wear.services.MapRegionCatalogService
+import com.osm.wear.repositories.MapFileRepository
 import com.osm.wear.services.NavigationService
+import com.osm.wear.services.TrackToMapMatcherService
+import com.osm.wear.services.ITrackToMapMatcherService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -83,8 +87,26 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideNavigationService(@ApplicationContext context: Context): INavigationService {
-        return NavigationService(context)
+    fun provideMapFileRepository(): IMapFileRepository {
+        return MapFileRepository()
+    }
+
+    @Provides
+    @Singleton
+    fun provideTrackToMapMatcherService(
+        @ApplicationContext context: Context,
+        mapFileRepository: IMapFileRepository
+    ): ITrackToMapMatcherService {
+        return TrackToMapMatcherService(context, mapFileRepository)
+    }
+
+    @Provides
+    @Singleton
+    fun provideNavigationService(
+        @ApplicationContext context: Context,
+        trackToMapMatcher: ITrackToMapMatcherService
+    ): INavigationService {
+        return NavigationService(context, trackToMapMatcher)
     }
 
     @Provides

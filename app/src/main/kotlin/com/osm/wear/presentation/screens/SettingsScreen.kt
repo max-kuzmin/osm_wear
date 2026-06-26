@@ -6,10 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Notifications

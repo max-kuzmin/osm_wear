@@ -8,6 +8,7 @@ import com.osm.wear.models.MapRegion
 import com.osm.wear.repositories.ISettingsRepository
 import com.osm.wear.repositories.MapDownloadRepository
 import com.osm.wear.services.IMapRegionCatalogService
+import com.osm.wear.repositories.IMapFileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +22,8 @@ import javax.inject.Inject
 class RegionsViewModel @Inject constructor(
     private val downloadManager: MapDownloadRepository,
     private val mapRegionCatalogService: IMapRegionCatalogService,
-    private val settingsRepository: ISettingsRepository
+    private val settingsRepository: ISettingsRepository,
+    private val mapFileRepository: IMapFileRepository
 ) : ViewModel() {
 
     private val _downloadedRegions = MutableStateFlow<List<DownloadedRegion>>(emptyList())
@@ -57,6 +59,7 @@ class RegionsViewModel @Inject constructor(
         
         _activeMapFile.value = file
         _activeRegionId.value = region.id
+        mapFileRepository.setActiveMapFile(file)
         settingsRepository.setActiveRegionId(region.id)
         refreshDownloadedRegions()
     }
@@ -67,6 +70,7 @@ class RegionsViewModel @Inject constructor(
             if (_activeRegionId.value == region.id) {
                 _activeMapFile.value = null
                 _activeRegionId.value = null
+                mapFileRepository.setActiveMapFile(null)
                 settingsRepository.setActiveRegionId(null)
             }
             refreshDownloadedRegions()
@@ -100,6 +104,7 @@ class RegionsViewModel @Inject constructor(
         if (file.exists()) {
             _activeMapFile.value = file
             _activeRegionId.value = target.region.id
+            mapFileRepository.setActiveMapFile(file)
             if (lastSelectedId != target.region.id) {
                 settingsRepository.setActiveRegionId(target.region.id)
             }

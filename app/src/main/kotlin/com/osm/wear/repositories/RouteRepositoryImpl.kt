@@ -3,7 +3,6 @@ package com.osm.wear.repositories
 import android.util.Log
 import com.osm.wear.models.GpxPoint
 import com.osm.wear.models.NavigationMode
-import com.osm.wear.repositories.IRouteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient

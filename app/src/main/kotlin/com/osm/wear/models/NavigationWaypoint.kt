@@ -7,5 +7,7 @@ data class NavigationWaypoint(
     val bearingToNext: Float,
     val distanceToNextM: Float,
     val isTurn: Boolean,
-    val turnBearingChange: Float = 0f
+    val turnBearingChange: Float = 0f,
+    val roadName: String? = null,
+    val isIntersection: Boolean = false
 )

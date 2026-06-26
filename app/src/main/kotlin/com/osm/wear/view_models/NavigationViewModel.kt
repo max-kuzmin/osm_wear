@@ -4,13 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.GpsBatteryMode
 import com.osm.wear.models.GpxFile
-import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.UserLocation
 import com.osm.wear.models.NavigationMode
 import com.osm.wear.models.NavigationState
-import com.osm.wear.models.UserLocation
+import com.osm.wear.models.GpxPoint
 import com.osm.wear.repositories.IRouteRepository
+import com.osm.wear.repositories.IMapFileRepository
 import com.osm.wear.repositories.ISettingsRepository
 import com.osm.wear.services.INavigationService
+import org.mapsforge.map.reader.MapFile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,15 +20,15 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class NavigationViewModel @Inject constructor(
     private val navigationService: INavigationService,
-    private val routeRepo: IRouteRepository,
-    private val settingsRepository: ISettingsRepository
+    private val settingsRepository: ISettingsRepository,
+    private val mapFileRepository: IMapFileRepository,
+    private val routeRepo: IRouteRepository
 ) : ViewModel() {
 
     private val _navigationState = MutableStateFlow<NavigationState?>(null)
@@ -41,8 +43,86 @@ class NavigationViewModel @Inject constructor(
         }
     }
 
-    fun startNavigation(gpx: GpxFile, initialLocation: UserLocation?, onBatteryModeChange: (GpsBatteryMode) -> Unit) {
-        var nav = navigationService.buildInitialNavigationState(gpx) ?: return
+    /**
+     * Checks if the given GPX file's track is covered by the currently active map file.
+     * Returns true if a map is loaded and covers the track area.
+     */
+    fun isGpxCoveredByMap(gpx: GpxFile): Boolean {
+        val file = mapFileRepository.getActiveMapFile() ?: return false
+        if (!file.exists()) return false
+
+        return try {
+            val mapFile = MapFile(file)
+            try {
+                val mapBBox = mapFile.boundingBox()
+                if (mapBBox == null) return false
+
+                val trackPoints = gpx.trackPoints
+                if (trackPoints.isEmpty()) return false
+
+                var sumLat = 0.0
+                var sumLon = 0.0
+                for (pt in trackPoints) {
+                    sumLat += pt.lat
+                    sumLon += pt.lon
+                }
+                val centroidLat = sumLat / trackPoints.size
+                val centroidLon = sumLon / trackPoints.size
+
+                val covered = centroidLat >= mapBBox.minLatitude &&
+                        centroidLat <= mapBBox.maxLatitude &&
+                        centroidLon >= mapBBox.minLongitude &&
+                        centroidLon <= mapBBox.maxLongitude
+
+                if (!covered) {
+                    android.util.Log.d("NavigationViewModel", "GPX centroid ($centroidLat, $centroidLon) is outside map bbox " +
+                            "(${mapBBox.minLatitude}-${mapBBox.maxLatitude}, ${mapBBox.minLongitude}-${mapBBox.maxLongitude})")
+                }
+
+                covered
+            } finally {
+                mapFile.close()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("NavigationViewModel", "Failed to check GPX coverage", e)
+            false
+        }
+    }
+
+    /** Returns true if any map file is currently active. */
+    fun hasActiveMapFile(): Boolean {
+        return mapFileRepository.getActiveMapFile() != null
+    }
+
+    /**
+     * Starts navigation on the given GPX file.
+     * Returns an error message if navigation cannot start, or null on success.
+     */
+    fun startNavigation(
+        gpx: GpxFile,
+        initialLocation: UserLocation?,
+        onBatteryModeChange: (GpsBatteryMode) -> Unit
+    ): String? {
+        val mapFile = mapFileRepository.getActiveMapFile()
+        if (mapFile == null || !mapFile.exists()) {
+            return "Download a map for this region first"
+        }
+
+        val navMode = settingsRepository.getNavigationMode()
+        val isWalking = navMode == NavigationMode.WALKING
+        val isCovered = isGpxCoveredByMap(gpx)
+
+        if (!isCovered) {
+            return "GPX track is outside the downloaded map area"
+        }
+
+        val finalMapFile = mapFile
+        var nav = navigationService.buildInitialNavigationState(gpx, finalMapFile, navMode)
+            ?: return if (!isWalking) {
+                "Failed to map route to roads for riding"
+            } else {
+                "Failed to build navigation state"
+            }
         
         initialLocation?.let { loc ->
             nav = navigationService.updateNavigationState(nav, loc)
@@ -53,6 +133,7 @@ class NavigationViewModel @Inject constructor(
         
         navigationService.announce("Navigation started")
         navigationService.startForegroundService()
+        return null // success
     }
 
     fun stopNavigation(onBatteryModeChange: (GpsBatteryMode) -> Unit) {

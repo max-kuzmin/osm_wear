@@ -11,10 +11,11 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import com.osm.wear.models.GpxFile
 import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.UserLocation
 import com.osm.wear.models.NavigationAlertMode
+import com.osm.wear.models.NavigationMode
 import com.osm.wear.models.NavigationState
 import com.osm.wear.models.NavigationWaypoint
-import com.osm.wear.models.UserLocation
 import com.osm.wear.models.SegmentProjection
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.app.NotificationChannel
@@ -22,17 +23,19 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import androidx.core.app.NotificationCompat
 import com.osm.wear.presentation.MainActivity
+import java.io.File
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.*
 
 class NavigationService @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val trackToMapMatcher: ITrackToMapMatcherService
 ) : INavigationService, TextToSpeech.OnInitListener {
 
     companion object {
         private const val TAG               = "NavigationService"
-        private const val TURN_THRESHOLD_DEG = 25.0  // degrees of bearing change = "turn"
+        private const val TURN_THRESHOLD_DEG = 35.0  // degrees of bearing change = "turn"
         private const val ALARM_RADIUS_M     = 30.0  // metres – fire alarm when within this distance
         private const val OFF_TRACK_M        = 80.0  // metres – warn when this far from track
     }
@@ -93,8 +96,8 @@ class NavigationService @Inject constructor(
         tts?.shutdown()
     }
 
-    override fun buildInitialNavigationState(gpx: GpxFile): NavigationState? {
-        val waypoints = buildWaypoints(gpx)
+    override fun buildInitialNavigationState(gpx: GpxFile, mapFile: File?, navigationMode: NavigationMode): NavigationState? {
+        val waypoints = buildWaypoints(gpx, mapFile, navigationMode)
         if (waypoints.isEmpty()) return null
         return NavigationState(
             isActive = true,
@@ -265,12 +268,37 @@ class NavigationService @Inject constructor(
         return SegmentProjection2D(projPt, p.distanceTo(projPt), clampedT)
     }
 
-    private fun buildWaypoints(gpxFile: GpxFile): List<NavigationWaypoint> {
+    private fun buildWaypoints(gpxFile: GpxFile, mapFile: File?, navigationMode: NavigationMode): List<NavigationWaypoint> {
         val pts = gpxFile.trackPoints
         if (pts.size < 2) return emptyList()
 
-        // Simplify trackpoints using RDP with epsilon = 5.0 meters
-        val simplifiedPts = simplifyRdp(pts, 5.0)
+        // ── Road-aware path: extract road network and match track ─────────
+        if (mapFile != null && mapFile.exists()) {
+            try {
+                val roadWaypoints = trackToMapMatcher.matchTrackToMap(pts, navigationMode)
+                if (roadWaypoints.isNotEmpty()) {
+                    Log.d(TAG, "Using road-aware waypoints (${roadWaypoints.count { it.isTurn }} turns)")
+                    return roadWaypoints
+                }
+                Log.w(TAG, "Road matching produced no results")
+            } catch (e: Exception) {
+                Log.e(TAG, "Road matching failed", e)
+            }
+
+            // If we are in CYCLING or DRIVING (riding) mode, we MUST use road-aware calculation.
+            // Do not fall back to GPX-only (RDP) waypoints.
+            if (navigationMode != NavigationMode.WALKING) {
+                Log.w(TAG, "Riding mode requires road mapping; failing start as road matching was unsuccessful")
+                return emptyList()
+            }
+            Log.d(TAG, "Falling back to RDP for Walking mode")
+        } else {
+            Log.d(TAG, "No map file available, using RDP geometric waypoints")
+        }
+
+        // ── Fallback: RDP-based geometric turn detection ──────────────────
+        // Simplify trackpoints using RDP with epsilon = 3.0 meters
+        val simplifiedPts = simplifyRdp(pts, 3.0)
         val finalPts = if (simplifiedPts.size < 2) {
             val origin = pts.first()
             val proj = LocalProjection(origin)
@@ -310,9 +338,9 @@ class NavigationService @Inject constructor(
             val angleLong = angleDiff(bInLong, bOutLong)
 
             // Classifier logic: turn must be significant in the long window,
-            // and concentrated within the short window (ratio >= 0.65) or sharp on its own.
+            // and concentrated within the short window (ratio >= 0.70) or very sharp on its own (>= 40°).
             val meetsThreshold = angleLong >= TURN_THRESHOLD_DEG
-            val isConcentrated = (angleLong > 0.0 && (angleShort / angleLong) >= 0.65) || (angleShort >= TURN_THRESHOLD_DEG)
+            val isConcentrated = (angleLong > 0.0 && (angleShort / angleLong) >= 0.70) || (angleShort >= 40.0)
 
             if (meetsThreshold && isConcentrated) {
                 isTurnCandidate[i] = true
@@ -322,7 +350,7 @@ class NavigationService @Inject constructor(
         }
 
         val isTurn = BooleanArray(n)
-        val nmsDistance = 30.0 // meters
+        val nmsDistance = 20.0 // meters
         for (i in 1 until n - 1) {
             if (!isTurnCandidate[i]) continue
 
@@ -461,6 +489,10 @@ class NavigationService @Inject constructor(
         val distToTrack = bestProjection.distanceToSegmentM
         val isOffTrack = distToTrack > OFF_TRACK_M
 
+        // Retroactively fire alarms for any turn waypoints we jumped past
+        var lastAlerted = state.lastAlertedWaypointIndex
+        lastAlerted = fireSkippedTurnAlarms(bestSegIdx, state, lastAlerted)
+
         // Next waypoint index that we are approaching
         val nextWpIdx = minOf(bestSegIdx + 1, state.waypoints.size - 1)
 
@@ -497,15 +529,15 @@ class NavigationService @Inject constructor(
         var warned1k = if (isNewTurnTarget) false else state.warned1km
         var warned300 = if (isNewTurnTarget) false else state.warned300m
         var warnedDuring = if (isNewTurnTarget) false else state.warnedDuringTurn
-        var lastAlerted = state.lastAlertedWaypointIndex
 
         if (nextTurnWp.isTurn) {
             val direction = if (relativeTurnBearing > 180f) "left" else "right"
+            val streetSuffix = nextTurnWp.roadName?.let { " onto $it" } ?: ""
             
             // 1. Right after previous turn
             if (!warnedRightAfter) {
                 val distStr = formatDistanceForSpeech(distToNextTurn)
-                announce("In $distStr, turn $direction")
+                announce("In $distStr, turn $direction$streetSuffix")
                 warnedRightAfter = true
                 
                 // Skip subsequent warnings if we started closer than their thresholds
@@ -523,7 +555,7 @@ class NavigationService @Inject constructor(
             
             // 2. 1 km before turn
             if (!warned1k && distToNextTurn <= 1000f) {
-                announce("In 1 kilometer, turn $direction")
+                announce("In 1 kilometer, turn $direction$streetSuffix")
                 warned1k = true
                 if (distToNextTurn <= 300f) {
                     warned300 = true
@@ -536,7 +568,7 @@ class NavigationService @Inject constructor(
             
             // 3. 300 meters before turn
             if (!warned300 && distToNextTurn <= 300f) {
-                announce("In 300 meters, turn $direction")
+                announce("In 300 meters, turn $direction$streetSuffix")
                 warned300 = true
                 if (distToNextTurn <= ALARM_RADIUS_M) {
                     warnedDuring = true
@@ -546,7 +578,7 @@ class NavigationService @Inject constructor(
             
             // 4. During turn (ALARM_RADIUS_M, i.e., 30m)
             if (!warnedDuring && distToNextTurn <= ALARM_RADIUS_M) {
-                fireAlarm("Turn $direction")
+                fireAlarm("Turn $direction$streetSuffix")
                 warnedDuring = true
                 lastAlerted = nextTurnWp.index
                 Log.d(TAG, "Alarm fired at waypoint ${nextTurnWp.index}")
@@ -669,6 +701,35 @@ class NavigationService @Inject constructor(
             val ringtone = RingtoneManager.getRingtone(context, uri)
             ringtone?.play()
         } catch (e: Exception) { Log.w(TAG, "Notification sound failed", e) }
+    }
+
+    /**
+     * Retroactively fires alarms for any turn waypoints that were skipped
+     * when the segment index jumped forward (due to fast movement or rare GPS updates).
+     * Returns the updated lastAlertedWaypointIndex.
+     */
+    private fun fireSkippedTurnAlarms(
+        bestSegIdx: Int,
+        state: NavigationState,
+        lastAlerted: Int
+    ): Int {
+        val prevIdx = state.currentWaypointIndex
+        // Only check if we actually jumped forward
+        if (bestSegIdx <= prevIdx) return lastAlerted
+
+        var updatedLastAlerted = lastAlerted
+
+        // Check every waypoint between the old and new segment positions
+        for (i in (prevIdx + 1)..minOf(bestSegIdx, state.waypoints.size - 1)) {
+            val wp = state.waypoints.getOrNull(i) ?: continue
+            if (wp.isTurn && wp.index != updatedLastAlerted) {
+                val direction = if (wp.turnBearingChange > 180f) "left" else "right"
+                fireAlarm("Turn $direction")
+                updatedLastAlerted = wp.index
+                Log.d(TAG, "Retroactive alarm for skipped turn at wp ${wp.index}")
+            }
+        }
+        return updatedLastAlerted
     }
 
     // ── Math ──────────────────────────────────────────────────────────────────

@@ -4,7 +4,6 @@ import com.osm.wear.models.MapTheme
 import com.osm.wear.models.NavigationAlertMode
 import com.osm.wear.models.NavigationMode
 import com.osm.wear.models.GpxPoint
-import kotlinx.coroutines.flow.Flow
 
 interface ISettingsRepository {
     fun getMapCenterLat(): Double

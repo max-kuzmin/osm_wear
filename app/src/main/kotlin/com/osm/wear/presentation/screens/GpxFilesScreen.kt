@@ -13,7 +13,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,11 +25,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.core.content.ContextCompat
 import com.osm.wear.presentation.components.BackButton
+import com.osm.wear.presentation.components.NavigationButton
 import com.osm.wear.models.GpxFile
+import com.osm.wear.models.NavigationMode
 import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
@@ -45,6 +44,24 @@ fun GpxFilesScreen(
     val context = LocalContext.current
     val gpxFiles by gpxVm.gpxFiles.collectAsStateWithLifecycle()
     val navState by navVm.navigationState.collectAsStateWithLifecycle()
+
+    // Check if the active GPX track is covered by the downloaded map
+    val activeGpx = gpxFiles.find { it.isActive }
+    val hasMap = navVm.hasActiveMapFile()
+    val isCovered = activeGpx != null && hasMap && navVm.isGpxCoveredByMap(activeGpx)
+
+    val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
+    val isWalking = settingsState.navigationMode == NavigationMode.WALKING
+
+    // Evaluate warning and start conditions dynamically
+    val mapWarning = remember(activeGpx, hasMap, isCovered) {
+        when {
+            activeGpx == null -> null
+            !hasMap -> "Download map first"
+            !isCovered -> "Track outside map area"
+            else -> null
+        }
+    }
 
     val hasAllFilesAccess = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         Environment.isExternalStorageManager() ||
@@ -134,8 +151,9 @@ fun GpxFilesScreen(
         item {
             NavigationButton(
                 isActive = navState?.isActive == true,
-                hasActiveGpx = gpxFiles.any { it.isActive },
-                onStart = { gpxFiles.find { it.isActive }?.let { onStartNavigation(it) } },
+                enabled = activeGpx != null,
+                warningText = mapWarning,
+                onStart = { activeGpx?.let { onStartNavigation(it) } },
                 onStop = onStopNavigation
             )
         }
@@ -205,49 +223,4 @@ fun GpxFilesScreen(
     }
 }
 
-@Composable
-private fun NavigationButton(
-    isActive: Boolean,
-    hasActiveGpx: Boolean,
-    onStart: () -> Unit,
-    onStop: () -> Unit
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        if (isActive) {
-            Button(
-                onClick = onStop,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                ),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Stop,
-                        contentDescription = null,
-                        modifier = Modifier.size(AppDimensions.IconNormal)
-                    )
-                }
-            ) {
-                Text("Stop Navigation", style = MaterialTheme.typography.labelMedium)
-            }
-        } else {
-            Button(
-                onClick = onStart,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = hasActiveGpx,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(AppDimensions.IconNormal)
-                    )
-                },
-                label = { Text("Start Navigation", style = MaterialTheme.typography.labelMedium) }
-            )
-        }
-    }
-}
+

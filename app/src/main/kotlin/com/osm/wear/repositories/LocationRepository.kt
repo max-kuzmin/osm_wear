@@ -15,8 +15,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 
-import com.osm.wear.repositories.ILocationRepository
-
 /**
  * Provides GPS location updates using FusedLocationProviderClient.
  *

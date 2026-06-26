@@ -12,12 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import org.xmlpull.v1.XmlPullParserException
 import java.io.File
 import java.io.IOException
 import kotlin.math.*
-
-import com.osm.wear.repositories.IGpxRepository
 
 /**
  * Manages GPX file import, parsing, and storage.

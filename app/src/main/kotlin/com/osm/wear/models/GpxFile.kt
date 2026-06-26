@@ -8,4 +8,3 @@ data class GpxFile(
     val totalDistanceKm: Double,
     val isActive: Boolean
 )
-

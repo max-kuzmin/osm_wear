@@ -9,4 +9,3 @@ enum class GpsBatteryMode(
     BALANCED(5_000L, 5f, "Balanced"),
     LOW_POWER(30_000L, 100f, "Low Power")
 }
-

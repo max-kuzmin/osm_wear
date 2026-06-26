@@ -5,7 +5,6 @@ import com.osm.wear.models.MapTheme
 import com.osm.wear.models.NavigationAlertMode
 import com.osm.wear.models.NavigationMode
 import com.osm.wear.models.GpxPoint
-import com.osm.wear.repositories.ISettingsRepository
 
 class SettingsRepositoryImpl(
     private val prefs: SharedPreferences
