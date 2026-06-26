@@ -1,9 +1,9 @@
 package com.osm.wear.view_models
 
-import com.osm.wear.models.MapTheme
-import com.osm.wear.models.NavigationAlertMode
-import com.osm.wear.models.NavigationMode
-import com.osm.wear.models.GpsBatteryMode
+import com.osm.wear.models.enums.MapTheme
+import com.osm.wear.models.enums.NavigationAlertMode
+import com.osm.wear.models.enums.NavigationMode
+import com.osm.wear.models.enums.GpsBatteryMode
 
 data class SettingsUiState(
     val mapTheme: MapTheme = MapTheme.DEFAULT,

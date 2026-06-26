@@ -36,8 +36,8 @@ import com.osm.wear.presentation.map.layers.AddressPopupLayer
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.model.Rotation
-import com.osm.wear.models.MapRotationMode
-import com.osm.wear.models.MapTheme
+import com.osm.wear.models.enums.MapRotationMode
+import com.osm.wear.models.enums.MapTheme
 import org.mapsforge.map.rendertheme.internal.MapsforgeThemes
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.util.AndroidUtil

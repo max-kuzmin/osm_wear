@@ -2,10 +2,10 @@ package com.osm.wear.view_models
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.osm.wear.models.GpsBatteryMode
+import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.models.GpxFile
 import com.osm.wear.models.UserLocation
-import com.osm.wear.models.NavigationMode
+import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.NavigationState
 import com.osm.wear.models.GpxPoint
 import com.osm.wear.repositories.IRouteRepository

@@ -1,9 +1,9 @@
 package com.osm.wear.repositories
 
 import android.content.SharedPreferences
-import com.osm.wear.models.MapTheme
-import com.osm.wear.models.NavigationAlertMode
-import com.osm.wear.models.NavigationMode
+import com.osm.wear.models.enums.MapTheme
+import com.osm.wear.models.enums.NavigationAlertMode
+import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.GpxPoint
 
 class SettingsRepositoryImpl(

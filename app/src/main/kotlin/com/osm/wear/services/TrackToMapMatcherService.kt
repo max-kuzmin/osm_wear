@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.osm.wear.models.GpxPoint
 import com.osm.wear.models.NavigationWaypoint
-import com.osm.wear.models.NavigationMode
+import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.track_to_map.MatchedTurn
 import com.osm.wear.models.track_to_map.RoadEdge
 import com.osm.wear.models.track_to_map.RoadNode

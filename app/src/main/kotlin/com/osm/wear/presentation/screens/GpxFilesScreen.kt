@@ -29,7 +29,7 @@ import androidx.core.content.ContextCompat
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.presentation.components.NavigationButton
 import com.osm.wear.models.GpxFile
-import com.osm.wear.models.NavigationMode
+import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable

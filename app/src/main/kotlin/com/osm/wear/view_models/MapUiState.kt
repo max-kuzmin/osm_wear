@@ -1,6 +1,6 @@
 package com.osm.wear.view_models
 
-import com.osm.wear.models.MapRotationMode
+import com.osm.wear.models.enums.MapRotationMode
 
 data class MapUiState(
     /** Current zoom level (3..20). */

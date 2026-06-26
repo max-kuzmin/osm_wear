@@ -1,4 +1,4 @@
-package com.osm.wear.models
+package com.osm.wear.models.enums
 
 enum class NavigationMode(val label: String, val profile: String) {
     WALKING("Walking", "foot"),

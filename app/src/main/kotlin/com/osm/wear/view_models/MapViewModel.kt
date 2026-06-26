@@ -2,8 +2,8 @@ package com.osm.wear.view_models
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.osm.wear.models.GpsBatteryMode
-import com.osm.wear.models.MapRotationMode
+import com.osm.wear.models.enums.GpsBatteryMode
+import com.osm.wear.models.enums.MapRotationMode
 import com.osm.wear.models.UserLocation
 import com.osm.wear.repositories.ILocationRepository
 import com.osm.wear.repositories.ISettingsRepository

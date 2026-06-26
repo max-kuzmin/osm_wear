@@ -1,7 +1,7 @@
 package com.osm.wear.services
 
 import com.osm.wear.models.GpxPoint
-import com.osm.wear.models.NavigationMode
+import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.NavigationWaypoint
 
 interface ITrackToMapMatcherService {

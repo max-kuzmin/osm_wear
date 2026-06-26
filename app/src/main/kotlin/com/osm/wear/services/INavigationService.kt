@@ -2,8 +2,8 @@ package com.osm.wear.services
 
 import com.osm.wear.models.GpxFile
 import com.osm.wear.models.UserLocation
-import com.osm.wear.models.NavigationAlertMode
-import com.osm.wear.models.NavigationMode
+import com.osm.wear.models.enums.NavigationAlertMode
+import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.NavigationState
 import java.io.File
 

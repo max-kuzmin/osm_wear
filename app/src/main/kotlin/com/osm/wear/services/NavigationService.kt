@@ -12,8 +12,8 @@ import androidx.core.content.ContextCompat
 import com.osm.wear.models.GpxFile
 import com.osm.wear.models.GpxPoint
 import com.osm.wear.models.UserLocation
-import com.osm.wear.models.NavigationAlertMode
-import com.osm.wear.models.NavigationMode
+import com.osm.wear.models.enums.NavigationAlertMode
+import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.NavigationState
 import com.osm.wear.models.NavigationWaypoint
 import com.osm.wear.models.SegmentProjection

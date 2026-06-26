@@ -10,8 +10,8 @@ import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Notifications
-import com.osm.wear.models.GpsBatteryMode
-import com.osm.wear.models.NavigationAlertMode
+import com.osm.wear.models.enums.GpsBatteryMode
+import com.osm.wear.models.enums.NavigationAlertMode
 import com.osm.wear.presentation.components.BackButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,7 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
-import com.osm.wear.models.MapTheme
+import com.osm.wear.models.enums.MapTheme
 import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable

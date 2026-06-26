@@ -8,7 +8,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
-import com.osm.wear.models.GpsBatteryMode
+import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.models.UserLocation
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow

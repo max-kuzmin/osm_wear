@@ -23,7 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
-import com.osm.wear.models.NavigationMode
+import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
