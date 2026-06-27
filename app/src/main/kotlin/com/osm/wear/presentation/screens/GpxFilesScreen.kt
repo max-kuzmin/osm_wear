@@ -51,7 +51,6 @@ fun GpxFilesScreen(
     val isCovered = activeGpx != null && hasMap && navVm.isGpxCoveredByMap(activeGpx)
 
     val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
-    val isWalking = settingsState.navigationMode == NavigationMode.WALKING
 
     // Evaluate warning and start conditions dynamically
     val mapWarning = remember(activeGpx, hasMap, isCovered) {

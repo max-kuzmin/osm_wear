@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Bookmark
@@ -102,6 +103,7 @@ fun PathFinderScreen(
                 NavigationMode.WALKING -> Icons.Default.DirectionsWalk
                 NavigationMode.CYCLING -> Icons.Default.DirectionsBike
                 NavigationMode.DRIVING -> Icons.Default.DirectionsCar
+                NavigationMode.GPX_ONLY -> Icons.Default.LocationOn
             }
             
             Button(

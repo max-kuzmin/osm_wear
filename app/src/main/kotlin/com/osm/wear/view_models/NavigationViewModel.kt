@@ -109,7 +109,6 @@ class NavigationViewModel @Inject constructor(
         }
 
         val navMode = settingsRepository.getNavigationMode()
-        val isWalking = navMode == NavigationMode.WALKING
         val isCovered = isGpxCoveredByMap(gpx)
 
         if (!isCovered) {
@@ -118,10 +117,10 @@ class NavigationViewModel @Inject constructor(
 
         val finalMapFile = mapFile
         var nav = navigationService.buildInitialNavigationState(gpx, finalMapFile, navMode)
-            ?: return if (!isWalking) {
-                "Failed to map route to roads for riding"
-            } else {
+            ?: return if (navMode == NavigationMode.GPX_ONLY) {
                 "Failed to build navigation state"
+            } else {
+                "Failed to map route to roads"
             }
         
         initialLocation?.let { loc ->

@@ -56,7 +56,8 @@ class SettingsViewModel @Inject constructor(
         val nextMode = when (_uiState.value.navigationMode) {
             NavigationMode.WALKING -> NavigationMode.CYCLING
             NavigationMode.CYCLING -> NavigationMode.DRIVING
-            NavigationMode.DRIVING -> NavigationMode.WALKING
+            NavigationMode.DRIVING -> NavigationMode.GPX_ONLY
+            NavigationMode.GPX_ONLY -> NavigationMode.WALKING
         }
         _uiState.update { it.copy(navigationMode = nextMode) }
         settingsRepository.setNavigationMode(nextMode)

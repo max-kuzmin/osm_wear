@@ -273,7 +273,7 @@ class NavigationService @Inject constructor(
         if (pts.size < 2) return emptyList()
 
         // ── Road-aware path: extract road network and match track ─────────
-        if (mapFile != null && mapFile.exists()) {
+        if (navigationMode != NavigationMode.GPX_ONLY && mapFile != null && mapFile.exists()) {
             try {
                 val roadWaypoints = trackToMapMatcher.matchTrackToMap(pts, navigationMode)
                 if (roadWaypoints.isNotEmpty()) {
@@ -285,15 +285,11 @@ class NavigationService @Inject constructor(
                 Log.e(TAG, "Road matching failed", e)
             }
 
-            // If we are in CYCLING or DRIVING (riding) mode, we MUST use road-aware calculation.
-            // Do not fall back to GPX-only (RDP) waypoints.
-            if (navigationMode != NavigationMode.WALKING) {
-                Log.w(TAG, "Riding mode requires road mapping; failing start as road matching was unsuccessful")
-                return emptyList()
-            }
-            Log.d(TAG, "Falling back to RDP for Walking mode")
+            // All road-aware modes (WALKING, CYCLING, DRIVING) MUST fail if road matching failed.
+            Log.w(TAG, "Road mapping failed or returned no results; aborting start")
+            return emptyList()
         } else {
-            Log.d(TAG, "No map file available, using RDP geometric waypoints")
+            Log.d(TAG, "No map file available or GPX points only mode, using RDP geometric waypoints")
         }
 
         // ── Fallback: RDP-based geometric turn detection ──────────────────
