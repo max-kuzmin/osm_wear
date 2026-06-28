@@ -7,8 +7,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+import com.osm.wear.data_sources.ILocalPreferencesDataSource
+
 class MarkersRepository(
-    private val prefs: SharedPreferences
+    private val prefs: ILocalPreferencesDataSource
 ) : IMarkersRepository {
 
     private val _bookmarks = MutableStateFlow<List<Bookmark>>(emptyList())
@@ -60,7 +62,7 @@ class MarkersRepository(
                 }
                 arr.put(obj)
             }
-            prefs.edit().putString("bookmarks_list", arr.toString()).apply()
+            prefs.putString("bookmarks_list", arr.toString())
         } catch (e: Exception) {
             // Ignore error silently
         }
@@ -94,14 +96,12 @@ class MarkersRepository(
 
     override fun setCurrentMarker(point: GpxPoint?) {
         _currentMarker.value = point
-        val editor = prefs.edit()
         if (point != null) {
-            editor.putBoolean("has_current_marker", true)
-                .putFloat("current_marker_lat", point.lat.toFloat())
-                .putFloat("current_marker_lon", point.lon.toFloat())
+            prefs.putBoolean("has_current_marker", true)
+            prefs.putFloat("current_marker_lat", point.lat.toFloat())
+            prefs.putFloat("current_marker_lon", point.lon.toFloat())
         } else {
-            editor.putBoolean("has_current_marker", false)
+            prefs.putBoolean("has_current_marker", false)
         }
-        editor.apply()
     }
 }

@@ -1,7 +1,8 @@
 package com.osm.wear.repositories
 
-import android.content.Context
-import android.content.SharedPreferences
+import com.osm.wear.data_sources.ILocalFileDataSource
+import com.osm.wear.data_sources.ILocalPreferencesDataSource
+import com.osm.wear.data_sources.IRemoteRegionDataSource
 import com.osm.wear.models.DownloadedRegion
 import com.osm.wear.models.DownloadState
 import com.osm.wear.models.MapRegion
@@ -15,22 +16,19 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class RegionRepository @Inject constructor(
-    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
-    private val prefs: SharedPreferences,
-    private val client: OkHttpClient
+    private val localFileDataSource: ILocalFileDataSource,
+    private val prefs: ILocalPreferencesDataSource,
+    private val remoteDataSource: IRemoteRegionDataSource
 ) : IRegionRepository {
 
     private val repositoryScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private val mapsDir: File get() = File(context.filesDir, "maps").also { it.mkdirs() }
+    private val mapsDir: File get() = localFileDataSource.getRegionDirectory()
 
     private val _activeRegionId = MutableStateFlow<String?>(prefs.getString("active_region_id", null))
     override val activeRegionId: StateFlow<String?> = _activeRegionId.asStateFlow()
@@ -48,8 +46,6 @@ class RegionRepository @Inject constructor(
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     override val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
-    private var currentCall: Call? = null
-
     override fun getActiveMapFile(): File? {
         val id = getActiveRegionId() ?: return null
         val file = File(mapsDir, id.replace("/", "_") + ".map")
@@ -61,9 +57,9 @@ class RegionRepository @Inject constructor(
     override fun setActiveRegionId(id: String?) {
         _activeRegionId.value = id
         if (id == null) {
-            prefs.edit().remove("active_region_id").apply()
+            prefs.remove("active_region_id")
         } else {
-            prefs.edit().putString("active_region_id", id).apply()
+            prefs.putString("active_region_id", id)
         }
     }
 
@@ -193,44 +189,8 @@ class RegionRepository @Inject constructor(
         _downloadState.value = DownloadState.Downloading(region, 0, 0f)
 
         try {
-            val resumeFrom = if (tempFile.exists()) tempFile.length() else 0L
-            val requestBuilder = Request.Builder().url(region.downloadUrl)
-            if (resumeFrom > 0) {
-                requestBuilder.addHeader("Range", "bytes=$resumeFrom-")
-                android.util.Log.d("RegionRepository", "Resuming ${region.name} from byte $resumeFrom")
-            }
-
-            val call = client.newCall(requestBuilder.build())
-            currentCall = call
-            val response = call.execute()
-            if (!response.isSuccessful && response.code != 206) {
-                throw Exception("HTTP ${response.code}: ${response.message}")
-            }
-
-            val body = response.body ?: throw Exception("Empty response body")
-            val contentLength = body.contentLength()
-            val totalBytes = if (contentLength > 0) resumeFrom + contentLength
-            else region.fileSizeMb.toLong() * 1_048_576
-
-            body.byteStream().use { input ->
-                val output = if (resumeFrom > 0) java.io.FileOutputStream(tempFile, true)
-                else tempFile.outputStream()
-                output.use { out ->
-                    val buffer = ByteArray(8 * 1024)
-                    var downloaded = resumeFrom
-                    var lastEmit = 0L
-                    var bytesRead: Int
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        out.write(buffer, 0, bytesRead)
-                        downloaded += bytesRead
-                        if (downloaded - lastEmit >= 256 * 1024) {
-                            lastEmit = downloaded
-                            val pct = if (totalBytes > 0) ((downloaded * 100) / totalBytes).toInt() else 0
-                            val mb = downloaded / 1_048_576f
-                            _downloadState.value = DownloadState.Downloading(region, pct, mb)
-                        }
-                    }
-                }
+            remoteDataSource.downloadRegion(region, tempFile) { pct, mb ->
+                _downloadState.value = DownloadState.Downloading(region, pct, mb)
             }
 
             tempFile.renameTo(destFile)
@@ -245,12 +205,10 @@ class RegionRepository @Inject constructor(
                 android.util.Log.e("RegionRepository", "Download failed: ${region.name}", e)
                 _downloadState.value = DownloadState.Failed(region, e.message ?: "Unknown error")
             }
-        } finally {
-            currentCall = null
         }
     }
 
     override fun cancelDownload() {
-        currentCall?.cancel()
+        remoteDataSource.cancelDownload()
     }
 }

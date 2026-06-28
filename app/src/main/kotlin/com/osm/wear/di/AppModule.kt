@@ -1,6 +1,8 @@
 package com.osm.wear.di
 
 import android.content.Context
+import android.content.SharedPreferences
+import com.osm.wear.data_sources.*
 import com.osm.wear.repositories.*
 import com.osm.wear.services.*
 import dagger.Module
@@ -23,63 +25,111 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideCursorRepository(@ApplicationContext context: Context): ICursorRepository {
-        return CursorRepository(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideSharedPreferences(@ApplicationContext context: Context): android.content.SharedPreferences {
+    fun provideSharedPreferences(@ApplicationContext context: Context): SharedPreferences {
         return context.getSharedPreferences("osm_wear_prefs", Context.MODE_PRIVATE)
     }
 
+    // --- Data Sources ---
+
     @Provides
     @Singleton
-    fun providePreferencesRepository(prefs: android.content.SharedPreferences): IPreferencesRepository {
+    fun provideLocalPreferencesDataSource(prefs: SharedPreferences): ILocalPreferencesDataSource {
+        return LocalPreferencesDataSource(prefs)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLocalFileDataSource(@ApplicationContext context: Context): ILocalFileDataSource {
+        return LocalFileDataSource(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRemoteGeocodingDataSource(client: OkHttpClient): IRemoteGeocodingDataSource {
+        return RemoteGeocodingDataSource(client)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRemoteRegionDataSource(client: OkHttpClient): IRemoteRegionDataSource {
+        return RemoteRegionDataSource(client)
+    }
+
+    @Provides
+    @Singleton
+    fun provideDeviceLocationDataSource(@ApplicationContext context: Context): IDeviceLocationDataSource {
+        return DeviceLocationDataSource(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideDeviceAlertsDataSource(@ApplicationContext context: Context): IDeviceAlertsDataSource {
+        return DeviceAlertsDataSource(context)
+    }
+
+    // --- Repositories ---
+
+    @Provides
+    @Singleton
+    fun provideCursorRepository(
+        locationDataSource: IDeviceLocationDataSource
+    ): ICursorRepository {
+        return CursorRepository(locationDataSource)
+    }
+
+    @Provides
+    @Singleton
+    fun providePreferencesRepository(
+        prefs: ILocalPreferencesDataSource
+    ): IPreferencesRepository {
         return PreferencesRepository(prefs)
     }
 
     @Provides
     @Singleton
     fun provideGpxRepository(
-        @ApplicationContext context: Context,
-        prefs: android.content.SharedPreferences
+        localFileDataSource: ILocalFileDataSource,
+        prefs: ILocalPreferencesDataSource
     ): IGpxRepository {
-        return GpxRepository(context, prefs)
+        return GpxRepository(localFileDataSource, prefs)
     }
 
     @Provides
     @Singleton
     fun provideRegionRepository(
-        @ApplicationContext context: Context,
-        prefs: android.content.SharedPreferences,
-        client: OkHttpClient
+        localFileDataSource: ILocalFileDataSource,
+        prefs: ILocalPreferencesDataSource,
+        remoteRegionDataSource: IRemoteRegionDataSource
     ): IRegionRepository {
-        return RegionRepository(context, prefs, client)
+        return RegionRepository(localFileDataSource, prefs, remoteRegionDataSource)
     }
 
     @Provides
     @Singleton
     fun provideMarkersRepository(
-        prefs: android.content.SharedPreferences
+        prefs: ILocalPreferencesDataSource
     ): IMarkersRepository {
         return MarkersRepository(prefs)
     }
 
     @Provides
     @Singleton
-    fun provideGeocodingRepository(client: OkHttpClient): IGeocodingRepository {
-        return GeocodingRepository(client)
+    fun provideGeocodingRepository(
+        remoteGeocodingDataSource: IRemoteGeocodingDataSource
+    ): IGeocodingRepository {
+        return GeocodingRepository(remoteGeocodingDataSource)
     }
 
     @Provides
     @Singleton
     fun provideAlertsRepository(
-        @ApplicationContext context: Context,
-        prefs: android.content.SharedPreferences
+        deviceAlertsDataSource: IDeviceAlertsDataSource,
+        prefs: ILocalPreferencesDataSource
     ): IAlertsRepository {
-        return AlertsRepository(context, prefs)
+        return AlertsRepository(deviceAlertsDataSource, prefs)
     }
+
+    // --- Services ---
 
     @Provides
     @Singleton

@@ -1,6 +1,7 @@
 package com.osm.wear.repositories
 
-import android.content.Context
+import com.osm.wear.data_sources.ILocalFileDataSource
+import com.osm.wear.data_sources.ILocalPreferencesDataSource
 import android.net.Uri
 import android.util.Log
 import com.osm.wear.models.GpxFile
@@ -26,11 +27,11 @@ import kotlinx.coroutines.launch
  * Exposes a [StateFlow] of [GpxFile] objects matching the new domain model.
  */
 class GpxRepository(
-    private val context: Context,
-    private val prefs: android.content.SharedPreferences
+    private val localFileDataSource: ILocalFileDataSource,
+    private val prefs: ILocalPreferencesDataSource
 ) : IGpxRepository {
 
-    private val gpxDir: File get() = File(context.filesDir, "gpx").also { it.mkdirs() }
+    private val gpxDir: File get() = localFileDataSource.getGpxDirectory()
     private val parser = GPXParser()
 
     private val _files = MutableStateFlow<List<GpxFile>>(emptyList())
@@ -55,10 +56,10 @@ class GpxRepository(
     /** Imports a GPX file from a content URI (file picker). */
     override suspend fun importFromUri(uri: Uri): Result<GpxFile> = withContext(Dispatchers.IO) {
         try {
-            val fileName = getFileNameFromUri(uri) ?: "track_${System.currentTimeMillis()}.gpx"
+            val fileName = localFileDataSource.getFileNameFromUri(uri) ?: "track_${System.currentTimeMillis()}.gpx"
             val destFile = File(gpxDir, fileName)
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                destFile.outputStream().use { input.copyTo(it) }
+            localFileDataSource.openInputStream(uri)?.use { input ->
+                localFileDataSource.openOutputStream(destFile).use { input.copyTo(it) }
             } ?: return@withContext Result.failure(IOException("Cannot open URI: $uri"))
             parseGpxFile(destFile).also { result ->
                 if (result.isSuccess) addOrReplace(result.getOrThrow())
@@ -88,14 +89,14 @@ class GpxRepository(
         val gpx = _files.value.find { it.id == fileId } ?: return@withContext
         File(gpx.filePath).delete()
         if (prefs.getString("active_gpx_id", null) == fileId) {
-            prefs.edit().remove("active_gpx_id").apply()
+            prefs.remove("active_gpx_id")
         }
         _files.value = _files.value.filter { it.id != fileId }
     }
 
     /** Sets the active GPX file (only one can be active at a time). */
     override fun setActive(fileId: String) {
-        prefs.edit().putString("active_gpx_id", fileId).apply()
+        prefs.putString("active_gpx_id", fileId)
         _files.value = _files.value.map { it.copy(isActive = it.id == fileId) }
     }
 
@@ -197,22 +198,7 @@ class GpxRepository(
         return r * 2 * atan2(sqrt(clampedH), sqrt(1.0 - clampedH))
     }
 
-    private fun getFileNameFromUri(uri: Uri): String? {
-        if (uri.scheme == "file") {
-            return uri.lastPathSegment
-        }
-        return try {
-            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val col = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                if (cursor.moveToFirst() && col >= 0) {
-                    cursor.getString(col)
-                } else null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting filename from URI: $uri", e)
-            uri.lastPathSegment
-        }
-    }
+    // Removed getFileNameFromUri, handled by localFileDataSource
 
     override suspend fun saveGpxFile(name: String, points: List<GpxPoint>): Result<GpxFile> = withContext(Dispatchers.IO) {
         try {

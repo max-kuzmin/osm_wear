@@ -6,8 +6,10 @@ import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.models.GpxPoint
 
+import com.osm.wear.data_sources.ILocalPreferencesDataSource
+
 class PreferencesRepository(
-    private val prefs: SharedPreferences
+    private val prefs: ILocalPreferencesDataSource
 ) : IPreferencesRepository {
 
     override fun getMapCenter(): GpxPoint {
@@ -17,10 +19,8 @@ class PreferencesRepository(
     }
 
     override fun setMapCenter(lat: Double, lon: Double) {
-        prefs.edit()
-            .putFloat("map_center_lat", lat.toFloat())
-            .putFloat("map_center_lon", lon.toFloat())
-            .apply()
+        prefs.putFloat("map_center_lat", lat.toFloat())
+        prefs.putFloat("map_center_lon", lon.toFloat())
     }
 
     override fun getMapZoomLevel(): Int = prefs.getInt("map_zoom_level", 14)
@@ -36,10 +36,10 @@ class PreferencesRepository(
         return try { NavigationMode.valueOf(modeStr) } catch (e: Exception) { NavigationMode.WALKING }
     }
 
-    override fun setMapZoomLevel(zoom: Int) { prefs.edit().putInt("map_zoom_level", zoom).apply() }
-    override fun setMapFollowLocation(follow: Boolean) { prefs.edit().putBoolean("map_follow_location", follow).apply() }
-    override fun setMapTheme(theme: MapTheme) { prefs.edit().putString("map_theme", theme.name).apply() }
-    override fun setNavigationMode(mode: NavigationMode) { prefs.edit().putString("navigation_mode", mode.name).apply() }
+    override fun setMapZoomLevel(zoom: Int) { prefs.putInt("map_zoom_level", zoom) }
+    override fun setMapFollowLocation(follow: Boolean) { prefs.putBoolean("map_follow_location", follow) }
+    override fun setMapTheme(theme: MapTheme) { prefs.putString("map_theme", theme.name) }
+    override fun setNavigationMode(mode: NavigationMode) { prefs.putString("navigation_mode", mode.name) }
 
     override fun getGpsBatteryMode(): GpsBatteryMode {
         val modeStr = prefs.getString("gps_battery_mode", GpsBatteryMode.BALANCED.name) ?: GpsBatteryMode.BALANCED.name
@@ -47,6 +47,6 @@ class PreferencesRepository(
     }
 
     override fun setGpsBatteryMode(mode: GpsBatteryMode) {
-        prefs.edit().putString("gps_battery_mode", mode.name).apply()
+        prefs.putString("gps_battery_mode", mode.name)
     }
 }
