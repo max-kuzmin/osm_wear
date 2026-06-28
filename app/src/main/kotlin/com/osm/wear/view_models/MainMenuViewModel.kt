@@ -18,10 +18,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.osm.wear.repositories.ICursorRepository
+
 @HiltViewModel
 class MainMenuViewModel @Inject constructor(
     private val gpxRepository: IGpxRepository,
-    private val navigationTrackingService: INavigationTrackingService
+    private val navigationTrackingService: INavigationTrackingService,
+    private val cursorRepository: ICursorRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainMenuUiState())
@@ -51,8 +54,13 @@ class MainMenuViewModel @Inject constructor(
     }
 
     private fun startNavigation(gpx: GpxFile, initialLocation: UserLocation?) {
+        if (!cursorRepository.isGpsEnabled()) {
+            viewModelScope.launch { _effect.send(MainMenuEffect.ShowToast("GPS is disabled")) }
+            return
+        }
         viewModelScope.launch {
-            val error = navigationTrackingService.startNavigation(gpx, initialLocation)
+            val loc = initialLocation ?: cursorRepository.getLastKnownLocation()
+            val error = navigationTrackingService.startNavigation(gpx, loc)
             if (error != null) {
                 _effect.send(MainMenuEffect.ShowToast(error))
             } else {

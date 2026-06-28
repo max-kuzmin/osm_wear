@@ -16,4 +16,8 @@ class CursorRepository(
     override suspend fun getLastKnownLocation(): UserLocation? {
         return locationDataSource.getLastKnownLocation()
     }
+
+    override fun isGpsEnabled(): Boolean {
+        return locationDataSource.isGpsEnabled()
+    }
 }

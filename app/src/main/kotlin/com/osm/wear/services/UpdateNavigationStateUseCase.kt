@@ -245,16 +245,21 @@ class UpdateNavigationStateUseCase @Inject constructor(
         if (bestSegIdx <= prevIdx) return lastAlerted
 
         var updatedLastAlerted = lastAlerted
+        var skippedTurn = false
 
         for (i in (prevIdx + 1)..minOf(bestSegIdx, state.waypoints.size - 1)) {
             val wp = state.waypoints.getOrNull(i) ?: continue
             if (wp.isTurn && wp.index != updatedLastAlerted) {
-                val direction = if (wp.turnBearingChange > 180f) "left" else "right"
-                fireAlarm("Turn $direction")
+                skippedTurn = true
                 updatedLastAlerted = wp.index
                 Log.d(TAG, "Retroactive alarm for skipped turn at wp ${wp.index}")
             }
         }
+        
+        if (skippedTurn) {
+            fireAlarm("Route segment skipped")
+        }
+        
         return updatedLastAlerted
     }
 

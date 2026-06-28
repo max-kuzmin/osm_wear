@@ -95,7 +95,7 @@ class MatchTrackToMapUseCase @Inject constructor(
         )
         return when (mode) {
             NavigationMode.DRIVING -> common
-            NavigationMode.CYCLING -> common + setOf("cycleway", "track", "path")
+            NavigationMode.CYCLING -> common + setOf("cycleway", "track", "path", "footway", "pedestrian", "steps", "bridleway")
             NavigationMode.WALKING -> common + setOf("cycleway", "track", "path", "footway", "pedestrian", "steps", "bridleway")
             NavigationMode.GPX_ONLY -> emptySet()
         }

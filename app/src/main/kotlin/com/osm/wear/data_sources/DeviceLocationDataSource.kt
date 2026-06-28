@@ -25,6 +25,11 @@ class DeviceLocationDataSource(private val context: Context) : IDeviceLocationDa
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED
 
+    override fun isGpsEnabled(): Boolean {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+        return lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
+    }
+
     override fun locationFlow(mode: GpsBatteryMode): Flow<UserLocation> =
         callbackFlow {
             if (!hasLocationPermission()) {

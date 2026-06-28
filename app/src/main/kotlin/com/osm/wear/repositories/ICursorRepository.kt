@@ -7,4 +7,5 @@ import kotlinx.coroutines.flow.Flow
 interface ICursorRepository {
     fun locationFlow(mode: GpsBatteryMode): Flow<UserLocation>
     suspend fun getLastKnownLocation(): UserLocation?
+    fun isGpsEnabled(): Boolean
 }

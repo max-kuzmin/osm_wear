@@ -11,9 +11,11 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 
+import org.mapsforge.core.model.BoundingBox
+
 interface IRemoteGeocodingDataSource {
     suspend fun reverseGeocode(lat: Double, lon: Double): GeocodeResult?
-    suspend fun searchAddress(query: String): List<GeocodeResult>
+    suspend fun searchAddress(query: String, bbox: BoundingBox? = null): List<GeocodeResult>
     suspend fun fetchRoute(
         startLat: Double,
         startLon: Double,
@@ -74,10 +76,14 @@ class RemoteGeocodingDataSource(
         return@withContext null
     }
 
-    override suspend fun searchAddress(query: String): List<GeocodeResult> = withContext(Dispatchers.IO) {
+    override suspend fun searchAddress(query: String, bbox: BoundingBox?): List<GeocodeResult> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext emptyList()
         val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
-        val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&accept-language=en&limit=10"
+        var url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&accept-language=en&limit=10"
+        if (bbox != null) {
+            val viewbox = "${bbox.minLongitude},${bbox.maxLatitude},${bbox.maxLongitude},${bbox.minLatitude}"
+            url += "&viewbox=$viewbox&bounded=1"
+        }
         try {
             val request = Request.Builder()
                 .url(url)

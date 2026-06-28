@@ -133,6 +133,9 @@ class MapViewModel @Inject constructor(
     }
 
     private fun startLocationTracking(batteryMode: GpsBatteryMode) {
+        if (!cursorRepository.isGpsEnabled()) {
+            return
+        }
         locationJob?.cancel()
         locationJob = viewModelScope.launch {
             cursorRepository.locationFlow(batteryMode).collect { loc ->
@@ -146,6 +149,10 @@ class MapViewModel @Inject constructor(
     }
 
     private fun centerOnLocation() {
+        if (!cursorRepository.isGpsEnabled()) {
+            viewModelScope.launch { _effect.send(MapEffect.ShowToast("GPS is disabled")) }
+            return
+        }
         val currentFollow = _uiState.value.followLocation
         if (!currentFollow) {
             _uiState.update {

@@ -96,6 +96,8 @@ fun MainMapScreen(
         mapVm.effect.collect { effect ->
             if (effect is MapEffect.CenterMap) {
                 mapViewRef.value?.model?.mapViewPosition?.setCenter(effect.latLong)
+            } else if (effect is MapEffect.ShowToast) {
+                android.widget.Toast.makeText(context, effect.message, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

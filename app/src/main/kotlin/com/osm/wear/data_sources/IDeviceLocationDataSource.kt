@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface IDeviceLocationDataSource {
     fun hasLocationPermission(): Boolean
+    fun isGpsEnabled(): Boolean
     fun locationFlow(mode: GpsBatteryMode): Flow<UserLocation>
     suspend fun getLastKnownLocation(): UserLocation?
 }

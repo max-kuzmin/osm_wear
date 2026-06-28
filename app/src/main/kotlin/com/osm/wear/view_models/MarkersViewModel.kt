@@ -99,6 +99,10 @@ class MarkersViewModel @Inject constructor(
     }
 
     private fun buildRouteTo(target: GpxPoint) {
+        if (!cursorRepository.isGpsEnabled()) {
+            viewModelScope.launch { _effect.send(MarkersEffect.ShowToast("GPS is disabled")) }
+            return
+        }
         viewModelScope.launch {
             buildRouteToMarkerUseCase(target, _uiState.value.currentLocation)
                 .onSuccess { gpx ->
