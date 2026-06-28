@@ -18,14 +18,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class DotMarkViewModel @Inject constructor(
+class MarkerViewModel @Inject constructor(
     private val settingsRepository: ISettingsRepository,
     private val geocodingRepository: IGeocodingRepository,
     private val bookmarkRepository: IBookmarkRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(DotMarkUiState())
-    val uiState: StateFlow<DotMarkUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(MarkerUiState())
+    val uiState: StateFlow<MarkerUiState> = _uiState.asStateFlow()
 
     /** Current GPS location, forwarded from MapViewModel via Navigation. */
     private val _currentLocation = MutableStateFlow<UserLocation?>(null)
@@ -103,6 +103,18 @@ class DotMarkViewModel @Inject constructor(
         resolveAddressForPoint(pt, overrideName = bookmark.name)
     }
 
+    fun selectAddress(name: String, address: String?, pt: GpxPoint) {
+        _uiState.update {
+            it.copy(
+                tappedPoint = pt,
+                tappedPointName = name,
+                tappedPointAddress = address,
+                isResolvingAddress = false
+            )
+        }
+        settingsRepository.setTappedPoint(pt)
+    }
+
     fun saveBookmarkFromMap(pt: GpxPoint, resolvedName: String?, resolvedAddress: String? = null) {
         viewModelScope.launch {
             var name = resolvedName
@@ -130,6 +142,13 @@ class DotMarkViewModel @Inject constructor(
                     lon = pt.lon
                 )
             )
+
+            _uiState.update {
+                it.copy(
+                    tappedPointName = finalName,
+                    tappedPointAddress = address
+                )
+            }
         }
     }
 

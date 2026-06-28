@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.filled.Save
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -33,7 +34,7 @@ import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
-fun GpxFilesScreen(
+fun GpxTracksScreen(
     gpxVm: GpxFilesViewModel,
     navVm: NavigationViewModel,
     settingsVm: SettingsViewModel,
@@ -86,18 +87,18 @@ fun GpxFilesScreen(
                 }
                 context.startActivity(intent)
             } catch (e: Exception) {
-                android.util.Log.e("GpxFilesScreen", "Failed to launch ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION", e)
+                android.util.Log.e("GpxTracksScreen", "Failed to launch ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION", e)
                 try {
                     val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)
                 } catch (e2: Exception) {
-                    android.util.Log.e("GpxFilesScreen", "Failed to launch ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION", e2)
+                    android.util.Log.e("GpxTracksScreen", "Failed to launch ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION", e2)
                     try {
                         permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
                     } catch (e3: Exception) {
-                        android.util.Log.e("GpxFilesScreen", "Failed to launch READ_EXTERNAL_STORAGE request", e3)
+                        android.util.Log.e("GpxTracksScreen", "Failed to launch READ_EXTERNAL_STORAGE request", e3)
                     }
                 }
             }
@@ -138,11 +139,43 @@ fun GpxFilesScreen(
     ) {
         item {
             Text(
-                text = "GPX Files",
+                text = "GPX Tracks",
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = AppDimensions.PaddingTitleBottom)
+            )
+        }
+
+        // ── Save Current Button ──────────────────────────────────────────
+        item {
+            Button(
+                onClick = {
+                    activeGpx?.let { gpx ->
+                        val nameToSave = if (gpx.id == "path_finder") "Saved Route" else gpx.name
+                        gpxVm.saveCurrentGpx(nameToSave, gpx.trackPoints) { success, error ->
+                            if (success) {
+                                android.widget.Toast.makeText(context, "Track saved successfully", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                android.widget.Toast.makeText(context, "Save failed: $error", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = activeGpx != null,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                icon = {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Save,
+                        contentDescription = "Save current track",
+                        modifier = Modifier.size(AppDimensions.IconNormal)
+                    )
+                },
+                label = { Text("Save current", style = MaterialTheme.typography.labelMedium) }
             )
         }
 

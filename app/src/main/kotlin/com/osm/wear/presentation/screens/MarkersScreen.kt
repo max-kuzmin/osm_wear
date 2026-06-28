@@ -6,15 +6,11 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.DirectionsBike
-import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Route
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.presentation.components.RemoveButton
-import com.osm.wear.presentation.components.NavigationButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,13 +20,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
-import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
-fun PathFinderScreen(
+fun MarkersScreen(
     navVm: NavigationViewModel,
-    dotMarkVm: DotMarkViewModel,
+    markerVm: MarkerViewModel,
+    mapVm: MapViewModel,
     settingsVm: SettingsViewModel,
     gpxVm: GpxFilesViewModel,
     onOpenSearch: () -> Unit,
@@ -38,14 +34,13 @@ fun PathFinderScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val dotMarkState by dotMarkVm.uiState.collectAsStateWithLifecycle()
-    val navState by navVm.navigationState.collectAsStateWithLifecycle()
+    val markerState by markerVm.uiState.collectAsStateWithLifecycle()
     val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
-    val tappedPoint = dotMarkState.tappedPoint
+    val tappedPoint = markerState.tappedPoint
 
     BackHandler { onBack() }
 
-    val bookmarks by dotMarkVm.bookmarks.collectAsStateWithLifecycle()
+    val bookmarks by markerVm.bookmarks.collectAsStateWithLifecycle()
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -58,7 +53,7 @@ fun PathFinderScreen(
     ) {
         item {
             Text(
-                text = "Path Finder",
+                text = "Markers",
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -66,68 +61,47 @@ fun PathFinderScreen(
             )
         }
 
-        // ── Start / Stop Navigation ────────────────────────────────────
+        // ── Build Route (Start navigation to target) ────────────────────────
         item {
-            val currentNavState = navState
-            NavigationButton(
-                isActive = currentNavState?.isActive == true && currentNavState.gpxFile?.id == "path_finder",
-                enabled = tappedPoint != null,
-                onStart = {
+            Button(
+                onClick = {
                     if (tappedPoint != null) {
                         navVm.startNavigationToPoint(
                             tappedPoint,
-                            dotMarkVm.currentLocation.value,
+                            markerVm.currentLocation.value,
                             settingsState.navigationMode,
                             onGpxCreated = { gpx ->
                                 gpxVm.setActiveGpxFile(gpx)
-                                navVm.startNavigation(gpx, dotMarkVm.currentLocation.value) { newMode ->
+                                val error = navVm.startNavigation(gpx, markerVm.currentLocation.value) { newMode ->
                                     settingsVm.setGpsBatteryMode(newMode)
+                                }
+                                if (error != null) {
+                                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                                } else {
+                                    mapVm.centerOnLocation()
+                                    onStartNavigation() // pop back to Map screen
                                 }
                             },
                             onFailure = { error ->
                                 Toast.makeText(context, error, Toast.LENGTH_LONG).show()
                             }
                         )
-                        onStartNavigation()
                     }
                 },
-                onStop = {
-                    navVm.stopNavigation { newMode -> settingsVm.setGpsBatteryMode(newMode) }
-                }
-            )
-        }
-
-        // ── Navigation selection mode (Walking, Cycling, Driving) ──────
-        item {
-            val modeIcon = when (settingsState.navigationMode) {
-                NavigationMode.WALKING -> Icons.Default.DirectionsWalk
-                NavigationMode.CYCLING -> Icons.Default.DirectionsBike
-                NavigationMode.DRIVING -> Icons.Default.DirectionsCar
-                NavigationMode.GPX_ONLY -> Icons.Default.LocationOn
-            }
-            
-            Button(
-                onClick = { settingsVm.cycleNavigationMode() },
                 modifier = Modifier.fillMaxWidth(),
+                enabled = tappedPoint != null,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 icon = {
                     Icon(
-                        imageVector = modeIcon,
-                        contentDescription = "Navigation Mode",
+                        imageVector = Icons.Default.Route,
+                        contentDescription = "Build Route",
                         modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("Travel Mode", style = MaterialTheme.typography.labelMedium) },
-                secondaryLabel = {
-                    Text(
-                        text = settingsState.navigationMode.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                    )
-                }
+                label = { Text("Build route", style = MaterialTheme.typography.labelMedium) }
             )
         }
 
@@ -140,7 +114,7 @@ fun PathFinderScreen(
                 Button(
                     onClick = {
                         if (tappedPoint != null) {
-                            dotMarkVm.saveBookmarkFromMap(tappedPoint, dotMarkState.tappedPointName, dotMarkState.tappedPointAddress)
+                            markerVm.saveBookmarkFromMap(tappedPoint, markerState.tappedPointName, markerState.tappedPointAddress)
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -175,7 +149,7 @@ fun PathFinderScreen(
                             modifier = Modifier.size(AppDimensions.IconNormal)
                         )
                     },
-                    label = { Text("Search", style = MaterialTheme.typography.labelSmall) }
+                    label = { Text("Search address", style = MaterialTheme.typography.labelSmall) }
                 )
             }
         }
@@ -210,7 +184,9 @@ fun PathFinderScreen(
                 ) {
                     Button(
                         onClick = {
-                            dotMarkVm.selectBookmark(bookmark)
+                            markerVm.selectBookmark(bookmark)
+                            mapVm.centerOnPoint(bookmark.lat, bookmark.lon)
+                            onStartNavigation() // navigate to Map screen
                         },
                         modifier = Modifier.weight(1f),
                         colors = if (isSelected) {
@@ -268,7 +244,7 @@ fun PathFinderScreen(
 
                     RemoveButton(
                         onClick = {
-                            dotMarkVm.deleteBookmark(bookmark)
+                            markerVm.deleteBookmark(bookmark)
                         }
                     )
                 }

@@ -2,7 +2,7 @@ package com.osm.wear.view_models
 
 import com.osm.wear.models.GpxPoint
 
-data class DotMarkUiState(
+data class MarkerUiState(
     /** Tapped point coordinate (blue dot mark) */
     val tappedPoint: GpxPoint? = null,
     /** Tapped point name/object name */

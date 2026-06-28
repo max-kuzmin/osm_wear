@@ -31,7 +31,7 @@ import androidx.wear.compose.material3.*
 import com.osm.wear.models.NavigationState
 import com.osm.wear.presentation.map.layers.LocationArrowLayer
 import com.osm.wear.presentation.map.layers.TrackMarkersLayer
-import com.osm.wear.presentation.map.layers.DotMarkLayer
+import com.osm.wear.presentation.map.layers.MarkerLayer
 import com.osm.wear.presentation.map.layers.AddressPopupLayer
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
@@ -49,17 +49,17 @@ import java.io.File
 @Composable
 fun MainMapScreen(
     mapVm: MapViewModel,
-    dotMarkVm: DotMarkViewModel,
+    markerVm: MarkerViewModel,
     navVm: NavigationViewModel,
     regionsVm: RegionsViewModel,
     gpxVm: GpxFilesViewModel,
     settingsVm: SettingsViewModel,
-    onOpenSettings: () -> Unit
+    onOpenMenu: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState  by mapVm.uiState.collectAsStateWithLifecycle()
     val location by mapVm.currentLocation.collectAsStateWithLifecycle()
-    val dotMarkState by dotMarkVm.uiState.collectAsStateWithLifecycle()
+    val markerState by markerVm.uiState.collectAsStateWithLifecycle()
     
     val navState by navVm.navigationState.collectAsStateWithLifecycle()
     val activeMapFile by regionsVm.activeMapFile.collectAsStateWithLifecycle()
@@ -70,7 +70,7 @@ fun MainMapScreen(
 
     val focusRequester = remember { FocusRequester() }
 
-    BackHandler { onOpenSettings() }
+    BackHandler { onOpenMenu() }
 
     // Request focus for rotary events
     LaunchedEffect(Unit) {
@@ -93,9 +93,16 @@ fun MainMapScreen(
     val locationMarker  = remember { mutableStateOf<LocationArrowLayer?>(null) }
     val trackLayer      = remember { mutableStateOf<TrackMarkersLayer?>(null) }
     val tileLayerRef    = remember { mutableStateOf<TileRendererLayer?>(null) }
-    val dotMarkLayer    = remember { mutableStateOf<DotMarkLayer?>(null) }
+    val markerLayer    = remember { mutableStateOf<MarkerLayer?>(null) }
     val popupLayerRef   = remember { mutableStateOf<AddressPopupLayer?>(null) }
     val parentLayoutRef = remember { mutableStateOf<android.widget.FrameLayout?>(null) }
+
+    // Programmatically center the map when centerEvents emits a point
+    LaunchedEffect(Unit) {
+        mapVm.centerEvents.collect { latLong ->
+            mapViewRef.value?.model?.mapViewPosition?.setCenter(latLong)
+        }
+    }
 
     // ── Smooth Location Animation ──────────────────────────────────────────
     // We animate Lat/Long and Bearing to interpolate between GPS updates.
@@ -225,25 +232,25 @@ fun MainMapScreen(
         reloadTileLayer(context, mv, activeMapFile, settingsState.mapTheme, tileLayerRef)
     }
 
-    // Update DotMarkLayer and AddressPopupLayer dynamically based on tappedPoint changes
-    LaunchedEffect(dotMarkState.tappedPoint, parentLayoutRef.value) {
+    // Update MarkerLayer and AddressPopupLayer dynamically based on tappedPoint changes
+    LaunchedEffect(markerState.tappedPoint, parentLayoutRef.value) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        val pt = dotMarkState.tappedPoint
+        val pt = markerState.tappedPoint
         if (pt == null) {
-            dotMarkLayer.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
-            dotMarkLayer.value = null
+            markerLayer.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
+            markerLayer.value = null
             
             popupLayerRef.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
             popupLayerRef.value = null
         } else {
             val latLong = LatLong(pt.lat, pt.lon)
             
-            // Handle DotMarkLayer
-            val currentDotLayer = dotMarkLayer.value
+            // Handle MarkerLayer
+            val currentDotLayer = markerLayer.value
             if (currentDotLayer == null) {
-                val layer = DotMarkLayer(latLong, mv, pointMarkColor)
+                val layer = MarkerLayer(latLong, mv, pointMarkColor)
                 mv.layerManager.layers.add(layer)
-                dotMarkLayer.value = layer
+                markerLayer.value = layer
             } else {
                 currentDotLayer.updatePosition(latLong)
                 currentDotLayer.updateColor(pointMarkColor)
@@ -256,7 +263,7 @@ fun MainMapScreen(
                     context = context,
                     mv = mv,
                     parentLayout = parentLayout,
-                    uiStateFlow = dotMarkVm.uiState,
+                    uiStateFlow = markerVm.uiState,
                     controlsVisibleState = derivedStateOf { controlsVisible },
                     zoomLevelState = derivedStateOf { uiState.zoomLevel },
                     onInteraction = {
@@ -281,7 +288,7 @@ fun MainMapScreen(
                 val projection = org.mapsforge.map.util.MapViewProjection(mv)
                 val latLong = projection.fromPixels(finalX, finalY)
                 if (latLong != null) {
-                    dotMarkVm.onMapTapped(latLong.latitude, latLong.longitude)
+                    markerVm.onMapTapped(latLong.latitude, latLong.longitude)
                 }
             }
         })
@@ -330,18 +337,18 @@ fun MainMapScreen(
                     trackLayer.value = layer
                 }
 
-                // Draw initial dot (DotMarkLayer) & AddressPopupLayer
-                dotMarkState.tappedPoint?.let { pt ->
+                // Draw initial dot (MarkerLayer) & AddressPopupLayer
+                markerState.tappedPoint?.let { pt ->
                     val latLong = LatLong(pt.lat, pt.lon)
-                    val dotLayer = DotMarkLayer(latLong, mv, pointMarkColor)
+                    val dotLayer = MarkerLayer(latLong, mv, pointMarkColor)
                     mv.layerManager.layers.add(dotLayer)
-                    dotMarkLayer.value = dotLayer
+                    markerLayer.value = dotLayer
 
                     val popupLayer = AddressPopupLayer(
                         context = ctx,
                         mv = mv,
                         parentLayout = parentLayout,
-                        uiStateFlow = dotMarkVm.uiState,
+                        uiStateFlow = markerVm.uiState,
                         controlsVisibleState = derivedStateOf { controlsVisible },
                         zoomLevelState = derivedStateOf { uiState.zoomLevel },
                         onInteraction = {
@@ -463,7 +470,7 @@ fun MainMapScreen(
                     .size(AppDimensions.MapControlBox)
                     .offset(x = AppDimensions.MapControlOffsetOuter)
                     .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha), CircleShape)
-                    .clickable(enabled = controlsVisible) { onOpenSettings(); lastInteractionTime = System.currentTimeMillis() },
+                    .clickable(enabled = controlsVisible) { onOpenMenu(); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

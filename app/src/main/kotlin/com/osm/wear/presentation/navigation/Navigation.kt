@@ -13,10 +13,11 @@ import androidx.compose.runtime.LaunchedEffect
 
 object Routes {
     const val MAP              = "map"
-    const val SETTINGS         = "settings"
+    const val MAIN_MENU        = "main_menu"
     const val REGIONS          = "regions"
-    const val GPX_FILES        = "gpx_files"
-    const val PATH_FINDER      = "path_finder"
+    const val GPX_TRACKS       = "gpx_tracks"
+    const val MARKERS          = "markers"
+    const val PREFERENCES      = "preferences"
     const val SEARCH_ADDRESS   = "search_address"
 }
 
@@ -26,7 +27,7 @@ fun OsmWearNavGraph() {
     
     // Instantiate all view models at the nav graph scope to share their states across screens
     val mapVm: MapViewModel = hiltViewModel()
-    val dotMarkVm: DotMarkViewModel = hiltViewModel()
+    val markerVm: MarkerViewModel = hiltViewModel()
     val navVm: NavigationViewModel = hiltViewModel()
     val regionsVm: RegionsViewModel = hiltViewModel()
     val gpxVm: GpxFilesViewModel = hiltViewModel()
@@ -42,12 +43,12 @@ fun OsmWearNavGraph() {
         }
     }
 
-    // Connect location updates from map to navigation engine and dot mark view model
+    // Connect location updates from map to navigation engine and marker view model
     LaunchedEffect(Unit) {
         mapVm.currentLocation.collect { loc ->
             if (loc != null) {
                 navVm.updateLocation(loc)
-                dotMarkVm.updateCurrentLocation(loc)
+                markerVm.updateCurrentLocation(loc)
             }
         }
     }
@@ -70,24 +71,36 @@ fun OsmWearNavGraph() {
         composable(Routes.MAP) {
             MainMapScreen(
                 mapVm = mapVm,
-                dotMarkVm = dotMarkVm,
+                markerVm = markerVm,
                 navVm = navVm,
                 regionsVm = regionsVm,
                 gpxVm = gpxVm,
                 settingsVm = settingsVm,
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                onOpenMenu = { navController.navigate(Routes.MAIN_MENU) }
             )
         }
-        composable(Routes.SETTINGS) {
-            SettingsScreen(
-                settingsVm = settingsVm,
-                dotMarkVm = dotMarkVm,
-                regionsVm = regionsVm,
+        composable(Routes.MAIN_MENU) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            MainMenuScreen(
                 gpxVm = gpxVm,
-                onOpenRegions          = { navController.navigate(Routes.REGIONS) },
-                onOpenGpxFiles         = { navController.navigate(Routes.GPX_FILES) },
-                onOpenPathFinder       = { navController.navigate(Routes.PATH_FINDER) },
-                onBack                 = { navController.popBackStack() }
+                navVm = navVm,
+                onStartNavigation = { gpx ->
+                    val error = navVm.startNavigation(gpx, mapVm.currentLocation.value) { newMode ->
+                        settingsVm.setGpsBatteryMode(newMode)
+                    }
+                    if (error != null) {
+                        android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                    } else {
+                        navController.popBackStack(Routes.MAP, false)
+                    }
+                },
+                onStopNavigation = {
+                    navVm.stopNavigation { newMode -> settingsVm.setGpsBatteryMode(newMode) }
+                },
+                onOpenGpxTracks = { navController.navigate(Routes.GPX_TRACKS) },
+                onOpenMarkers = { navController.navigate(Routes.MARKERS) },
+                onOpenPreferences = { navController.navigate(Routes.PREFERENCES) },
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Routes.REGIONS) {
@@ -97,9 +110,9 @@ fun OsmWearNavGraph() {
                 onBack                = { navController.popBackStack() }
             )
         }
-        composable(Routes.GPX_FILES) {
+        composable(Routes.GPX_TRACKS) {
             val context = androidx.compose.ui.platform.LocalContext.current
-            GpxFilesScreen(
+            GpxTracksScreen(
                 gpxVm = gpxVm,
                 navVm = navVm,
                 settingsVm = settingsVm,
@@ -119,10 +132,11 @@ fun OsmWearNavGraph() {
                 onBack            = { navController.popBackStack() }
             )
         }
-        composable(Routes.PATH_FINDER) {
-            PathFinderScreen(
+        composable(Routes.MARKERS) {
+            MarkersScreen(
                 navVm = navVm,
-                dotMarkVm = dotMarkVm,
+                markerVm = markerVm,
+                mapVm = mapVm,
                 settingsVm = settingsVm,
                 gpxVm = gpxVm,
                 onOpenSearch = {
@@ -134,11 +148,18 @@ fun OsmWearNavGraph() {
                 onBack = { navController.popBackStack() }
             )
         }
+        composable(Routes.PREFERENCES) {
+            PreferencesScreen(
+                settingsVm = settingsVm,
+                onBack = { navController.popBackStack() }
+            )
+        }
         composable(Routes.SEARCH_ADDRESS) {
             SearchAddressScreen(
-                dotMarkVm = dotMarkVm,
+                markerVm = markerVm,
+                mapVm = mapVm,
                 onAddressSelected = {
-                    navController.popBackStack()
+                    navController.popBackStack(Routes.MAP, false)
                 },
                 onBack = {
                     navController.popBackStack()

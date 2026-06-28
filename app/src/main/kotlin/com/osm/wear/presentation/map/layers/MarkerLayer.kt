@@ -19,7 +19,7 @@ import kotlin.jvm.Volatile
  * Renders a distinct dot with a black border at the tapped position,
  * matching the button background color.
  */
-class DotMarkLayer(
+class MarkerLayer(
     @Volatile private var latLong: LatLong,
     private val mv: MapView,
     private var fillColor: Int

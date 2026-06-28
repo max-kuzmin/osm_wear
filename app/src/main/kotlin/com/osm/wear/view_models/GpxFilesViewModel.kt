@@ -108,6 +108,19 @@ class GpxFilesViewModel @Inject constructor(
         _activeGpxFile.value = null
     }
 
+    fun saveCurrentGpx(name: String, points: List<com.osm.wear.models.GpxPoint>, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            gpxRepo.saveGpxFile(name, points)
+                .onSuccess { gpx ->
+                    setActiveGpxFile(gpx)
+                    onResult(true, null)
+                }
+                .onFailure { error ->
+                    onResult(false, error.message)
+                }
+        }
+    }
+
     private fun autoLoadActiveGpx() {
         viewModelScope.launch {
             gpxFiles.collect { files ->

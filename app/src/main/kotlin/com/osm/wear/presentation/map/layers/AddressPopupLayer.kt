@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.osm.wear.presentation.theme.MapUiAlpha
-import com.osm.wear.view_models.DotMarkUiState
+import com.osm.wear.view_models.MarkerUiState
 import kotlinx.coroutines.flow.StateFlow
 import org.mapsforge.core.graphics.Canvas
 import org.mapsforge.core.model.BoundingBox
@@ -40,7 +40,7 @@ class AddressPopupLayer(
     private val context: Context,
     private val mv: MapView,
     private val parentLayout: FrameLayout,
-    private val uiStateFlow: StateFlow<DotMarkUiState>,
+    private val uiStateFlow: StateFlow<MarkerUiState>,
     private val controlsVisibleState: State<Boolean>,
     private val zoomLevelState: State<Int>,
     private val onInteraction: () -> Unit
@@ -182,7 +182,7 @@ class AddressPopupLayer(
         val screenPos = projection.toPixels(loc)
         if (screenPos != null) {
             popupContainer.translationX = screenPos.x.toFloat() - popupContainer.width / 2f
-            // The blue dot (DotMarkLayer) has a radius of 10 pixels.
+            // The blue dot (MarkerLayer) has a radius of 10 pixels.
             // To position the popup exactly 8 pixels above the top edge of the blue dot:
             // Y = screenPos.y - dotRadius (10px) - spacing (8px) - popupHeight
             // Y = screenPos.y - 18 - popupHeight

@@ -204,6 +204,40 @@ class GpxRepository(
         }
     }
 
+    override suspend fun saveGpxFile(name: String, points: List<GpxPoint>): Result<GpxFile> = withContext(Dispatchers.IO) {
+        try {
+            val safeName = name.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+            val fileName = "${safeName}_${System.currentTimeMillis()}.gpx"
+            val destFile = File(gpxDir, fileName)
+            val xml = buildString {
+                append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n")
+                append("<gpx xmlns=\"http://www.topografix.com/GPX/1/1\" version=\"1.1\" creator=\"osm_wear\">\n")
+                append("  <trk>\n")
+                append("    <name>").append(name).append("</name>\n")
+                append("    <trkseg>\n")
+                for (pt in points) {
+                    append("      <trkpt lat=\"").append(pt.lat).append("\" lon=\"").append(pt.lon).append("\">\n")
+                    if (pt.ele != 0.0) {
+                        append("        <ele>").append(pt.ele).append("</ele>\n")
+                    }
+                    append("      </trkpt>\n")
+                }
+                append("    </trkseg>\n")
+                append("  </trk>\n")
+                append("</gpx>\n")
+            }
+            destFile.writeText(xml)
+            parseGpxFile(destFile).also { result ->
+                if (result.isSuccess) {
+                    addOrReplace(result.getOrThrow())
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save GPX file", e)
+            Result.failure(e)
+        }
+    }
+
     companion object { private const val TAG = "GpxRepository" }
 }
 

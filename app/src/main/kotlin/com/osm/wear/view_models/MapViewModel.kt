@@ -13,7 +13,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import org.mapsforge.core.model.LatLong
 import javax.inject.Inject
 
 @HiltViewModel
@@ -195,6 +199,23 @@ class MapViewModel @Inject constructor(
 
     fun onPinchUp() {
         isRotating = false
+    }
+
+    private val _centerEvents = MutableSharedFlow<LatLong>(extraBufferCapacity = 1)
+    val centerEvents: SharedFlow<LatLong> = _centerEvents.asSharedFlow()
+
+    fun centerOnPoint(lat: Double, lon: Double) {
+        _uiState.update {
+            it.copy(
+                centerLat = lat,
+                centerLon = lon,
+                followLocation = false
+            )
+        }
+        persistMapState()
+        viewModelScope.launch {
+            _centerEvents.emit(LatLong(lat, lon))
+        }
     }
 
     override fun onCleared() {
