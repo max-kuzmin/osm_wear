@@ -24,9 +24,6 @@ class MainActivity : ComponentActivity() {
     lateinit var gpxRepository: IGpxRepository
 
     @Inject
-    lateinit var navigationTrackingService: INavigationTrackingService
-
-    @Inject
     lateinit var uiNavigationManager: IUiRouter
 
     private val locationPermissionLauncher = registerForActivityResult(
@@ -48,7 +45,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             OsmWearTheme {
-                AppNavGraph(navigationTrackingService, uiNavigationManager)
+                AppNavGraph(uiNavigationManager)
             }
         }
 

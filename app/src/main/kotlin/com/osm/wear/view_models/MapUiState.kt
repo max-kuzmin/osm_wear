@@ -27,5 +27,11 @@ data class MapUiState(
     /** Tapped point address string */
     val tappedPointAddress: String? = null,
     /** Whether reverse geocoding is currently in progress */
-    val isResolvingAddress: Boolean = false
+    val isResolvingAddress: Boolean = false,
+    
+    // Derived from repositories
+    val currentLocation: com.osm.wear.models.UserLocation? = null,
+    val activeMapFile: java.io.File? = null,
+    val activeGpxFile: com.osm.wear.models.GpxFile? = null,
+    val navigationState: com.osm.wear.models.NavigationState? = null
 )

@@ -52,13 +52,12 @@ fun MainMapScreen(
     onOpenMenu: () -> Unit
 ) {
     val context = LocalContext.current
-    val uiState  by mapVm.uiState.collectAsStateWithLifecycle()
-    val location by mapVm.currentLocation.collectAsStateWithLifecycle()
-    val markerState by mapVm.markerState.collectAsStateWithLifecycle()
+    val uiState by mapVm.uiState.collectAsStateWithLifecycle()
     
-    val navState by mapVm.navigationState.collectAsStateWithLifecycle()
-    val activeMapFile by mapVm.activeMapFile.collectAsStateWithLifecycle()
-    val activeGpxFile by mapVm.activeGpxFile.collectAsStateWithLifecycle()
+    val location = uiState.currentLocation
+    val navState = uiState.navigationState
+    val activeMapFile = uiState.activeMapFile
+    val activeGpxFile = uiState.activeGpxFile
     
     val pointMarkColor = MapLayerColors.DOT_MARK_FILL
 
@@ -69,7 +68,7 @@ fun MainMapScreen(
     // Request focus for rotary events and reload map settings state
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
-        mapVm.loadMapState()
+        mapVm.onIntent(MapIntent.LoadMapState)
     }
 
     var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -94,8 +93,10 @@ fun MainMapScreen(
 
     // Programmatically center the map when centerEvents emits a point
     LaunchedEffect(Unit) {
-        mapVm.centerEvents.collect { latLong ->
-            mapViewRef.value?.model?.mapViewPosition?.setCenter(latLong)
+        mapVm.effect.collect { effect ->
+            if (effect is MapEffect.CenterMap) {
+                mapViewRef.value?.model?.mapViewPosition?.setCenter(effect.latLong)
+            }
         }
     }
 
@@ -133,9 +134,6 @@ fun MainMapScreen(
         // Kick off animations in parallel
         val duration = 800 // slightly less than 1s GPS interval
         
-        // Animatable.animateTo is a suspend function.
-        // LaunchedEffect provides a CoroutineScope.
-        // We use launch to run them in parallel within this scope.
         launch { animLat.animateTo(targetLat, tween(duration)) }
         launch { animLon.animateTo(targetLon, tween(duration)) }
         launch { animBearing.animateTo(targetBearing, tween(duration)) }
@@ -151,7 +149,7 @@ fun MainMapScreen(
         val mv = mapViewRef.value ?: return@SideEffect
         locationMarker.value?.updatePosition(LatLong(currentLat, currentLon), currentBearing)
         
-        val (pivotX, pivotY) = mapVm.getMapPivot(mv.width, mv.height)
+        val (pivotX, pivotY) = getMapPivot(mv.width, mv.height)
 
         if (uiState.followLocation) {
             mv.model.mapViewPosition.setCenter(LatLong(currentLat, currentLon))
@@ -164,13 +162,6 @@ fun MainMapScreen(
         }
         mv.model.mapViewPosition.setRotation(Rotation(targetRotation, pivotX, pivotY))
     }
-
-    // Update GPS dot when location changes (Handled by Animatable + SideEffect now)
-    /*
-    LaunchedEffect(location) {
-        ...
-    }
-    */
 
     // Follow location logic (Handled by SideEffect for smooth panning)
     LaunchedEffect(uiState.followLocation, uiState.zoomLevel) {
@@ -228,9 +219,9 @@ fun MainMapScreen(
     }
 
     // Update MarkerLayer and AddressPopupLayer dynamically based on tappedPoint changes
-    LaunchedEffect(markerState.tappedPoint, parentLayoutRef.value) {
+    LaunchedEffect(uiState.tappedPoint, parentLayoutRef.value) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        val pt = markerState.tappedPoint
+        val pt = uiState.tappedPoint
         if (pt == null) {
             markerLayer.value?.let { mv.layerManager.layers.remove(it); it.onDestroy() }
             markerLayer.value = null
@@ -258,7 +249,7 @@ fun MainMapScreen(
                     context = context,
                     mv = mv,
                     parentLayout = parentLayout,
-                    uiStateFlow = mapVm.markerState,
+                    uiStateFlow = mapVm.uiState,
                     controlsVisibleState = derivedStateOf { controlsVisible },
                     zoomLevelState = derivedStateOf { uiState.zoomLevel },
                     onInteraction = {
@@ -278,12 +269,12 @@ fun MainMapScreen(
                 
                 // Account for map rotation when calculating the tapped coordinate
                 val rot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
-                val (finalX, finalY) = mapVm.getUnrotatedTapPoint(e.x, e.y, mv.width, mv.height, rot)
+                val (finalX, finalY) = getUnrotatedTapPoint(e.x, e.y, mv.width, mv.height, rot)
 
                 val projection = org.mapsforge.map.util.MapViewProjection(mv)
                 val latLong = projection.fromPixels(finalX, finalY)
                 if (latLong != null) {
-                    mapVm.onMapTapped(latLong.latitude, latLong.longitude)
+                    mapVm.onIntent(MapIntent.MapTapped(latLong.latitude, latLong.longitude))
                 }
             }
         })
@@ -294,10 +285,14 @@ fun MainMapScreen(
             .fillMaxSize()
             .focusRequester(focusRequester)
             .onRotaryScrollEvent {
-                if (it.verticalScrollPixels > 0) mapVm.zoomOut() else mapVm.zoomIn()
+                if (it.verticalScrollPixels > 0) mapVm.onIntent(MapIntent.ZoomOut) else mapVm.onIntent(MapIntent.ZoomIn)
                 true
             }
     ) {
+
+        // Pinch state variables
+        var isRotating by remember { mutableStateOf(false) }
+        var previousPinchAngle by remember { mutableStateOf(0f) }
 
         // ── Mapsforge MapView & Overlay Popup ────────────────────────────────
         AndroidView(
@@ -306,7 +301,6 @@ fun MainMapScreen(
                 val parentLayout = android.widget.FrameLayout(ctx)
 
                 val mv = createMapView(ctx).apply {
-                    // Initialize position from ViewModel state
                     model.mapViewPosition.setCenter(LatLong(uiState.centerLat, uiState.centerLon))
                     model.mapViewPosition.zoomLevel = uiState.zoomLevel.toByte()
                 }
@@ -319,12 +313,10 @@ fun MainMapScreen(
 
                 parentLayoutRef.value = parentLayout
 
-                // Load initial tile layer
                 activeMapFile?.let { f ->
                     reloadTileLayer(ctx, mv, f, uiState.mapTheme, tileLayerRef)
                 }
 
-                // Draw initial GPX
                 activeGpxFile?.let { gpx ->
                     val pts = gpx.trackPoints.map { LatLong(it.lat, it.lon) }
                     val layer = TrackMarkersLayer(pts, mv)
@@ -332,8 +324,7 @@ fun MainMapScreen(
                     trackLayer.value = layer
                 }
 
-                // Draw initial dot (MarkerLayer) & AddressPopupLayer
-                markerState.tappedPoint?.let { pt ->
+                uiState.tappedPoint?.let { pt ->
                     val latLong = LatLong(pt.lat, pt.lon)
                     val dotLayer = MarkerLayer(latLong, mv, pointMarkColor)
                     mv.layerManager.layers.add(dotLayer)
@@ -343,7 +334,7 @@ fun MainMapScreen(
                         context = ctx,
                         mv = mv,
                         parentLayout = parentLayout,
-                        uiStateFlow = mapVm.markerState,
+                        uiStateFlow = mapVm.uiState,
                         controlsVisibleState = derivedStateOf { controlsVisible },
                         zoomLevelState = derivedStateOf { uiState.zoomLevel },
                         onInteraction = {
@@ -354,16 +345,14 @@ fun MainMapScreen(
                     popupLayerRef.value = popupLayer
                 }
 
-                // Bezel rotation → zoom
                 mv.setOnGenericMotionListener { _, event ->
                     if (event.action == MotionEvent.ACTION_SCROLL) {
                         val scroll = event.getAxisValue(MotionEvent.AXIS_SCROLL)
-                        if (scroll > 0) mapVm.zoomIn() else mapVm.zoomOut()
+                        if (scroll > 0) mapVm.onIntent(MapIntent.ZoomIn) else mapVm.onIntent(MapIntent.ZoomOut)
                         true
                     } else false
                 }
 
-                // Detect panning and rotation
                 var startX = 0f
                 var startY = 0f
                 val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
@@ -380,24 +369,36 @@ fun MainMapScreen(
                     if (event.pointerCount == 2) {
                         when (event.actionMasked) {
                             MotionEvent.ACTION_POINTER_DOWN -> {
-                                mapVm.onPinchDown(event.getX(0), event.getY(0), event.getX(1), event.getY(1))
+                                val dx = event.getX(1) - event.getX(0)
+                                val dy = event.getY(1) - event.getY(0)
+                                previousPinchAngle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                                isRotating = true
                             }
                             MotionEvent.ACTION_MOVE -> {
-                                val currentRot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
-                                val newRot = mapVm.onPinchMove(event.getX(0), event.getY(0), event.getX(1), event.getY(1), currentRot)
-                                if (newRot != null) {
-                                    val (pivotX, pivotY) = mapVm.getMapPivot(mv.width, mv.height)
+                                if (isRotating) {
+                                    val dx = event.getX(1) - event.getX(0)
+                                    val dy = event.getY(1) - event.getY(0)
+                                    val angle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                                    val delta = angle - previousPinchAngle
+                                    previousPinchAngle = angle
+                                    
+                                    val currentRot = mv.model.mapViewPosition.rotation?.degrees ?: 0f
+                                    val newRot = currentRot + delta
+                                    
+                                    mapVm.onIntent(MapIntent.PinchMoved(newRot))
+                                    
+                                    val (pivotX, pivotY) = getMapPivot(mv.width, mv.height)
                                     mv.model.mapViewPosition.setRotation(Rotation(newRot, pivotX, pivotY))
                                     mv.postInvalidate()
                                 }
                             }
                             MotionEvent.ACTION_POINTER_UP -> {
-                                mapVm.onPinchUp()
+                                isRotating = false
                             }
                         }
                         return@setOnTouchListener true
                     } else {
-                        mapVm.onPinchUp()
+                        isRotating = false
                         when (event.actionMasked) {
                             MotionEvent.ACTION_DOWN -> {
                                 startX = event.x
@@ -408,10 +409,10 @@ fun MainMapScreen(
                                 val dy = event.y - startY
                                 if (dx * dx + dy * dy > touchSlop * touchSlop) {
                                     val mvPos = mv.model.mapViewPosition
-                                    mapVm.onMapPanned(
+                                    mapVm.onIntent(MapIntent.MapPanned(
                                         mvPos.center.latitude,
                                         mvPos.center.longitude
-                                    )
+                                    ))
                                 }
                             }
                         }
@@ -424,15 +425,14 @@ fun MainMapScreen(
             update = { parentLayout ->
                 val mv = parentLayout.getChildAt(0) as MapView
 
-                // Ensure initial marker exists
                 if (locationMarker.value == null && location != null) {
-                    val loc = location!!
+                    val loc = location
                     val newMarker = LocationArrowLayer(LatLong(loc.latitude, loc.longitude), loc.bearing, mv)
                     mv.layerManager.layers.add(newMarker)
                     locationMarker.value = newMarker
                 }
 
-                val (pivotX, pivotY) = mapVm.getMapPivot(mv.width, mv.height)
+                val (pivotX, pivotY) = getMapPivot(mv.width, mv.height)
 
                 if (uiState.followLocation) {
                     mv.model.mapViewPosition.setCenter(LatLong(currentLat, currentLon))
@@ -459,7 +459,6 @@ fun MainMapScreen(
             verticalArrangement = Arrangement.spacedBy(AppDimensions.MapControlSpacing),
             horizontalAlignment = Alignment.End
         ) {
-            // Settings Button (Top - shifted further left for curve)
             Box(
                 modifier = Modifier
                     .size(AppDimensions.MapControlBox)
@@ -475,13 +474,12 @@ fun MainMapScreen(
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
-            // Zoom In (Middle-Top - slightly shifted left for curve)
             Box(
                 modifier = Modifier
                     .size(AppDimensions.MapControlBox)
                     .offset(x = AppDimensions.MapControlOffsetInner)
                     .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha), CircleShape)
-                    .clickable(enabled = controlsVisible) { mapVm.zoomIn(); lastInteractionTime = System.currentTimeMillis() },
+                    .clickable(enabled = controlsVisible) { mapVm.onIntent(MapIntent.ZoomIn); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -491,13 +489,12 @@ fun MainMapScreen(
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
-            // Zoom Out (Middle-Bottom - stays at the edge)
             Box(
                 modifier = Modifier
                     .size(AppDimensions.MapControlBox)
                     .offset(x = AppDimensions.MapControlOffsetInner)
                     .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha), CircleShape)
-                    .clickable(enabled = controlsVisible) { mapVm.zoomOut(); lastInteractionTime = System.currentTimeMillis() },
+                    .clickable(enabled = controlsVisible) { mapVm.onIntent(MapIntent.ZoomOut); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -507,7 +504,6 @@ fun MainMapScreen(
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
-            // Center on Location (Bottom - slightly shifted left for curve)
             val buttonBgColor = if (!uiState.followLocation) {
                 MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha)
             } else {
@@ -528,7 +524,7 @@ fun MainMapScreen(
                     .size(AppDimensions.MapControlBox)
                     .offset(x = AppDimensions.MapControlOffsetOuter)
                     .background(buttonBgColor, CircleShape)
-                    .clickable(enabled = controlsVisible) { mapVm.centerOnLocation(); lastInteractionTime = System.currentTimeMillis() },
+                    .clickable(enabled = controlsVisible) { mapVm.onIntent(MapIntent.CenterOnLocation); lastInteractionTime = System.currentTimeMillis() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -540,9 +536,6 @@ fun MainMapScreen(
             }
         }
 
-        // The popup is rendered natively as an overlay sibling to MapView to move perfectly together with the map
-
-        // ── Navigation overlay ────────────────────────────────────────────────
         val currentNavState = navState
         if (currentNavState != null && currentNavState.isActive && currentNavState.waypoints.isNotEmpty()) {
             NavigationOverlay(
@@ -554,10 +547,6 @@ fun MainMapScreen(
         }
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Navigation overlay
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Modifier) {
@@ -597,12 +586,6 @@ private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Mo
         }
     }
 }
-
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Mapsforge helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 private fun createMapView(context: Context): MapView {
     val mv = MapView(context)
@@ -650,5 +633,21 @@ private fun reloadTileLayer(
     }
 }
 
+fun getMapPivot(width: Int, height: Int): Pair<Float, Float> {
+    val pivotX = if (width > 0) width * 0.5f else 0f
+    val pivotY = if (height > 0) height * 0.5f else 0f
+    return Pair(pivotX, pivotY)
+}
 
+fun getUnrotatedTapPoint(x: Float, y: Float, width: Int, height: Int, rotation: Float): Pair<Double, Double> {
+    val (pivotX, pivotY) = getMapPivot(width, height)
+    val angleRad = Math.toRadians(-rotation.toDouble())
 
+    val dx = x.toDouble() - pivotX
+    val dy = y.toDouble() - pivotY
+
+    val rx = dx * Math.cos(angleRad) - dy * Math.sin(angleRad)
+    val ry = dx * Math.sin(angleRad) + dy * Math.cos(angleRad)
+
+    return Pair(rx + pivotX, ry + pivotY)
+}
