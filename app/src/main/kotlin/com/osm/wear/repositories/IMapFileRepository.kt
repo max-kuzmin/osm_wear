@@ -1,5 +1,6 @@
 package com.osm.wear.repositories
 
+import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 
 /**
@@ -8,6 +9,9 @@ import java.io.File
  * from the same map file used for rendering.
  */
 interface IMapFileRepository {
+    /** Exposes the active map file reactively. */
+    val activeMapFile: StateFlow<File?>
+
     /** Returns the currently active .map file, or null if none is loaded. */
     fun getActiveMapFile(): File?
 

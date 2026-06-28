@@ -1,5 +1,8 @@
 package com.osm.wear.repositories
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -11,16 +14,12 @@ import javax.inject.Singleton
 @Singleton
 class MapFileRepository @Inject constructor() : IMapFileRepository {
 
-    companion object {
-        private const val TAG = "MapFileRepository"
-    }
+    private val _activeMapFile = MutableStateFlow<File?>(null)
+    override val activeMapFile: StateFlow<File?> = _activeMapFile.asStateFlow()
 
-    @Volatile
-    private var activeFile: File? = null
-
-    override fun getActiveMapFile(): File? = activeFile
+    override fun getActiveMapFile(): File? = _activeMapFile.value
 
     override fun setActiveMapFile(file: File?) {
-        activeFile = file
+        _activeMapFile.value = file
     }
 }

@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(
+class PreferencesViewModel @Inject constructor(
     private val settingsRepository: ISettingsRepository,
     private val navigationService: INavigationService
 ) : ViewModel() {
@@ -32,7 +32,8 @@ class SettingsViewModel @Inject constructor(
             it.copy(
                 mapTheme = settingsRepository.getMapTheme(),
                 navigationAlertMode = settingsRepository.getNavigationAlertMode(),
-                navigationMode = settingsRepository.getNavigationMode()
+                navigationMode = settingsRepository.getNavigationMode(),
+                gpsBatteryMode = settingsRepository.getGpsBatteryMode()
             ) 
         }
     }
@@ -50,6 +51,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setGpsBatteryMode(mode: GpsBatteryMode) {
         _uiState.update { it.copy(gpsBatteryMode = mode) }
+        settingsRepository.setGpsBatteryMode(mode)
     }
 
     fun cycleNavigationMode() {

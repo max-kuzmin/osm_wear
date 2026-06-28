@@ -5,8 +5,18 @@ import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.models.enums.MapRotationMode
 import com.osm.wear.models.UserLocation
-import com.osm.wear.repositories.ILocationRepository
+import com.osm.wear.repositories.ICursorRepository
+import com.osm.wear.repositories.IMarkersRepository
+import com.osm.wear.repositories.INavigationRepository
+import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.repositories.IMapFileRepository
 import com.osm.wear.repositories.ISettingsRepository
+import com.osm.wear.models.Bookmark
+import com.osm.wear.models.NavigationState
+import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.GpxFile
+import com.osm.wear.repositories.IGeocodingRepository
+import java.io.File
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,10 +30,19 @@ import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import javax.inject.Inject
 
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+
 @HiltViewModel
 class MapViewModel @Inject constructor(
-    private val locationRepo: ILocationRepository,
-    private val settingsRepository: ISettingsRepository
+    private val cursorRepository: ICursorRepository,
+    private val settingsRepository: ISettingsRepository,
+    private val markersRepository: IMarkersRepository,
+    private val navigationRepository: INavigationRepository,
+    private val gpxRepository: IGpxRepository,
+    private val mapFileRepository: IMapFileRepository,
+    private val geocodingRepository: IGeocodingRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
@@ -32,30 +51,51 @@ class MapViewModel @Inject constructor(
     private val _currentLocation = MutableStateFlow<UserLocation?>(null)
     val currentLocation: StateFlow<UserLocation?> = _currentLocation.asStateFlow()
 
+    val activeMapFile: StateFlow<File?> = mapFileRepository.activeMapFile
+    val activeGpxFile: StateFlow<GpxFile?> = gpxRepository.activeGpxFile
+    val bookmarks: StateFlow<List<Bookmark>> = markersRepository.bookmarks
+    val navigationState: StateFlow<NavigationState?> = navigationRepository.navigationState
+
+    val markerState: StateFlow<MarkerUiState> = uiState
+        .map { mapState ->
+            MarkerUiState(
+                tappedPoint = mapState.tappedPoint,
+                tappedPointName = mapState.tappedPointName,
+                tappedPointAddress = mapState.tappedPointAddress,
+                isResolvingAddress = mapState.isResolvingAddress
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MarkerUiState())
+
     private var locationJob: Job? = null
 
     init {
         loadMapState()
+        loadMarker()
     }
 
-    private fun loadMapState() {
+    fun loadMapState() {
         val lat = settingsRepository.getMapCenterLat()
         val lon = settingsRepository.getMapCenterLon()
         val zoom = settingsRepository.getMapZoomLevel()
         val follow = settingsRepository.getMapFollowLocation()
+        val theme = settingsRepository.getMapTheme()
 
         _uiState.update {
             it.copy(
                 centerLat = lat,
                 centerLon = lon,
                 zoomLevel = zoom,
-                followLocation = follow
+                followLocation = follow,
+                mapTheme = theme
             )
         }
 
         if (lat == 0.0 && lon == 0.0) {
             centerOnLocation()
         }
+        
+        startLocationTracking(settingsRepository.getGpsBatteryMode())
     }
 
     private fun persistMapState() {
@@ -69,7 +109,7 @@ class MapViewModel @Inject constructor(
     fun startLocationTracking(batteryMode: GpsBatteryMode) {
         locationJob?.cancel()
         locationJob = viewModelScope.launch {
-            locationRepo.locationFlow(batteryMode).collect { loc ->
+            cursorRepository.locationFlow(batteryMode).collect { loc ->
                 _currentLocation.value = loc
                 if (_uiState.value.followLocation) {
                     _uiState.update { it.copy(centerLat = loc.latitude, centerLon = loc.longitude) }
@@ -106,7 +146,7 @@ class MapViewModel @Inject constructor(
             }
         } ?: run {
             viewModelScope.launch {
-                val lastLoc = locationRepo.getLastKnownLocation()
+                val lastLoc = cursorRepository.getLastKnownLocation()
                 lastLoc?.let { loc ->
                     _currentLocation.value = loc
                     if (_uiState.value.followLocation) {
@@ -221,5 +261,56 @@ class MapViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         locationJob?.cancel()
+    }
+
+    private fun loadMarker() {
+        viewModelScope.launch {
+            markersRepository.tappedPoint.collect { marker ->
+                val matchingBookmark = if (marker != null) {
+                    markersRepository.bookmarks.value.find {
+                        it.lat == marker.lat && it.lon == marker.lon
+                    }
+                } else null
+
+                _uiState.update {
+                    it.copy(
+                        tappedPoint = marker,
+                        tappedPointName = matchingBookmark?.name,
+                        tappedPointAddress = matchingBookmark?.address
+                    )
+                }
+
+                if (marker != null && matchingBookmark == null) {
+                    resolveAddressForPoint(marker)
+                }
+            }
+        }
+    }
+
+    fun onMapTapped(lat: Double, lon: Double) {
+        val pt = GpxPoint(lat, lon)
+        markersRepository.setTappedPoint(pt)
+    }
+
+    private fun resolveAddressForPoint(pt: GpxPoint, overrideName: String? = null) {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isResolvingAddress = true) }
+                val result = geocodingRepository.reverseGeocode(pt.lat, pt.lon)
+                if (result != null) {
+                    _uiState.update {
+                        it.copy(
+                            tappedPointName = overrideName ?: result.name,
+                            tappedPointAddress = result.address,
+                            isResolvingAddress = false
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(isResolvingAddress = false) }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isResolvingAddress = false) }
+            }
+        }
     }
 }

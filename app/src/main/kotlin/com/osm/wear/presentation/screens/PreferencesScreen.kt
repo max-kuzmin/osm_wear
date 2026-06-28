@@ -23,11 +23,11 @@ import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.enums.MapTheme
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.presentation.theme.AppDimensions
-import com.osm.wear.view_models.SettingsViewModel
+import com.osm.wear.view_models.PreferencesViewModel
 
 @Composable
 fun PreferencesScreen(
-    settingsVm: SettingsViewModel,
+    settingsVm: PreferencesViewModel,
     onBack: () -> Unit
 ) {
     val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()

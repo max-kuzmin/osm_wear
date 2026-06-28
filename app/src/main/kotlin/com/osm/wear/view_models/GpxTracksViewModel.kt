@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.GpxFile
 import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.repositories.INavigationRepository
+import com.osm.wear.services.IMapBoundariesService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,20 +22,39 @@ import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
-class GpxFilesViewModel @Inject constructor(
+class GpxTracksViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
-    private val gpxRepo: IGpxRepository
+    private val gpxRepo: IGpxRepository,
+    private val mapBoundariesService: IMapBoundariesService,
+    private val navigationRepository: INavigationRepository
 ) : ViewModel() {
+
+    private val _isActiveGpxCovered = MutableStateFlow(false)
+    val isActiveGpxCovered: StateFlow<Boolean> = _isActiveGpxCovered.asStateFlow()
 
     val gpxFiles: StateFlow<List<GpxFile>> =
         gpxRepo.files.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    private val _activeGpxFile = MutableStateFlow<GpxFile?>(null)
-    val activeGpxFile: StateFlow<GpxFile?> = _activeGpxFile.asStateFlow()
+    val activeGpxFile: StateFlow<GpxFile?> = gpxRepo.activeGpxFile
+
+    val navigationState = navigationRepository.navigationState
 
     init {
-        autoLoadActiveGpx()
         scanGpxFolders()
+
+        viewModelScope.launch {
+            activeGpxFile.collect { active ->
+                _isActiveGpxCovered.value = active != null && mapBoundariesService.isGpxCoveredByMap(active)
+            }
+        }
+    }
+
+    fun startNavigation(gpx: GpxFile, initialLocation: com.osm.wear.models.UserLocation?): String? {
+        return navigationRepository.startNavigation(gpx, initialLocation)
+    }
+
+    fun stopNavigation() {
+        navigationRepository.stopNavigation()
     }
 
     fun importGpxFile(uri: Uri, autoActivate: Boolean = false) {
@@ -44,10 +65,6 @@ class GpxFilesViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-    fun importGpxFromFile(file: File) {
-        viewModelScope.launch { gpxRepo.importFromFile(file) }
     }
 
     fun scanGpxFolders() {
@@ -91,21 +108,16 @@ class GpxFilesViewModel @Inject constructor(
 
     fun deleteGpxFile(fileId: String) {
         viewModelScope.launch {
-            if (_activeGpxFile.value?.id == fileId) {
-                _activeGpxFile.value = null
-            }
             gpxRepo.deleteFile(fileId)
         }
     }
 
     fun setActiveGpxFile(gpxFile: GpxFile) {
         gpxRepo.setActive(gpxFile.id)
-        _activeGpxFile.value = gpxFile
     }
 
     fun clearActiveGpxFile() {
         gpxRepo.clearActive()
-        _activeGpxFile.value = null
     }
 
     fun saveCurrentGpx(name: String, points: List<com.osm.wear.models.GpxPoint>, onResult: (Boolean, String?) -> Unit) {
@@ -118,15 +130,6 @@ class GpxFilesViewModel @Inject constructor(
                 .onFailure { error ->
                     onResult(false, error.message)
                 }
-        }
-    }
-
-    private fun autoLoadActiveGpx() {
-        viewModelScope.launch {
-            gpxFiles.collect { files ->
-                val active = files.find { it.isActive }
-                _activeGpxFile.value = active
-            }
         }
     }
 }

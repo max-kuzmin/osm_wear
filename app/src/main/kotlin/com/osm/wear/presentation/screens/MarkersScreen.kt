@@ -21,26 +21,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 import com.osm.wear.presentation.theme.AppDimensions
+import com.osm.wear.models.Bookmark
 
 @Composable
 fun MarkersScreen(
-    navVm: NavigationViewModel,
-    markerVm: MarkerViewModel,
-    mapVm: MapViewModel,
-    settingsVm: SettingsViewModel,
-    gpxVm: GpxFilesViewModel,
+    markersVm: MarkersViewModel,
     onOpenSearch: () -> Unit,
     onStartNavigation: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val markerState by markerVm.uiState.collectAsStateWithLifecycle()
-    val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
-    val tappedPoint = markerState.tappedPoint
+    val tappedPoint by markersVm.tappedPoint.collectAsStateWithLifecycle()
+    val bookmarkDistances by markersVm.bookmarkDistances.collectAsStateWithLifecycle()
 
     BackHandler { onBack() }
-
-    val bookmarks by markerVm.bookmarks.collectAsStateWithLifecycle()
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -66,21 +60,10 @@ fun MarkersScreen(
             Button(
                 onClick = {
                     if (tappedPoint != null) {
-                        navVm.startNavigationToPoint(
-                            tappedPoint,
-                            markerVm.currentLocation.value,
-                            settingsState.navigationMode,
+                        markersVm.startNavigationToPoint(
+                            tappedPoint!!,
                             onGpxCreated = { gpx ->
-                                gpxVm.setActiveGpxFile(gpx)
-                                val error = navVm.startNavigation(gpx, markerVm.currentLocation.value) { newMode ->
-                                    settingsVm.setGpsBatteryMode(newMode)
-                                }
-                                if (error != null) {
-                                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-                                } else {
-                                    mapVm.centerOnLocation()
-                                    onStartNavigation() // pop back to Map screen
-                                }
+                                onStartNavigation() // pop back to Map screen
                             },
                             onFailure = { error ->
                                 Toast.makeText(context, error, Toast.LENGTH_LONG).show()
@@ -114,7 +97,7 @@ fun MarkersScreen(
                 Button(
                     onClick = {
                         if (tappedPoint != null) {
-                            markerVm.saveBookmarkFromMap(tappedPoint, markerState.tappedPointName, markerState.tappedPointAddress)
+                            markersVm.saveBookmarkFromMap(tappedPoint!!)
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -172,10 +155,10 @@ fun MarkersScreen(
         }
 
         // ── Bookmarks Section ─────────────────────────────────────────
-        if (bookmarks.isNotEmpty()) {
-            items(bookmarks.size) { idx ->
-                val bookmark = bookmarks[idx]
-                val isSelected = tappedPoint != null && tappedPoint.lat == bookmark.lat && tappedPoint.lon == bookmark.lon
+        if (bookmarkDistances.isNotEmpty()) {
+            items(bookmarkDistances.size) { idx ->
+                val (bookmark, distance) = bookmarkDistances[idx]
+                val isSelected = tappedPoint != null && tappedPoint!!.lat == bookmark.lat && tappedPoint!!.lon == bookmark.lon
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -184,8 +167,7 @@ fun MarkersScreen(
                 ) {
                     Button(
                         onClick = {
-                            markerVm.selectBookmark(bookmark)
-                            mapVm.centerOnPoint(bookmark.lat, bookmark.lon)
+                            markersVm.selectBookmark(bookmark)
                             onStartNavigation() // navigate to Map screen
                         },
                         modifier = Modifier.weight(1f),
@@ -212,6 +194,9 @@ fun MarkersScreen(
                             Column(
                                 horizontalAlignment = Alignment.Start
                             ) {
+                                val distanceText = distance?.let {
+                                    if (it >= 1000) "%.1f km".format(it / 1000.0) else "${it.toInt()} m"
+                                }
                                 val line2Text = if (!bookmark.address.isNullOrBlank()) {
                                     var cleanAddr = bookmark.address
                                     val name = bookmark.name.trim()
@@ -222,19 +207,18 @@ fun MarkersScreen(
                                 } else {
                                     null
                                 }
-                                if (line2Text != null) {
-                                    Text(
-                                        text = line2Text,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                
+                                val subText = when {
+                                    distanceText != null && line2Text != null -> "$distanceText • $line2Text"
+                                    distanceText != null -> distanceText
+                                    line2Text != null -> line2Text
+                                    else -> "%.4f, %.4f".format(bookmark.lat, bookmark.lon)
                                 }
+                                
                                 Text(
-                                    text = "%.4f, %.4f".format(bookmark.lat, bookmark.lon),
+                                    text = subText,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -244,7 +228,7 @@ fun MarkersScreen(
 
                     RemoveButton(
                         onClick = {
-                            markerVm.deleteBookmark(bookmark)
+                            markersVm.deleteBookmark(bookmark)
                         }
                     )
                 }

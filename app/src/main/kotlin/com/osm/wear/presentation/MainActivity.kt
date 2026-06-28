@@ -9,21 +9,21 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.osm.wear.presentation.navigation.OsmWearNavGraph
 import com.osm.wear.presentation.theme.OsmWearTheme
-import com.osm.wear.view_models.MapViewModel
-import com.osm.wear.view_models.GpxFilesViewModel
-import com.osm.wear.view_models.NavigationViewModel
-import androidx.activity.viewModels
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
+import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.repositories.INavigationRepository
+import javax.inject.Inject
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private val gpxVm: GpxFilesViewModel by viewModels()
-    private val navVm: NavigationViewModel by viewModels()
+    @Inject
+    lateinit var gpxRepository: IGpxRepository
+
+    @Inject
+    lateinit var navigationRepository: INavigationRepository
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             OsmWearTheme {
-                OsmWearNavGraph()
+                OsmWearNavGraph(navigationRepository)
             }
         }
 
@@ -84,8 +84,12 @@ class MainActivity : ComponentActivity() {
             }
             if (uri != null) {
                 android.util.Log.d("MainActivity", "Handling intent to import GPX from: $uri")
-                gpxVm.importGpxFile(uri, autoActivate = true)
-                navVm.navigateTo(com.osm.wear.presentation.navigation.Routes.MAP)
+                lifecycleScope.launch {
+                    gpxRepository.importFromUri(uri).onSuccess { gpx ->
+                        gpxRepository.setActive(gpx.id)
+                    }
+                }
+                navigationRepository.navigateTo(com.osm.wear.presentation.navigation.Routes.MAP)
             }
         }
     }

@@ -16,6 +16,10 @@ import java.io.File
 import java.io.IOException
 import kotlin.math.*
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
 /**
  * Manages GPX file import, parsing, and storage.
  * Files are stored in [Context.getFilesDir]/gpx/.
@@ -32,7 +36,19 @@ class GpxRepository(
     private val _files = MutableStateFlow<List<GpxFile>>(emptyList())
     override val files: StateFlow<List<GpxFile>> = _files.asStateFlow()
 
-    init { loadStoredFiles() }
+    private val _activeGpxFile = MutableStateFlow<GpxFile?>(null)
+    override val activeGpxFile: StateFlow<GpxFile?> = _activeGpxFile.asStateFlow()
+
+    private val repositoryScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    init {
+        loadStoredFiles()
+        repositoryScope.launch {
+            files.collect { list ->
+                _activeGpxFile.value = list.find { it.isActive }
+            }
+        }
+    }
 
     // ── Public API ────────────────────────────────────────────────────────────
 

@@ -2,21 +2,27 @@ package com.osm.wear.repositories
 
 import android.content.SharedPreferences
 import com.osm.wear.models.Bookmark
+import com.osm.wear.models.GpxPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 
-class BookmarkRepositoryImpl(
-    private val prefs: SharedPreferences
-) : IBookmarkRepository {
+class MarkersRepositoryImpl(
+    private val prefs: SharedPreferences,
+    private val settingsRepository: ISettingsRepository
+) : IMarkersRepository {
 
     private val _bookmarks = MutableStateFlow<List<Bookmark>>(emptyList())
     override val bookmarks: StateFlow<List<Bookmark>> = _bookmarks.asStateFlow()
 
+    private val _tappedPoint = MutableStateFlow<GpxPoint?>(null)
+    override val tappedPoint: StateFlow<GpxPoint?> = _tappedPoint.asStateFlow()
+
     init {
         loadBookmarks()
+        _tappedPoint.value = settingsRepository.getTappedPoint()
     }
 
     private fun loadBookmarks() {
@@ -77,5 +83,10 @@ class BookmarkRepositoryImpl(
         current.remove(bookmark)
         _bookmarks.value = current
         saveBookmarks(current)
+    }
+
+    override fun setTappedPoint(point: GpxPoint?) {
+        _tappedPoint.value = point
+        settingsRepository.setTappedPoint(point)
     }
 }

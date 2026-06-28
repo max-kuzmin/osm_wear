@@ -1,6 +1,9 @@
 package com.osm.wear.view_models
 
 import com.osm.wear.models.enums.MapRotationMode
+import com.osm.wear.models.enums.MapTheme
+
+import com.osm.wear.models.GpxPoint
 
 data class MapUiState(
     /** Current zoom level (3..20). */
@@ -14,5 +17,15 @@ data class MapUiState(
     /** Map rotation mode (North-up, Heading-up, or Manual). */
     val mapRotationMode: MapRotationMode = MapRotationMode.NORTH_UP,
     /** Current manual rotation angle, used when MapRotationMode is MANUAL. */
-    val manualRotation: Float = 0f
+    val manualRotation: Float = 0f,
+    /** The active theme of the map view. */
+    val mapTheme: MapTheme = MapTheme.DEFAULT,
+    /** Tapped point coordinate (blue dot mark) */
+    val tappedPoint: GpxPoint? = null,
+    /** Tapped point name/object name */
+    val tappedPointName: String? = null,
+    /** Tapped point address string */
+    val tappedPointAddress: String? = null,
+    /** Whether reverse geocoding is currently in progress */
+    val isResolvingAddress: Boolean = false
 )

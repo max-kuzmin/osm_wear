@@ -10,6 +10,7 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.osm.wear.presentation.screens.*
 import com.osm.wear.view_models.*
 import androidx.compose.runtime.LaunchedEffect
+import com.osm.wear.repositories.INavigationRepository
 
 object Routes {
     const val MAP              = "map"
@@ -22,19 +23,11 @@ object Routes {
 }
 
 @Composable
-fun OsmWearNavGraph() {
+fun OsmWearNavGraph(navRepository: INavigationRepository) {
     val navController = rememberSwipeDismissableNavController()
-    
-    // Instantiate all view models at the nav graph scope to share their states across screens
-    val mapVm: MapViewModel = hiltViewModel()
-    val markerVm: MarkerViewModel = hiltViewModel()
-    val navVm: NavigationViewModel = hiltViewModel()
-    val regionsVm: RegionsViewModel = hiltViewModel()
-    val gpxVm: GpxFilesViewModel = hiltViewModel()
-    val settingsVm: SettingsViewModel = hiltViewModel()
 
     LaunchedEffect(Unit) {
-        navVm.navigationEvents.collect { route ->
+        navRepository.navigationEvents.collect { route ->
             if (route == Routes.MAP) {
                 navController.popBackStack(Routes.MAP, false)
             } else {
@@ -42,24 +35,7 @@ fun OsmWearNavGraph() {
             }
         }
     }
-
-    // Connect location updates from map to navigation engine and marker view model
-    LaunchedEffect(Unit) {
-        mapVm.currentLocation.collect { loc ->
-            if (loc != null) {
-                navVm.updateLocation(loc)
-                markerVm.updateCurrentLocation(loc)
-            }
-        }
-    }
     
-    // Connect settings battery mode to location tracking
-    LaunchedEffect(Unit) {
-        settingsVm.uiState.collect { state ->
-            mapVm.startLocationTracking(state.gpsBatteryMode)
-        }
-    }
-
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -69,25 +45,19 @@ fun OsmWearNavGraph() {
         userSwipeEnabled = currentRoute != Routes.MAP
     ) {
         composable(Routes.MAP) {
+            val mapVm: MapViewModel = hiltViewModel()
             MainMapScreen(
                 mapVm = mapVm,
-                markerVm = markerVm,
-                navVm = navVm,
-                regionsVm = regionsVm,
-                gpxVm = gpxVm,
-                settingsVm = settingsVm,
                 onOpenMenu = { navController.navigate(Routes.MAIN_MENU) }
             )
         }
         composable(Routes.MAIN_MENU) {
+            val menuVm: MainMenuViewModel = hiltViewModel()
             val context = androidx.compose.ui.platform.LocalContext.current
             MainMenuScreen(
-                gpxVm = gpxVm,
-                navVm = navVm,
+                menuVm = menuVm,
                 onStartNavigation = { gpx ->
-                    val error = navVm.startNavigation(gpx, mapVm.currentLocation.value) { newMode ->
-                        settingsVm.setGpsBatteryMode(newMode)
-                    }
+                    val error = menuVm.startNavigation(gpx, null)
                     if (error != null) {
                         android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
                     } else {
@@ -95,7 +65,7 @@ fun OsmWearNavGraph() {
                     }
                 },
                 onStopNavigation = {
-                    navVm.stopNavigation { newMode -> settingsVm.setGpsBatteryMode(newMode) }
+                    menuVm.stopNavigation()
                 },
                 onOpenGpxTracks = { navController.navigate(Routes.GPX_TRACKS) },
                 onOpenMarkers = { navController.navigate(Routes.MARKERS) },
@@ -104,6 +74,7 @@ fun OsmWearNavGraph() {
             )
         }
         composable(Routes.REGIONS) {
+            val regionsVm: RegionsViewModel = hiltViewModel()
             RegionsScreen(
                 regionsVm = regionsVm,
                 onRegionSelected      = { navController.popBackStack(Routes.MAP, false) },
@@ -111,34 +82,17 @@ fun OsmWearNavGraph() {
             )
         }
         composable(Routes.GPX_TRACKS) {
+            val gpxVm: GpxTracksViewModel = hiltViewModel()
             val context = androidx.compose.ui.platform.LocalContext.current
             GpxTracksScreen(
                 gpxVm = gpxVm,
-                navVm = navVm,
-                settingsVm = settingsVm,
-                onStartNavigation = { gpx ->
-                    val error = navVm.startNavigation(gpx, mapVm.currentLocation.value) { newMode ->
-                        settingsVm.setGpsBatteryMode(newMode)
-                    }
-                    if (error != null) {
-                        android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
-                    } else {
-                        navController.popBackStack(Routes.MAP, false)
-                    }
-                },
-                onStopNavigation  = { 
-                    navVm.stopNavigation { newMode -> settingsVm.setGpsBatteryMode(newMode) }
-                },
                 onBack            = { navController.popBackStack() }
             )
         }
         composable(Routes.MARKERS) {
+            val markersVm: MarkersViewModel = hiltViewModel()
             MarkersScreen(
-                navVm = navVm,
-                markerVm = markerVm,
-                mapVm = mapVm,
-                settingsVm = settingsVm,
-                gpxVm = gpxVm,
+                markersVm = markersVm,
                 onOpenSearch = {
                     navController.navigate(Routes.SEARCH_ADDRESS)
                 },
@@ -149,15 +103,16 @@ fun OsmWearNavGraph() {
             )
         }
         composable(Routes.PREFERENCES) {
+            val preferencesVm: PreferencesViewModel = hiltViewModel()
             PreferencesScreen(
-                settingsVm = settingsVm,
+                settingsVm = preferencesVm,
                 onBack = { navController.popBackStack() }
             )
         }
         composable(Routes.SEARCH_ADDRESS) {
+            val searchVm: SearchAddressViewModel = hiltViewModel()
             SearchAddressScreen(
-                markerVm = markerVm,
-                mapVm = mapVm,
+                searchVm = searchVm,
                 onAddressSelected = {
                     navController.popBackStack(Routes.MAP, false)
                 },

@@ -7,6 +7,7 @@ import java.io.File
 
 interface IGpxRepository {
     val files: StateFlow<List<GpxFile>>
+    val activeGpxFile: StateFlow<GpxFile?>
     suspend fun importFromUri(uri: Uri): Result<GpxFile>
     suspend fun importFromFile(file: File): Result<GpxFile>
     suspend fun deleteFile(fileId: String)
@@ -14,4 +15,3 @@ interface IGpxRepository {
     fun clearActive()
     suspend fun saveGpxFile(name: String, points: List<com.osm.wear.models.GpxPoint>): Result<GpxFile>
 }
-

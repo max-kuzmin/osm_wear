@@ -1,8 +1,7 @@
 package com.osm.wear.presentation.screens
 
-import com.osm.wear.view_models.MarkerViewModel
-import com.osm.wear.view_models.MapViewModel
-import com.osm.wear.models.GpxPoint
+import com.osm.wear.view_models.SearchAddressViewModel
+import com.osm.wear.models.Bookmark
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,17 +23,16 @@ import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
 fun SearchAddressScreen(
-    markerVm: MarkerViewModel,
-    mapVm: MapViewModel,
+    searchVm: SearchAddressViewModel,
     onAddressSelected: () -> Unit,
     onBack: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val searchResults by markerVm.searchResults.collectAsStateWithLifecycle()
-    val isSearching by markerVm.isSearching.collectAsStateWithLifecycle()
+    val searchResults by searchVm.searchResults.collectAsStateWithLifecycle()
+    val isSearching by searchVm.isSearching.collectAsStateWithLifecycle()
 
     BackHandler {
-        markerVm.clearSearchResults()
+        searchVm.clearSearchResults()
         onBack()
     }
 
@@ -69,7 +67,7 @@ fun SearchAddressScreen(
                     value = searchQuery,
                     onValueChange = {
                         searchQuery = it
-                        markerVm.searchAddresses(it)
+                        searchVm.searchAddresses(it)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = LocalTextStyle.current.copy(
@@ -129,11 +127,15 @@ fun SearchAddressScreen(
 
                 Button(
                     onClick = {
-                        val pt = GpxPoint(result.lat, result.lon)
-                        markerVm.saveSearchBookmark(result.name, result.address, result.lat, result.lon)
-                        markerVm.selectAddress(result.name, result.address, pt)
-                        mapVm.centerOnPoint(result.lat, result.lon)
-                        markerVm.clearSearchResults()
+                        val bookmark = Bookmark(
+                            name = result.name,
+                            address = result.address,
+                            lat = result.lat,
+                            lon = result.lon
+                        )
+                        searchVm.saveSearchBookmark(result.name, result.address, result.lat, result.lon)
+                        searchVm.selectAddress(bookmark)
+                        searchVm.clearSearchResults()
                         onAddressSelected()
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -168,7 +170,7 @@ fun SearchAddressScreen(
 
         item {
             BackButton(onClick = {
-                markerVm.clearSearchResults()
+                searchVm.clearSearchResults()
                 onBack()
             })
         }

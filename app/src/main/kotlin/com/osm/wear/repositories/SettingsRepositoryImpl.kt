@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import com.osm.wear.models.enums.MapTheme
 import com.osm.wear.models.enums.NavigationAlertMode
 import com.osm.wear.models.enums.NavigationMode
+import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.models.GpxPoint
 
 class SettingsRepositoryImpl(
@@ -62,6 +63,15 @@ class SettingsRepositoryImpl(
             editor.putBoolean("has_tapped_point", false)
         }
         editor.apply()
+    }
+
+    override fun getGpsBatteryMode(): GpsBatteryMode {
+        val modeStr = prefs.getString("gps_battery_mode", GpsBatteryMode.BALANCED.name) ?: GpsBatteryMode.BALANCED.name
+        return try { GpsBatteryMode.valueOf(modeStr) } catch (e: Exception) { GpsBatteryMode.BALANCED }
+    }
+
+    override fun setGpsBatteryMode(mode: GpsBatteryMode) {
+        prefs.edit().putString("gps_battery_mode", mode.name).apply()
     }
 
     override fun setActiveRegionId(id: String?) {

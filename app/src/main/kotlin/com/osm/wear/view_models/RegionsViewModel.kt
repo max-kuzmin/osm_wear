@@ -35,8 +35,7 @@ class RegionsViewModel @Inject constructor(
 
     val downloadState: StateFlow<DownloadState> = downloadManager.downloadState
 
-    private val _activeMapFile = MutableStateFlow<File?>(null)
-    val activeMapFile: StateFlow<File?> = _activeMapFile.asStateFlow()
+    val activeMapFile: StateFlow<File?> = mapFileRepository.activeMapFile
 
     private val _activeRegionId = MutableStateFlow<String?>(null)
     val activeRegionId: StateFlow<String?> = _activeRegionId.asStateFlow()
@@ -57,7 +56,6 @@ class RegionsViewModel @Inject constructor(
         val file = downloadManager.getLocalFile(region)
         if (!file.exists()) return
         
-        _activeMapFile.value = file
         _activeRegionId.value = region.id
         mapFileRepository.setActiveMapFile(file)
         settingsRepository.setActiveRegionId(region.id)
@@ -68,7 +66,6 @@ class RegionsViewModel @Inject constructor(
         viewModelScope.launch {
             downloadManager.deleteRegion(region)
             if (_activeRegionId.value == region.id) {
-                _activeMapFile.value = null
                 _activeRegionId.value = null
                 mapFileRepository.setActiveMapFile(null)
                 settingsRepository.setActiveRegionId(null)
@@ -82,7 +79,7 @@ class RegionsViewModel @Inject constructor(
         viewModelScope.launch {
             downloadManager.downloadRegion(region)
             refreshDownloadedRegions()
-            if (_activeMapFile.value == null) {
+            if (mapFileRepository.getActiveMapFile() == null) {
                 setActiveRegion(region)
             }
         }
@@ -93,7 +90,7 @@ class RegionsViewModel @Inject constructor(
     }
 
     private fun autoLoadFirstRegion() {
-        if (_activeMapFile.value != null) return
+        if (mapFileRepository.getActiveMapFile() != null) return
         val downloaded = downloadManager.getDownloadedRegions(mapRegionCatalogService.all, null)
         if (downloaded.isEmpty()) return
 
@@ -102,7 +99,6 @@ class RegionsViewModel @Inject constructor(
         
         val file = File(target.filePath)
         if (file.exists()) {
-            _activeMapFile.value = file
             _activeRegionId.value = target.region.id
             mapFileRepository.setActiveMapFile(file)
             if (lastSelectedId != target.region.id) {

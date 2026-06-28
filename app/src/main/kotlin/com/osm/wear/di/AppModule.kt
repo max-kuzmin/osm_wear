@@ -2,20 +2,24 @@ package com.osm.wear.di
 
 import android.content.Context
 import com.osm.wear.repositories.GpxRepository
-import com.osm.wear.repositories.LocationRepository
+import com.osm.wear.repositories.CursorRepository
 import com.osm.wear.repositories.MapDownloadRepository
 import com.osm.wear.repositories.RouteRepositoryImpl
 import com.osm.wear.repositories.SettingsRepositoryImpl
 import com.osm.wear.repositories.IGpxRepository
-import com.osm.wear.repositories.ILocationRepository
+import com.osm.wear.repositories.ICursorRepository
 import com.osm.wear.repositories.IRouteRepository
 import com.osm.wear.repositories.ISettingsRepository
-import com.osm.wear.repositories.IBookmarkRepository
-import com.osm.wear.repositories.BookmarkRepositoryImpl
+import com.osm.wear.repositories.IMarkersRepository
+import com.osm.wear.repositories.MarkersRepositoryImpl
+import com.osm.wear.repositories.INavigationRepository
+import com.osm.wear.repositories.NavigationRepositoryImpl
 import com.osm.wear.repositories.IGeocodingRepository
 import com.osm.wear.repositories.GeocodingRepositoryImpl
 import com.osm.wear.services.INavigationService
 import com.osm.wear.services.IMapRegionCatalogService
+import com.osm.wear.services.IMapBoundariesService
+import com.osm.wear.services.MapBoundariesService
 import com.osm.wear.repositories.IMapFileRepository
 import com.osm.wear.services.MapRegionCatalogService
 import com.osm.wear.repositories.MapFileRepository
@@ -42,8 +46,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideLocationRepository(@ApplicationContext context: Context): ILocationRepository {
-        return LocationRepository(context)
+    fun provideCursorRepository(@ApplicationContext context: Context): ICursorRepository {
+        return CursorRepository(context)
     }
 
     @Provides
@@ -111,8 +115,39 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideBookmarkRepository(prefs: android.content.SharedPreferences): IBookmarkRepository {
-        return BookmarkRepositoryImpl(prefs)
+    fun provideMapBoundariesService(
+        mapFileRepository: IMapFileRepository
+    ): IMapBoundariesService {
+        return MapBoundariesService(mapFileRepository)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMarkersRepository(
+        prefs: android.content.SharedPreferences,
+        settingsRepository: ISettingsRepository
+    ): IMarkersRepository {
+        return MarkersRepositoryImpl(prefs, settingsRepository)
+    }
+
+    @Provides
+    @Singleton
+    fun provideNavigationRepository(
+        navigationService: INavigationService,
+        settingsRepository: ISettingsRepository,
+        mapFileRepository: IMapFileRepository,
+        mapBoundariesService: IMapBoundariesService,
+        cursorRepository: ICursorRepository,
+        routeRepository: IRouteRepository
+    ): INavigationRepository {
+        return NavigationRepositoryImpl(
+            navigationService,
+            settingsRepository,
+            mapFileRepository,
+            mapBoundariesService,
+            cursorRepository,
+            routeRepository
+        )
     }
 
     @Provides

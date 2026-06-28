@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.catch
  *
  * On Wear OS / Galaxy Watch 7 GPS is built-in and works standalone.
  */
-class LocationRepository(private val context: Context) : ILocationRepository {
+class CursorRepository(private val context: Context) : ICursorRepository {
 
     private val locationContext = context.createAttributionContext("Location")
     private val fusedClient: FusedLocationProviderClient =
@@ -101,7 +101,6 @@ class LocationRepository(private val context: Context) : ILocationRepository {
     )
 
     companion object {
-        private const val TAG = "LocationRepository"
+        private const val TAG = "CursorRepository"
     }
 }
-

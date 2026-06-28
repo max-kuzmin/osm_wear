@@ -49,22 +49,16 @@ import java.io.File
 @Composable
 fun MainMapScreen(
     mapVm: MapViewModel,
-    markerVm: MarkerViewModel,
-    navVm: NavigationViewModel,
-    regionsVm: RegionsViewModel,
-    gpxVm: GpxFilesViewModel,
-    settingsVm: SettingsViewModel,
     onOpenMenu: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState  by mapVm.uiState.collectAsStateWithLifecycle()
     val location by mapVm.currentLocation.collectAsStateWithLifecycle()
-    val markerState by markerVm.uiState.collectAsStateWithLifecycle()
+    val markerState by mapVm.markerState.collectAsStateWithLifecycle()
     
-    val navState by navVm.navigationState.collectAsStateWithLifecycle()
-    val activeMapFile by regionsVm.activeMapFile.collectAsStateWithLifecycle()
-    val activeGpxFile by gpxVm.activeGpxFile.collectAsStateWithLifecycle()
-    val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
+    val navState by mapVm.navigationState.collectAsStateWithLifecycle()
+    val activeMapFile by mapVm.activeMapFile.collectAsStateWithLifecycle()
+    val activeGpxFile by mapVm.activeGpxFile.collectAsStateWithLifecycle()
     
     val pointMarkColor = MapLayerColors.DOT_MARK_FILL
 
@@ -72,9 +66,10 @@ fun MainMapScreen(
 
     BackHandler { onOpenMenu() }
 
-    // Request focus for rotary events
+    // Request focus for rotary events and reload map settings state
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+        mapVm.loadMapState()
     }
 
     var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -227,9 +222,9 @@ fun MainMapScreen(
     }
 
     // Reload tile layer when active map file or theme changes
-    LaunchedEffect(activeMapFile, settingsState.mapTheme) {
+    LaunchedEffect(activeMapFile, uiState.mapTheme) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        reloadTileLayer(context, mv, activeMapFile, settingsState.mapTheme, tileLayerRef)
+        reloadTileLayer(context, mv, activeMapFile, uiState.mapTheme, tileLayerRef)
     }
 
     // Update MarkerLayer and AddressPopupLayer dynamically based on tappedPoint changes
@@ -263,7 +258,7 @@ fun MainMapScreen(
                     context = context,
                     mv = mv,
                     parentLayout = parentLayout,
-                    uiStateFlow = markerVm.uiState,
+                    uiStateFlow = mapVm.markerState,
                     controlsVisibleState = derivedStateOf { controlsVisible },
                     zoomLevelState = derivedStateOf { uiState.zoomLevel },
                     onInteraction = {
@@ -288,7 +283,7 @@ fun MainMapScreen(
                 val projection = org.mapsforge.map.util.MapViewProjection(mv)
                 val latLong = projection.fromPixels(finalX, finalY)
                 if (latLong != null) {
-                    markerVm.onMapTapped(latLong.latitude, latLong.longitude)
+                    mapVm.onMapTapped(latLong.latitude, latLong.longitude)
                 }
             }
         })
@@ -326,7 +321,7 @@ fun MainMapScreen(
 
                 // Load initial tile layer
                 activeMapFile?.let { f ->
-                    reloadTileLayer(ctx, mv, f, settingsState.mapTheme, tileLayerRef)
+                    reloadTileLayer(ctx, mv, f, uiState.mapTheme, tileLayerRef)
                 }
 
                 // Draw initial GPX
@@ -348,7 +343,7 @@ fun MainMapScreen(
                         context = ctx,
                         mv = mv,
                         parentLayout = parentLayout,
-                        uiStateFlow = markerVm.uiState,
+                        uiStateFlow = mapVm.markerState,
                         controlsVisibleState = derivedStateOf { controlsVisible },
                         zoomLevelState = derivedStateOf { uiState.zoomLevel },
                         onInteraction = {

@@ -4,8 +4,7 @@ import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.models.UserLocation
 import kotlinx.coroutines.flow.Flow
 
-interface ILocationRepository {
+interface ICursorRepository {
     fun locationFlow(mode: GpsBatteryMode): Flow<UserLocation>
     suspend fun getLastKnownLocation(): UserLocation?
 }
-

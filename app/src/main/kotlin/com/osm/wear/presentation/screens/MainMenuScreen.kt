@@ -17,13 +17,11 @@ import com.osm.wear.models.GpxFile
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.presentation.components.NavigationButton
 import com.osm.wear.presentation.theme.AppDimensions
-import com.osm.wear.view_models.GpxFilesViewModel
-import com.osm.wear.view_models.NavigationViewModel
+import com.osm.wear.view_models.MainMenuViewModel
 
 @Composable
 fun MainMenuScreen(
-    gpxVm: GpxFilesViewModel,
-    navVm: NavigationViewModel,
+    menuVm: MainMenuViewModel,
     onStartNavigation: (GpxFile) -> Unit,
     onStopNavigation: () -> Unit,
     onOpenGpxTracks: () -> Unit,
@@ -31,8 +29,8 @@ fun MainMenuScreen(
     onOpenPreferences: () -> Unit,
     onBack: () -> Unit
 ) {
-    val activeGpxFile by gpxVm.activeGpxFile.collectAsStateWithLifecycle()
-    val navState by navVm.navigationState.collectAsStateWithLifecycle()
+    val activeGpxFile by menuVm.activeGpxFile.collectAsStateWithLifecycle()
+    val navState by menuVm.navigationState.collectAsStateWithLifecycle()
 
     BackHandler { onBack() }
 

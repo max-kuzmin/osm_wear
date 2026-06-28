@@ -35,30 +35,22 @@ import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
 fun GpxTracksScreen(
-    gpxVm: GpxFilesViewModel,
-    navVm: NavigationViewModel,
-    settingsVm: SettingsViewModel,
-    onStartNavigation: (GpxFile) -> Unit,
-    onStopNavigation: () -> Unit,
+    gpxVm: GpxTracksViewModel,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val gpxFiles by gpxVm.gpxFiles.collectAsStateWithLifecycle()
-    val navState by navVm.navigationState.collectAsStateWithLifecycle()
+    val navState by gpxVm.navigationState.collectAsStateWithLifecycle()
 
     // Check if the active GPX track is covered by the downloaded map
     val activeGpx = gpxFiles.find { it.isActive }
-    val hasMap = navVm.hasActiveMapFile()
-    val isCovered = activeGpx != null && hasMap && navVm.isGpxCoveredByMap(activeGpx)
-
-    val settingsState by settingsVm.uiState.collectAsStateWithLifecycle()
+    val isCovered by gpxVm.isActiveGpxCovered.collectAsStateWithLifecycle()
 
     // Evaluate warning and start conditions dynamically
-    val mapWarning = remember(activeGpx, hasMap, isCovered) {
+    val mapWarning = remember(activeGpx, isCovered) {
         when {
             activeGpx == null -> null
-            !hasMap -> "Download map first"
-            !isCovered -> "Track outside map area"
+            !isCovered -> "Track outside map area or map not downloaded"
             else -> null
         }
     }
@@ -179,16 +171,7 @@ fun GpxTracksScreen(
             )
         }
 
-        // ── Navigation Control ──────────────────────────────────────────
-        item {
-            NavigationButton(
-                isActive = navState?.isActive == true,
-                enabled = activeGpx != null,
-                warningText = mapWarning,
-                onStart = { activeGpx?.let { onStartNavigation(it) } },
-                onStop = onStopNavigation
-            )
-        }
+
 
         if (gpxFiles.isEmpty()) {
             item {
