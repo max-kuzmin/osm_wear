@@ -99,12 +99,6 @@ class GpxRepository(
         _files.value = _files.value.map { it.copy(isActive = it.id == fileId) }
     }
 
-    /** Clears the active GPX file. */
-    override fun clearActive() {
-        prefs.edit().remove("active_gpx_id").apply()
-        _files.value = _files.value.map { it.copy(isActive = false) }
-    }
-
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private fun addOrReplace(gpx: GpxFile) {

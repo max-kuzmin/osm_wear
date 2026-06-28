@@ -9,7 +9,7 @@ import com.osm.wear.models.track_to_map.MatchedTurn
 import com.osm.wear.models.track_to_map.RoadEdge
 import com.osm.wear.models.track_to_map.RoadNode
 import com.osm.wear.models.track_to_map.RoadSegment
-import com.osm.wear.repositories.IMapFileRepository
+import com.osm.wear.repositories.IRegionRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.mapsforge.core.model.BoundingBox
 import org.mapsforge.core.model.Tile
@@ -22,7 +22,7 @@ import kotlin.math.*
 @Singleton
 class TrackToMapMatcherService @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val mapFileRepository: IMapFileRepository
+    private val regionRepository: IRegionRepository
 ) : ITrackToMapMatcherService {
 
     companion object {
@@ -64,7 +64,7 @@ class TrackToMapMatcherService @Inject constructor(
         trackPoints: List<GpxPoint>,
         mode: NavigationMode
     ): List<RoadSegment> {
-        val mapFilePath = mapFileRepository.getActiveMapFile()
+        val mapFilePath = regionRepository.getActiveMapFile()
         if (mapFilePath == null || !mapFilePath.exists()) return emptyList()
 
         val bbox = computeBufferedBBox(trackPoints, BUFFER_M)

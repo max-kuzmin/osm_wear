@@ -1,4 +1,4 @@
-package com.osm.wear.repositories
+package com.osm.wear.services
 
 import android.content.Context
 import android.util.Log
@@ -15,40 +15,28 @@ import okhttp3.Request
 import okhttp3.Call
 import kotlinx.coroutines.CancellationException
 import java.io.File
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import javax.inject.Singleton
 
-/**
- * Downloads, stores, and manages Mapsforge .map files.
- * Files are stored in [Context.getFilesDir]/maps/.
- */
-class MapDownloadRepository @Inject constructor(private val context: Context) {
-
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(180, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .build()
+@Singleton
+class MapDownloadService @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
+    private val client: OkHttpClient
+) : IMapDownloadService {
 
     private val mapsDir: File get() = File(context.filesDir, "maps").also { it.mkdirs() }
-
-    // ── Download state ────────────────────────────────────────────────────────
     
     @Volatile
     private var currentCall: Call? = null
 
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
-    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
+    override val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
-    // ── Query helpers ─────────────────────────────────────────────────────────
+    override fun getLocalFile(region: MapRegion): File = File(mapsDir, safeFileName(region))
 
-    fun getLocalFile(region: MapRegion): File = File(mapsDir, safeFileName(region))
 
-    fun isDownloaded(region: MapRegion): Boolean =
-        getLocalFile(region).let { it.exists() && it.length() > 0 }
 
-    /** Returns all downloaded regions as [DownloadedRegion] objects. */
-    fun getDownloadedRegions(catalog: List<MapRegion>, activeId: String?): List<DownloadedRegion> {
+    override fun getDownloadedRegions(catalog: List<MapRegion>, activeId: String?): List<DownloadedRegion> {
         return mapsDir.listFiles()
             ?.filter { it.extension == "map" && it.length() > 0 }
             ?.mapNotNull { file ->
@@ -65,17 +53,9 @@ class MapDownloadRepository @Inject constructor(private val context: Context) {
             ?: emptyList()
     }
 
-    /** Total storage used by downloaded maps in bytes. */
-    fun totalStorageBytes(): Long = mapsDir.listFiles()?.sumOf { it.length() } ?: 0L
 
-    // ── Download ──────────────────────────────────────────────────────────────
 
-    /**
-     * Downloads a map region file, updating [downloadState] with progress.
-     * This is a suspend function that blocks until the download completes or fails.
-     * Supports resuming partial downloads via HTTP Range header.
-     */
-    suspend fun downloadRegion(region: MapRegion) = withContext(Dispatchers.IO) {
+    override suspend fun downloadRegion(region: MapRegion) = withContext(Dispatchers.IO) {
         val destFile = getLocalFile(region)
         val tempFile = File(destFile.parentFile, "${destFile.name}.tmp")
 
@@ -139,24 +119,20 @@ class MapDownloadRepository @Inject constructor(private val context: Context) {
         }
     }
 
-    /** Cancels the currently active download. */
-    fun cancelDownload() {
+    override fun cancelDownload() {
         currentCall?.cancel()
         _downloadState.value = DownloadState.Idle
     }
 
-    /** Deletes the downloaded map file for a region. */
-    suspend fun deleteRegion(region: MapRegion) = withContext(Dispatchers.IO) {
+    override suspend fun deleteRegion(region: MapRegion) = withContext(Dispatchers.IO) {
         getLocalFile(region).delete()
         File(mapsDir, "${safeFileName(region)}.tmp").delete()
         Log.d(TAG, "Deleted region: ${region.name}")
+        Unit
     }
-
-    // ── Private ───────────────────────────────────────────────────────────────
 
     private fun safeFileName(region: MapRegion): String =
         region.id.replace("/", "_") + ".map"
 
-    companion object { private const val TAG = "MapDownloadRepository" }
+    companion object { private const val TAG = "MapDownloadService" }
 }
-

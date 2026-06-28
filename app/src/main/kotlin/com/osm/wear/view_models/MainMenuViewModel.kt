@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.osm.wear.models.GpxFile
 import com.osm.wear.models.UserLocation
 import com.osm.wear.repositories.IGpxRepository
-import com.osm.wear.repositories.INavigationRepository
+import com.osm.wear.services.INavigationTrackingService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -12,17 +12,17 @@ import javax.inject.Inject
 @HiltViewModel
 class MainMenuViewModel @Inject constructor(
     private val gpxRepository: IGpxRepository,
-    private val navigationRepository: INavigationRepository
+    private val navigationTrackingService: INavigationTrackingService
 ) : ViewModel() {
 
     val activeGpxFile: StateFlow<GpxFile?> = gpxRepository.activeGpxFile
-    val navigationState = navigationRepository.navigationState
+    val navigationState = navigationTrackingService.navigationState
 
     fun startNavigation(gpx: GpxFile, initialLocation: UserLocation?): String? {
-        return navigationRepository.startNavigation(gpx, initialLocation)
+        return navigationTrackingService.startNavigation(gpx, initialLocation)
     }
 
     fun stopNavigation() {
-        navigationRepository.stopNavigation()
+        navigationTrackingService.stopNavigation()
     }
 }

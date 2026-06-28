@@ -1,16 +1,9 @@
-package com.osm.wear.services
+package com.osm.wear.repositories
 
 import com.osm.wear.models.MapRegion
-
-/**
- * Catalogue of downloadable Mapsforge map regions.
- * Download URLs point to https://download.mapsforge.org/maps/v5/
- * which serves free OpenStreetMap-derived .map files.
- */
-import com.osm.wear.services.IMapRegionCatalogService
 import javax.inject.Inject
 
-class MapRegionCatalogService @Inject constructor() : IMapRegionCatalogService {
+class RegionCatalogRepository @Inject constructor() : IRegionCatalogRepository {
 
     companion object {
         private const val BASE = "https://download.mapsforge.org/maps/v5"
@@ -104,12 +97,4 @@ class MapRegionCatalogService @Inject constructor() : IMapRegionCatalogService {
         r("south-america/colombia", "Colombia",        "South America", "south-america/colombia.map",          314),
         r("south-america/peru",     "Peru",            "South America", "south-america/peru.map",              268)
     )
-
-    /** Unique continent names in display order. */
-    override val continents: List<String>
-        get() = all.map { it.continent }.distinct().sorted()
-
-    /** Find a region by its id. */
-    override fun findById(id: String): MapRegion? = all.find { it.id == id }
 }
-

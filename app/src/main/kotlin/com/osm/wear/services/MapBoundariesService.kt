@@ -1,16 +1,16 @@
 package com.osm.wear.services
 
 import com.osm.wear.models.GpxFile
-import com.osm.wear.repositories.IMapFileRepository
+import com.osm.wear.repositories.IRegionRepository
 import org.mapsforge.map.reader.MapFile
 import javax.inject.Inject
 
 class MapBoundariesService @Inject constructor(
-    private val mapFileRepository: IMapFileRepository
+    private val regionRepository: IRegionRepository
 ) : IMapBoundariesService {
 
     override fun isGpxCoveredByMap(gpx: GpxFile): Boolean {
-        val file = mapFileRepository.getActiveMapFile() ?: return false
+        val file = regionRepository.getActiveMapFile() ?: return false
         if (!file.exists()) return false
 
         return try {

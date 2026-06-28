@@ -4,18 +4,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.models.enums.MapRotationMode
+import com.osm.wear.models.enums.MapTheme
 import com.osm.wear.models.UserLocation
 import com.osm.wear.repositories.ICursorRepository
-import com.osm.wear.repositories.IMarkersRepository
-import com.osm.wear.repositories.INavigationRepository
+import com.osm.wear.repositories.IPreferencesRepository
 import com.osm.wear.repositories.IGpxRepository
-import com.osm.wear.repositories.IMapFileRepository
-import com.osm.wear.repositories.ISettingsRepository
+import com.osm.wear.repositories.IRegionRepository
+import com.osm.wear.repositories.IGeocodingRepository
+import com.osm.wear.services.IMarkerService
+import com.osm.wear.services.INavigationTrackingService
 import com.osm.wear.models.Bookmark
 import com.osm.wear.models.NavigationState
 import com.osm.wear.models.GpxPoint
 import com.osm.wear.models.GpxFile
-import com.osm.wear.repositories.IGeocodingRepository
 import java.io.File
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -29,7 +30,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import javax.inject.Inject
-
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -37,11 +37,11 @@ import kotlinx.coroutines.flow.stateIn
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val cursorRepository: ICursorRepository,
-    private val settingsRepository: ISettingsRepository,
-    private val markersRepository: IMarkersRepository,
-    private val navigationRepository: INavigationRepository,
+    private val preferencesRepository: IPreferencesRepository,
+    private val markerService: IMarkerService,
+    private val navigationTrackingService: INavigationTrackingService,
     private val gpxRepository: IGpxRepository,
-    private val mapFileRepository: IMapFileRepository,
+    private val regionRepository: IRegionRepository,
     private val geocodingRepository: IGeocodingRepository
 ) : ViewModel() {
 
@@ -51,10 +51,9 @@ class MapViewModel @Inject constructor(
     private val _currentLocation = MutableStateFlow<UserLocation?>(null)
     val currentLocation: StateFlow<UserLocation?> = _currentLocation.asStateFlow()
 
-    val activeMapFile: StateFlow<File?> = mapFileRepository.activeMapFile
+    val activeMapFile: StateFlow<File?> = regionRepository.activeMapFile
     val activeGpxFile: StateFlow<GpxFile?> = gpxRepository.activeGpxFile
-    val bookmarks: StateFlow<List<Bookmark>> = markersRepository.bookmarks
-    val navigationState: StateFlow<NavigationState?> = navigationRepository.navigationState
+    val navigationState: StateFlow<NavigationState?> = navigationTrackingService.navigationState
 
     val markerState: StateFlow<MarkerUiState> = uiState
         .map { mapState ->
@@ -75,11 +74,12 @@ class MapViewModel @Inject constructor(
     }
 
     fun loadMapState() {
-        val lat = settingsRepository.getMapCenterLat()
-        val lon = settingsRepository.getMapCenterLon()
-        val zoom = settingsRepository.getMapZoomLevel()
-        val follow = settingsRepository.getMapFollowLocation()
-        val theme = settingsRepository.getMapTheme()
+        val center = preferencesRepository.getMapCenter()
+        val lat = center.lat
+        val lon = center.lon
+        val zoom = preferencesRepository.getMapZoomLevel()
+        val follow = preferencesRepository.getMapFollowLocation()
+        val theme = preferencesRepository.getMapTheme()
 
         _uiState.update {
             it.copy(
@@ -95,15 +95,14 @@ class MapViewModel @Inject constructor(
             centerOnLocation()
         }
         
-        startLocationTracking(settingsRepository.getGpsBatteryMode())
+        startLocationTracking(preferencesRepository.getGpsBatteryMode())
     }
 
     private fun persistMapState() {
         val state = _uiState.value
-        settingsRepository.setMapCenterLat(state.centerLat)
-        settingsRepository.setMapCenterLon(state.centerLon)
-        settingsRepository.setMapZoomLevel(state.zoomLevel)
-        settingsRepository.setMapFollowLocation(state.followLocation)
+        preferencesRepository.setMapCenter(state.centerLat, state.centerLon)
+        preferencesRepository.setMapZoomLevel(state.zoomLevel)
+        preferencesRepository.setMapFollowLocation(state.followLocation)
     }
 
     fun startLocationTracking(batteryMode: GpsBatteryMode) {
@@ -160,11 +159,6 @@ class MapViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-    fun stopFollowingLocation() {
-        _uiState.update { it.copy(followLocation = false) }
-        persistMapState()
     }
 
     fun zoomIn() {
@@ -244,20 +238,6 @@ class MapViewModel @Inject constructor(
     private val _centerEvents = MutableSharedFlow<LatLong>(extraBufferCapacity = 1)
     val centerEvents: SharedFlow<LatLong> = _centerEvents.asSharedFlow()
 
-    fun centerOnPoint(lat: Double, lon: Double) {
-        _uiState.update {
-            it.copy(
-                centerLat = lat,
-                centerLon = lon,
-                followLocation = false
-            )
-        }
-        persistMapState()
-        viewModelScope.launch {
-            _centerEvents.emit(LatLong(lat, lon))
-        }
-    }
-
     override fun onCleared() {
         super.onCleared()
         locationJob?.cancel()
@@ -265,9 +245,9 @@ class MapViewModel @Inject constructor(
 
     private fun loadMarker() {
         viewModelScope.launch {
-            markersRepository.tappedPoint.collect { marker ->
+            markerService.currentMarker.collect { marker ->
                 val matchingBookmark = if (marker != null) {
-                    markersRepository.bookmarks.value.find {
+                    markerService.bookmarks.value.find {
                         it.lat == marker.lat && it.lon == marker.lon
                     }
                 } else null
@@ -289,7 +269,7 @@ class MapViewModel @Inject constructor(
 
     fun onMapTapped(lat: Double, lon: Double) {
         val pt = GpxPoint(lat, lon)
-        markersRepository.setTappedPoint(pt)
+        markerService.setCurrentMarker(pt)
     }
 
     private fun resolveAddressForPoint(pt: GpxPoint, overrideName: String? = null) {

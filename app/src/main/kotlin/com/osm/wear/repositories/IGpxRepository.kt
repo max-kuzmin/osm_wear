@@ -12,6 +12,5 @@ interface IGpxRepository {
     suspend fun importFromFile(file: File): Result<GpxFile>
     suspend fun deleteFile(fileId: String)
     fun setActive(fileId: String)
-    fun clearActive()
     suspend fun saveGpxFile(name: String, points: List<com.osm.wear.models.GpxPoint>): Result<GpxFile>
 }

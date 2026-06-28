@@ -9,20 +9,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 
-class MarkersRepositoryImpl(
-    private val prefs: SharedPreferences,
-    private val settingsRepository: ISettingsRepository
+class MarkersRepository(
+    private val prefs: SharedPreferences
 ) : IMarkersRepository {
 
     private val _bookmarks = MutableStateFlow<List<Bookmark>>(emptyList())
     override val bookmarks: StateFlow<List<Bookmark>> = _bookmarks.asStateFlow()
 
-    private val _tappedPoint = MutableStateFlow<GpxPoint?>(null)
-    override val tappedPoint: StateFlow<GpxPoint?> = _tappedPoint.asStateFlow()
-
     init {
         loadBookmarks()
-        _tappedPoint.value = settingsRepository.getTappedPoint()
     }
 
     private fun loadBookmarks() {
@@ -71,7 +66,6 @@ class MarkersRepositoryImpl(
 
     override fun addBookmark(bookmark: Bookmark) {
         val current = _bookmarks.value.toMutableList()
-        // Remove duplicates by coordinates & name
         current.removeAll { it.lat == bookmark.lat && it.lon == bookmark.lon && it.name == bookmark.name }
         current.add(0, bookmark)
         _bookmarks.value = current
@@ -85,8 +79,26 @@ class MarkersRepositoryImpl(
         saveBookmarks(current)
     }
 
-    override fun setTappedPoint(point: GpxPoint?) {
-        _tappedPoint.value = point
-        settingsRepository.setTappedPoint(point)
+    override fun getCurrentMarker(): GpxPoint? {
+        val hasMarker = prefs.getBoolean("has_current_marker", false)
+        return if (hasMarker) {
+            val tLat = prefs.getFloat("current_marker_lat", 0f).toDouble()
+            val tLon = prefs.getFloat("current_marker_lon", 0f).toDouble()
+            GpxPoint(tLat, tLon)
+        } else {
+            null
+        }
+    }
+
+    override fun setCurrentMarker(point: GpxPoint?) {
+        val editor = prefs.edit()
+        if (point != null) {
+            editor.putBoolean("has_current_marker", true)
+                .putFloat("current_marker_lat", point.lat.toFloat())
+                .putFloat("current_marker_lon", point.lon.toFloat())
+        } else {
+            editor.putBoolean("has_current_marker", false)
+        }
+        editor.apply()
     }
 }

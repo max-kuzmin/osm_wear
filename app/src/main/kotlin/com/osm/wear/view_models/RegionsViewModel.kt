@@ -5,40 +5,34 @@ import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.DownloadedRegion
 import com.osm.wear.models.DownloadState
 import com.osm.wear.models.MapRegion
-import com.osm.wear.repositories.ISettingsRepository
-import com.osm.wear.repositories.MapDownloadRepository
-import com.osm.wear.services.IMapRegionCatalogService
-import com.osm.wear.repositories.IMapFileRepository
+import com.osm.wear.repositories.IRegionCatalogRepository
+import com.osm.wear.repositories.IRegionRepository
+import com.osm.wear.services.IMapDownloadService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
 class RegionsViewModel @Inject constructor(
-    private val downloadManager: MapDownloadRepository,
-    private val mapRegionCatalogService: IMapRegionCatalogService,
-    private val settingsRepository: ISettingsRepository,
-    private val mapFileRepository: IMapFileRepository
+    private val downloadManager: IMapDownloadService,
+    private val regionCatalogRepository: IRegionCatalogRepository,
+    private val regionRepository: IRegionRepository
 ) : ViewModel() {
 
     private val _downloadedRegions = MutableStateFlow<List<DownloadedRegion>>(emptyList())
     val downloadedRegions: StateFlow<List<DownloadedRegion>> = _downloadedRegions.asStateFlow()
 
     val groupedRegions: StateFlow<Map<String, List<MapRegion>>> = MutableStateFlow(
-        mapRegionCatalogService.all.groupBy { it.continent }
+        regionCatalogRepository.all.groupBy { it.continent }
     ).asStateFlow()
 
     val downloadState: StateFlow<DownloadState> = downloadManager.downloadState
 
-    val activeMapFile: StateFlow<File?> = mapFileRepository.activeMapFile
-
     private val _activeRegionId = MutableStateFlow<String?>(null)
-    val activeRegionId: StateFlow<String?> = _activeRegionId.asStateFlow()
 
     init {
         refreshDownloadedRegions()
@@ -47,7 +41,7 @@ class RegionsViewModel @Inject constructor(
 
     fun refreshDownloadedRegions() {
         _downloadedRegions.value = downloadManager.getDownloadedRegions(
-            catalog = mapRegionCatalogService.all,
+            catalog = regionCatalogRepository.all,
             activeId = _activeRegionId.value
         )
     }
@@ -57,8 +51,7 @@ class RegionsViewModel @Inject constructor(
         if (!file.exists()) return
         
         _activeRegionId.value = region.id
-        mapFileRepository.setActiveMapFile(file)
-        settingsRepository.setActiveRegionId(region.id)
+        regionRepository.setActiveRegionId(region.id)
         refreshDownloadedRegions()
     }
 
@@ -67,8 +60,7 @@ class RegionsViewModel @Inject constructor(
             downloadManager.deleteRegion(region)
             if (_activeRegionId.value == region.id) {
                 _activeRegionId.value = null
-                mapFileRepository.setActiveMapFile(null)
-                settingsRepository.setActiveRegionId(null)
+                regionRepository.setActiveRegionId(null)
             }
             refreshDownloadedRegions()
             autoLoadFirstRegion()
@@ -79,7 +71,7 @@ class RegionsViewModel @Inject constructor(
         viewModelScope.launch {
             downloadManager.downloadRegion(region)
             refreshDownloadedRegions()
-            if (mapFileRepository.getActiveMapFile() == null) {
+            if (regionRepository.getActiveMapFile() == null) {
                 setActiveRegion(region)
             }
         }
@@ -90,19 +82,18 @@ class RegionsViewModel @Inject constructor(
     }
 
     private fun autoLoadFirstRegion() {
-        if (mapFileRepository.getActiveMapFile() != null) return
-        val downloaded = downloadManager.getDownloadedRegions(mapRegionCatalogService.all, null)
+        if (regionRepository.getActiveMapFile() != null) return
+        val downloaded = downloadManager.getDownloadedRegions(regionCatalogRepository.all, null)
         if (downloaded.isEmpty()) return
 
-        val lastSelectedId = settingsRepository.getActiveRegionId()
+        val lastSelectedId = regionRepository.getActiveRegionId()
         val target = downloaded.find { it.region.id == lastSelectedId } ?: downloaded.first()
         
         val file = File(target.filePath)
         if (file.exists()) {
             _activeRegionId.value = target.region.id
-            mapFileRepository.setActiveMapFile(file)
             if (lastSelectedId != target.region.id) {
-                settingsRepository.setActiveRegionId(target.region.id)
+                regionRepository.setActiveRegionId(target.region.id)
             }
             refreshDownloadedRegions()
         }

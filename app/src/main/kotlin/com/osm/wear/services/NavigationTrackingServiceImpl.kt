@@ -1,4 +1,4 @@
-package com.osm.wear.repositories
+package com.osm.wear.services
 
 import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.models.GpxFile
@@ -6,8 +6,10 @@ import com.osm.wear.models.UserLocation
 import com.osm.wear.models.GpxPoint
 import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.NavigationState
-import com.osm.wear.services.INavigationService
-import com.osm.wear.services.IMapBoundariesService
+import com.osm.wear.repositories.IPreferencesRepository
+import com.osm.wear.repositories.IRegionRepository
+import com.osm.wear.repositories.ICursorRepository
+import com.osm.wear.repositories.IGeocodingRepository
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,15 +20,17 @@ import kotlinx.coroutines.flow.asSharedFlow
 import android.util.Log
 import kotlin.math.*
 import javax.inject.Inject
+import javax.inject.Singleton
 
-class NavigationRepositoryImpl @Inject constructor(
+@Singleton
+class NavigationTrackingServiceImpl @Inject constructor(
     private val navigationService: INavigationService,
-    private val settingsRepository: ISettingsRepository,
-    private val mapFileRepository: IMapFileRepository,
+    private val preferencesRepository: IPreferencesRepository,
+    private val regionRepository: IRegionRepository,
     private val mapBoundariesService: IMapBoundariesService,
     private val cursorRepository: ICursorRepository,
-    private val routeRepo: IRouteRepository
-) : INavigationRepository {
+    private val routeRepo: IGeocodingRepository
+) : INavigationTrackingService {
 
     private val _navigationState = MutableStateFlow<NavigationState?>(null)
     override val navigationState: StateFlow<NavigationState?> = _navigationState.asStateFlow()
@@ -47,12 +51,12 @@ class NavigationRepositoryImpl @Inject constructor(
         gpx: GpxFile,
         initialLocation: UserLocation?
     ): String? {
-        val mapFile = mapFileRepository.getActiveMapFile()
+        val mapFile = regionRepository.getActiveMapFile()
         if (mapFile == null || !mapFile.exists()) {
             return "Download a map for this region first"
         }
 
-        val navMode = settingsRepository.getNavigationMode()
+        val navMode = preferencesRepository.getNavigationMode()
         val isCovered = mapBoundariesService.isGpxCoveredByMap(gpx)
 
         if (!isCovered) {
@@ -110,15 +114,16 @@ class NavigationRepositoryImpl @Inject constructor(
         locationJob = null
     }
 
-    override fun startNavigationToPoint(
+    override fun buildRouteToPoint(
         target: GpxPoint,
         currentLoc: UserLocation?,
         onGpxCreated: (GpxFile) -> Unit,
         onFailure: (String) -> Unit
     ) {
-        val startLat = currentLoc?.latitude ?: settingsRepository.getMapCenterLat()
-        val startLon = currentLoc?.longitude ?: settingsRepository.getMapCenterLon()
-        val mode = settingsRepository.getNavigationMode()
+        val center = preferencesRepository.getMapCenter()
+        val startLat = currentLoc?.latitude ?: center.lat
+        val startLon = currentLoc?.longitude ?: center.lon
+        val mode = preferencesRepository.getNavigationMode()
 
         scope.launch {
             try {
@@ -139,7 +144,7 @@ class NavigationRepositoryImpl @Inject constructor(
 
                 onGpxCreated(gpx)
             } catch (e: Exception) {
-                Log.e("NavigationRepository", "startNavigationToPoint failed", e)
+                Log.e("NavigationRepository", "buildRouteToPoint failed", e)
                 onFailure("Routing failed. Check your internet connection.")
             }
         }

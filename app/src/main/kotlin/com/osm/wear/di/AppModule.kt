@@ -1,31 +1,8 @@
 package com.osm.wear.di
 
 import android.content.Context
-import com.osm.wear.repositories.GpxRepository
-import com.osm.wear.repositories.CursorRepository
-import com.osm.wear.repositories.MapDownloadRepository
-import com.osm.wear.repositories.RouteRepositoryImpl
-import com.osm.wear.repositories.SettingsRepositoryImpl
-import com.osm.wear.repositories.IGpxRepository
-import com.osm.wear.repositories.ICursorRepository
-import com.osm.wear.repositories.IRouteRepository
-import com.osm.wear.repositories.ISettingsRepository
-import com.osm.wear.repositories.IMarkersRepository
-import com.osm.wear.repositories.MarkersRepositoryImpl
-import com.osm.wear.repositories.INavigationRepository
-import com.osm.wear.repositories.NavigationRepositoryImpl
-import com.osm.wear.repositories.IGeocodingRepository
-import com.osm.wear.repositories.GeocodingRepositoryImpl
-import com.osm.wear.services.INavigationService
-import com.osm.wear.services.IMapRegionCatalogService
-import com.osm.wear.services.IMapBoundariesService
-import com.osm.wear.services.MapBoundariesService
-import com.osm.wear.repositories.IMapFileRepository
-import com.osm.wear.services.MapRegionCatalogService
-import com.osm.wear.repositories.MapFileRepository
-import com.osm.wear.services.NavigationService
-import com.osm.wear.services.TrackToMapMatcherService
-import com.osm.wear.services.ITrackToMapMatcherService
+import com.osm.wear.repositories.*
+import com.osm.wear.services.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -58,14 +35,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideSettingsRepository(prefs: android.content.SharedPreferences): ISettingsRepository {
-        return SettingsRepositoryImpl(prefs)
-    }
-
-    @Provides
-    @Singleton
-    fun provideRouteRepository(client: OkHttpClient): IRouteRepository {
-        return RouteRepositoryImpl(client)
+    fun providePreferencesRepository(prefs: android.content.SharedPreferences): IPreferencesRepository {
+        return PreferencesRepository(prefs)
     }
 
     @Provides
@@ -79,29 +50,26 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMapDownloadRepository(@ApplicationContext context: Context): MapDownloadRepository {
-        return MapDownloadRepository(context)
+    fun provideRegionCatalogRepository(): IRegionCatalogRepository {
+        return RegionCatalogRepository()
     }
 
     @Provides
     @Singleton
-    fun provideMapRegionCatalogService(): IMapRegionCatalogService {
-        return MapRegionCatalogService()
-    }
-
-    @Provides
-    @Singleton
-    fun provideMapFileRepository(): IMapFileRepository {
-        return MapFileRepository()
+    fun provideRegionRepository(
+        @ApplicationContext context: Context,
+        prefs: android.content.SharedPreferences
+    ): IRegionRepository {
+        return RegionRepository(context, prefs)
     }
 
     @Provides
     @Singleton
     fun provideTrackToMapMatcherService(
         @ApplicationContext context: Context,
-        mapFileRepository: IMapFileRepository
+        regionRepository: IRegionRepository
     ): ITrackToMapMatcherService {
-        return TrackToMapMatcherService(context, mapFileRepository)
+        return TrackToMapMatcherService(context, regionRepository)
     }
 
     @Provides
@@ -116,43 +84,61 @@ object AppModule {
     @Provides
     @Singleton
     fun provideMapBoundariesService(
-        mapFileRepository: IMapFileRepository
+        regionRepository: IRegionRepository
     ): IMapBoundariesService {
-        return MapBoundariesService(mapFileRepository)
+        return MapBoundariesService(regionRepository)
     }
 
     @Provides
     @Singleton
     fun provideMarkersRepository(
-        prefs: android.content.SharedPreferences,
-        settingsRepository: ISettingsRepository
+        prefs: android.content.SharedPreferences
     ): IMarkersRepository {
-        return MarkersRepositoryImpl(prefs, settingsRepository)
-    }
-
-    @Provides
-    @Singleton
-    fun provideNavigationRepository(
-        navigationService: INavigationService,
-        settingsRepository: ISettingsRepository,
-        mapFileRepository: IMapFileRepository,
-        mapBoundariesService: IMapBoundariesService,
-        cursorRepository: ICursorRepository,
-        routeRepository: IRouteRepository
-    ): INavigationRepository {
-        return NavigationRepositoryImpl(
-            navigationService,
-            settingsRepository,
-            mapFileRepository,
-            mapBoundariesService,
-            cursorRepository,
-            routeRepository
-        )
+        return MarkersRepository(prefs)
     }
 
     @Provides
     @Singleton
     fun provideGeocodingRepository(client: OkHttpClient): IGeocodingRepository {
-        return GeocodingRepositoryImpl(client)
+        return GeocodingRepository(client)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMarkerService(
+        markersRepository: IMarkersRepository,
+        preferencesRepository: IPreferencesRepository,
+        geocodingRepository: IGeocodingRepository
+    ): IMarkerService {
+        return MarkerServiceImpl(markersRepository, preferencesRepository, geocodingRepository)
+    }
+
+    @Provides
+    @Singleton
+    fun provideNavigationTrackingService(
+        navigationService: INavigationService,
+        preferencesRepository: IPreferencesRepository,
+        regionRepository: IRegionRepository,
+        mapBoundariesService: IMapBoundariesService,
+        cursorRepository: ICursorRepository,
+        geocodingRepository: IGeocodingRepository
+    ): INavigationTrackingService {
+        return NavigationTrackingServiceImpl(
+            navigationService,
+            preferencesRepository,
+            regionRepository,
+            mapBoundariesService,
+            cursorRepository,
+            geocodingRepository
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun provideMapDownloadService(
+        @ApplicationContext context: Context,
+        client: OkHttpClient
+    ): IMapDownloadService {
+        return MapDownloadService(context, client)
     }
 }

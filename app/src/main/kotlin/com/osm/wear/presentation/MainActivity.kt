@@ -10,7 +10,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.osm.wear.presentation.navigation.OsmWearNavGraph
 import com.osm.wear.presentation.theme.OsmWearTheme
 import com.osm.wear.repositories.IGpxRepository
-import com.osm.wear.repositories.INavigationRepository
+import com.osm.wear.services.INavigationTrackingService
 import javax.inject.Inject
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.lifecycle.lifecycleScope
@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
     lateinit var gpxRepository: IGpxRepository
 
     @Inject
-    lateinit var navigationRepository: INavigationRepository
+    lateinit var navigationTrackingService: INavigationTrackingService
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             OsmWearTheme {
-                OsmWearNavGraph(navigationRepository)
+                OsmWearNavGraph(navigationTrackingService)
             }
         }
 
@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
                         gpxRepository.setActive(gpx.id)
                     }
                 }
-                navigationRepository.navigateTo(com.osm.wear.presentation.navigation.Routes.MAP)
+                navigationTrackingService.navigateTo(com.osm.wear.presentation.navigation.Routes.MAP)
             }
         }
     }

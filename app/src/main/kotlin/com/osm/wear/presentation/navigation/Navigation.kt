@@ -10,7 +10,7 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.osm.wear.presentation.screens.*
 import com.osm.wear.view_models.*
 import androidx.compose.runtime.LaunchedEffect
-import com.osm.wear.repositories.INavigationRepository
+import com.osm.wear.services.INavigationTrackingService
 
 object Routes {
     const val MAP              = "map"
@@ -23,11 +23,11 @@ object Routes {
 }
 
 @Composable
-fun OsmWearNavGraph(navRepository: INavigationRepository) {
+fun OsmWearNavGraph(navService: INavigationTrackingService) {
     val navController = rememberSwipeDismissableNavController()
 
     LaunchedEffect(Unit) {
-        navRepository.navigationEvents.collect { route ->
+        navService.navigationEvents.collect { route ->
             if (route == Routes.MAP) {
                 navController.popBackStack(Routes.MAP, false)
             } else {
@@ -96,7 +96,7 @@ fun OsmWearNavGraph(navRepository: INavigationRepository) {
                 onOpenSearch = {
                     navController.navigate(Routes.SEARCH_ADDRESS)
                 },
-                onStartNavigation = {
+                onNavigateToMap = {
                     navController.popBackStack(Routes.MAP, false)
                 },
                 onBack = { navController.popBackStack() }

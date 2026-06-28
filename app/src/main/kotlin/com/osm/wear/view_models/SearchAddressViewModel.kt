@@ -4,9 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.Bookmark
 import com.osm.wear.repositories.IGeocodingRepository
-import com.osm.wear.repositories.IMarkersRepository
-import com.osm.wear.repositories.ISettingsRepository
 import com.osm.wear.repositories.GeocodeResult
+import com.osm.wear.services.IMarkerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,8 +16,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SearchAddressViewModel @Inject constructor(
     private val geocodingRepository: IGeocodingRepository,
-    private val markersRepository: IMarkersRepository,
-    private val settingsRepository: ISettingsRepository
+    private val markerService: IMarkerService
 ) : ViewModel() {
 
     private val _searchResults = MutableStateFlow<List<GeocodeResult>>(emptyList())
@@ -50,7 +48,7 @@ class SearchAddressViewModel @Inject constructor(
     }
 
     fun saveSearchBookmark(name: String, address: String?, lat: Double, lon: Double) {
-        markersRepository.addBookmark(
+        markerService.addBookmark(
             Bookmark(
                 name = name,
                 address = address,
@@ -61,9 +59,6 @@ class SearchAddressViewModel @Inject constructor(
     }
 
     fun selectAddress(bookmark: Bookmark) {
-        markersRepository.setTappedPoint(com.osm.wear.models.GpxPoint(bookmark.lat, bookmark.lon))
-        settingsRepository.setMapCenterLat(bookmark.lat)
-        settingsRepository.setMapCenterLon(bookmark.lon)
-        settingsRepository.setMapFollowLocation(false)
+        markerService.selectBookmark(bookmark)
     }
 }

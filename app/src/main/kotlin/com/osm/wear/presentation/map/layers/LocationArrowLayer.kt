@@ -1,6 +1,5 @@
 package com.osm.wear.presentation.map.layers
 
-import android.graphics.Color
 import com.osm.wear.presentation.theme.MapLayerColors
 import org.mapsforge.core.graphics.Canvas
 import org.mapsforge.core.graphics.Cap

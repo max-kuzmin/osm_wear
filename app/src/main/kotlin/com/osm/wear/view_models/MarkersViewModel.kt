@@ -6,11 +6,10 @@ import com.osm.wear.models.Bookmark
 import com.osm.wear.models.GpxPoint
 import com.osm.wear.models.UserLocation
 import com.osm.wear.models.enums.GpsBatteryMode
-import com.osm.wear.repositories.IMarkersRepository
 import com.osm.wear.repositories.ICursorRepository
-import com.osm.wear.repositories.INavigationRepository
-import com.osm.wear.repositories.IGeocodingRepository
-import com.osm.wear.repositories.ISettingsRepository
+import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.services.IMarkerService
+import com.osm.wear.services.INavigationTrackingService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,23 +22,22 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MarkersViewModel @Inject constructor(
-    private val markersRepository: IMarkersRepository,
+    private val markerService: IMarkerService,
     private val cursorRepository: ICursorRepository,
-    private val navigationRepository: INavigationRepository,
-    private val geocodingRepository: IGeocodingRepository,
-    private val settingsRepository: ISettingsRepository
+    private val navigationTrackingService: INavigationTrackingService,
+    private val gpxRepo: IGpxRepository
 ) : ViewModel() {
 
     private val _currentLocation = MutableStateFlow<UserLocation?>(null)
     val currentLocation: StateFlow<UserLocation?> = _currentLocation.asStateFlow()
 
-    val tappedPoint: StateFlow<GpxPoint?> = markersRepository.tappedPoint
+    val currentMarker: StateFlow<GpxPoint?> = markerService.currentMarker
 
-    val bookmarks: StateFlow<List<Bookmark>> = markersRepository.bookmarks
+    val bookmarks: StateFlow<List<Bookmark>> = markerService.bookmarks
 
     // Combine bookmarks and location to compute distance to markers
     val bookmarkDistances: StateFlow<List<Pair<Bookmark, Double?>>> = combine(
-        markersRepository.bookmarks,
+        markerService.bookmarks,
         _currentLocation
     ) { bList, loc ->
         bList.map { b ->
@@ -63,53 +61,41 @@ class MarkersViewModel @Inject constructor(
     }
 
     fun selectBookmark(bookmark: Bookmark) {
-        val pt = GpxPoint(bookmark.lat, bookmark.lon)
-        markersRepository.setTappedPoint(pt)
-        settingsRepository.setMapCenterLat(bookmark.lat)
-        settingsRepository.setMapCenterLon(bookmark.lon)
-        settingsRepository.setMapFollowLocation(false)
+        markerService.selectBookmark(bookmark)
     }
 
     fun saveBookmarkFromMap(pt: GpxPoint) {
-        viewModelScope.launch {
-            var name: String? = null
-            var address: String? = null
-            try {
-                val res = geocodingRepository.reverseGeocode(pt.lat, pt.lon)
-                if (res != null) {
-                    name = res.name
-                    address = res.address
-                }
-            } catch (e: Exception) {
-                // Ignore
-            }
-            val finalName = name ?: "Point (%.4f, %.4f)".format(pt.lat, pt.lon)
-            markersRepository.addBookmark(
-                Bookmark(
-                    name = finalName,
-                    address = address,
-                    lat = pt.lat,
-                    lon = pt.lon
-                )
-            )
-        }
+        markerService.saveBookmarkFromMap(pt)
     }
 
     fun deleteBookmark(bookmark: Bookmark) {
-        markersRepository.removeBookmark(bookmark)
+        markerService.removeBookmark(bookmark)
     }
 
-    fun startNavigationToPoint(
+    fun buildRouteToPoint(
         target: GpxPoint,
-        onGpxCreated: (com.osm.wear.models.GpxFile) -> Unit,
+        onRouteBuilt: () -> Unit,
         onFailure: (String) -> Unit
     ) {
-        navigationRepository.startNavigationToPoint(
-            target = target,
-            currentLoc = currentLocation.value,
-            onGpxCreated = onGpxCreated,
-            onFailure = onFailure
-        )
+        viewModelScope.launch {
+            navigationTrackingService.buildRouteToPoint(
+                target = target,
+                currentLoc = currentLocation.value,
+                onGpxCreated = { gpx ->
+                    viewModelScope.launch {
+                        gpxRepo.saveGpxFile("Path Finder", gpx.trackPoints)
+                            .onSuccess { savedGpx ->
+                                gpxRepo.setActive(savedGpx.id)
+                                onRouteBuilt()
+                            }
+                            .onFailure { err ->
+                                onFailure(err.message ?: "Failed to save route")
+                            }
+                    }
+                },
+                onFailure = onFailure
+            )
+        }
     }
 
     private fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {

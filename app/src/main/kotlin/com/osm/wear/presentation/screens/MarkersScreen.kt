@@ -27,11 +27,11 @@ import com.osm.wear.models.Bookmark
 fun MarkersScreen(
     markersVm: MarkersViewModel,
     onOpenSearch: () -> Unit,
-    onStartNavigation: () -> Unit,
+    onNavigateToMap: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val tappedPoint by markersVm.tappedPoint.collectAsStateWithLifecycle()
+    val tappedPoint by markersVm.currentMarker.collectAsStateWithLifecycle()
     val bookmarkDistances by markersVm.bookmarkDistances.collectAsStateWithLifecycle()
 
     BackHandler { onBack() }
@@ -60,10 +60,10 @@ fun MarkersScreen(
             Button(
                 onClick = {
                     if (tappedPoint != null) {
-                        markersVm.startNavigationToPoint(
+                        markersVm.buildRouteToPoint(
                             tappedPoint!!,
-                            onGpxCreated = { gpx ->
-                                onStartNavigation() // pop back to Map screen
+                            onRouteBuilt = {
+                                onNavigateToMap() // pop back to Map screen
                             },
                             onFailure = { error ->
                                 Toast.makeText(context, error, Toast.LENGTH_LONG).show()
@@ -168,7 +168,7 @@ fun MarkersScreen(
                     Button(
                         onClick = {
                             markersVm.selectBookmark(bookmark)
-                            onStartNavigation() // navigate to Map screen
+                            onNavigateToMap() // navigate to Map screen
                         },
                         modifier = Modifier.weight(1f),
                         colors = if (isSelected) {
