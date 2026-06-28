@@ -50,17 +50,12 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideRegionCatalogRepository(): IRegionCatalogRepository {
-        return RegionCatalogRepository()
-    }
-
-    @Provides
-    @Singleton
     fun provideRegionRepository(
         @ApplicationContext context: Context,
-        prefs: android.content.SharedPreferences
+        prefs: android.content.SharedPreferences,
+        client: OkHttpClient
     ): IRegionRepository {
-        return RegionRepository(context, prefs)
+        return RegionRepository(context, prefs, client)
     }
 
     @Provides
@@ -83,14 +78,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMapBoundariesService(
-        regionRepository: IRegionRepository
-    ): IMapBoundariesService {
-        return MapBoundariesService(regionRepository)
-    }
-
-    @Provides
-    @Singleton
     fun provideMarkersRepository(
         prefs: android.content.SharedPreferences
     ): IMarkersRepository {
@@ -105,40 +92,21 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMarkerService(
-        markersRepository: IMarkersRepository,
-        preferencesRepository: IPreferencesRepository,
-        geocodingRepository: IGeocodingRepository
-    ): IMarkerService {
-        return MarkerServiceImpl(markersRepository, preferencesRepository, geocodingRepository)
-    }
-
-    @Provides
-    @Singleton
     fun provideNavigationTrackingService(
         navigationService: INavigationService,
         preferencesRepository: IPreferencesRepository,
         regionRepository: IRegionRepository,
-        mapBoundariesService: IMapBoundariesService,
+        checkGpxCoverageUseCase: CheckGpxCoverageUseCase,
         cursorRepository: ICursorRepository,
         geocodingRepository: IGeocodingRepository
     ): INavigationTrackingService {
-        return NavigationTrackingServiceImpl(
+        return NavigationTrackingService(
             navigationService,
             preferencesRepository,
             regionRepository,
-            mapBoundariesService,
+            checkGpxCoverageUseCase,
             cursorRepository,
             geocodingRepository
         )
-    }
-
-    @Provides
-    @Singleton
-    fun provideMapDownloadService(
-        @ApplicationContext context: Context,
-        client: OkHttpClient
-    ): IMapDownloadService {
-        return MapDownloadService(context, client)
     }
 }

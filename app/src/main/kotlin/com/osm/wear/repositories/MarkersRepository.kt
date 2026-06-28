@@ -6,8 +6,6 @@ import com.osm.wear.models.GpxPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.json.JSONArray
-import org.json.JSONObject
 
 class MarkersRepository(
     private val prefs: SharedPreferences
@@ -16,14 +14,18 @@ class MarkersRepository(
     private val _bookmarks = MutableStateFlow<List<Bookmark>>(emptyList())
     override val bookmarks: StateFlow<List<Bookmark>> = _bookmarks.asStateFlow()
 
+    private val _currentMarker = MutableStateFlow<GpxPoint?>(null)
+    override val currentMarker: StateFlow<GpxPoint?> = _currentMarker.asStateFlow()
+
     init {
         loadBookmarks()
+        _currentMarker.value = getCurrentMarker()
     }
 
     private fun loadBookmarks() {
         val jsonStr = prefs.getString("bookmarks_list", "[]") ?: "[]"
         try {
-            val arr = JSONArray(jsonStr)
+            val arr = org.json.JSONArray(jsonStr)
             val list = mutableListOf<Bookmark>()
             for (i in 0 until arr.length()) {
                 val obj = arr.getJSONObject(i)
@@ -45,9 +47,9 @@ class MarkersRepository(
 
     private fun saveBookmarks(list: List<Bookmark>) {
         try {
-            val arr = JSONArray()
+            val arr = org.json.JSONArray()
             for (b in list) {
-                val obj = JSONObject().apply {
+                val obj = org.json.JSONObject().apply {
                     put("name", b.name)
                     put("lat", b.lat)
                     put("lon", b.lon)
@@ -91,6 +93,7 @@ class MarkersRepository(
     }
 
     override fun setCurrentMarker(point: GpxPoint?) {
+        _currentMarker.value = point
         val editor = prefs.edit()
         if (point != null) {
             editor.putBoolean("has_current_marker", true)

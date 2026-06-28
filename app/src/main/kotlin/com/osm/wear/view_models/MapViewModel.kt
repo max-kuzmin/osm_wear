@@ -10,8 +10,8 @@ import com.osm.wear.repositories.ICursorRepository
 import com.osm.wear.repositories.IPreferencesRepository
 import com.osm.wear.repositories.IGpxRepository
 import com.osm.wear.repositories.IRegionRepository
+import com.osm.wear.repositories.IMarkersRepository
 import com.osm.wear.repositories.IGeocodingRepository
-import com.osm.wear.services.IMarkerService
 import com.osm.wear.services.INavigationTrackingService
 import com.osm.wear.models.Bookmark
 import com.osm.wear.models.NavigationState
@@ -38,7 +38,7 @@ import kotlinx.coroutines.flow.stateIn
 class MapViewModel @Inject constructor(
     private val cursorRepository: ICursorRepository,
     private val preferencesRepository: IPreferencesRepository,
-    private val markerService: IMarkerService,
+    private val markersRepository: IMarkersRepository,
     private val navigationTrackingService: INavigationTrackingService,
     private val gpxRepository: IGpxRepository,
     private val regionRepository: IRegionRepository,
@@ -245,9 +245,9 @@ class MapViewModel @Inject constructor(
 
     private fun loadMarker() {
         viewModelScope.launch {
-            markerService.currentMarker.collect { marker ->
+            markersRepository.currentMarker.collect { marker ->
                 val matchingBookmark = if (marker != null) {
-                    markerService.bookmarks.value.find {
+                    markersRepository.bookmarks.value.find {
                         it.lat == marker.lat && it.lon == marker.lon
                     }
                 } else null
@@ -269,7 +269,7 @@ class MapViewModel @Inject constructor(
 
     fun onMapTapped(lat: Double, lon: Double) {
         val pt = GpxPoint(lat, lon)
-        markerService.setCurrentMarker(pt)
+        markersRepository.setCurrentMarker(pt)
     }
 
     private fun resolveAddressForPoint(pt: GpxPoint, overrideName: String? = null) {

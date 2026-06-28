@@ -8,7 +8,9 @@ import com.osm.wear.models.UserLocation
 import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.repositories.ICursorRepository
 import com.osm.wear.repositories.IGpxRepository
-import com.osm.wear.services.IMarkerService
+import com.osm.wear.repositories.IMarkersRepository
+import com.osm.wear.repositories.IPreferencesRepository
+import com.osm.wear.repositories.IGeocodingRepository
 import com.osm.wear.services.INavigationTrackingService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,22 +24,24 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MarkersViewModel @Inject constructor(
-    private val markerService: IMarkerService,
+    private val markersRepository: IMarkersRepository,
     private val cursorRepository: ICursorRepository,
+    private val preferencesRepository: IPreferencesRepository,
     private val navigationTrackingService: INavigationTrackingService,
-    private val gpxRepo: IGpxRepository
+    private val gpxRepo: IGpxRepository,
+    private val geocodingRepository: IGeocodingRepository
 ) : ViewModel() {
 
     private val _currentLocation = MutableStateFlow<UserLocation?>(null)
     val currentLocation: StateFlow<UserLocation?> = _currentLocation.asStateFlow()
 
-    val currentMarker: StateFlow<GpxPoint?> = markerService.currentMarker
+    val currentMarker: StateFlow<GpxPoint?> = markersRepository.currentMarker
 
-    val bookmarks: StateFlow<List<Bookmark>> = markerService.bookmarks
+    val bookmarks: StateFlow<List<Bookmark>> = markersRepository.bookmarks
 
     // Combine bookmarks and location to compute distance to markers
     val bookmarkDistances: StateFlow<List<Pair<Bookmark, Double?>>> = combine(
-        markerService.bookmarks,
+        markersRepository.bookmarks,
         _currentLocation
     ) { bList, loc ->
         bList.map { b ->
@@ -61,15 +65,29 @@ class MarkersViewModel @Inject constructor(
     }
 
     fun selectBookmark(bookmark: Bookmark) {
-        markerService.selectBookmark(bookmark)
+        val pt = GpxPoint(bookmark.lat, bookmark.lon)
+        markersRepository.setCurrentMarker(pt)
+        preferencesRepository.setMapCenter(bookmark.lat, bookmark.lon)
+        preferencesRepository.setMapFollowLocation(false)
     }
 
     fun saveBookmarkFromMap(pt: GpxPoint) {
-        markerService.saveBookmarkFromMap(pt)
+        viewModelScope.launch {
+            val res = geocodingRepository.reverseGeocode(pt.lat, pt.lon)
+            val finalName = res?.name ?: "Point (%.4f, %.4f)".format(pt.lat, pt.lon)
+            markersRepository.addBookmark(
+                Bookmark(
+                    name = finalName,
+                    address = res?.address,
+                    lat = pt.lat,
+                    lon = pt.lon
+                )
+            )
+        }
     }
 
     fun deleteBookmark(bookmark: Bookmark) {
-        markerService.removeBookmark(bookmark)
+        markersRepository.removeBookmark(bookmark)
     }
 
     fun buildRouteToPoint(

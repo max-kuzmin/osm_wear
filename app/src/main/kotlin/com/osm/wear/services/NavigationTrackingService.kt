@@ -23,11 +23,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class NavigationTrackingServiceImpl @Inject constructor(
+class NavigationTrackingService @Inject constructor(
     private val navigationService: INavigationService,
     private val preferencesRepository: IPreferencesRepository,
     private val regionRepository: IRegionRepository,
-    private val mapBoundariesService: IMapBoundariesService,
+    private val checkGpxCoverageUseCase: CheckGpxCoverageUseCase,
     private val cursorRepository: ICursorRepository,
     private val routeRepo: IGeocodingRepository
 ) : INavigationTrackingService {
@@ -57,7 +57,7 @@ class NavigationTrackingServiceImpl @Inject constructor(
         }
 
         val navMode = preferencesRepository.getNavigationMode()
-        val isCovered = mapBoundariesService.isGpxCoveredByMap(gpx)
+        val isCovered = checkGpxCoverageUseCase(gpx)
 
         if (!isCovered) {
             return "GPX track is outside the downloaded map area"
@@ -160,7 +160,7 @@ class NavigationTrackingServiceImpl @Inject constructor(
     }
 
     private fun haversineM(a: GpxPoint, b: GpxPoint): Double {
-        val r = 6_371_000.0
+        val r = 6371000.0
         val dLat = Math.toRadians(b.lat - a.lat)
         val dLon = Math.toRadians(b.lon - a.lon)
         val h = sin(dLat / 2).let { it * it } +
