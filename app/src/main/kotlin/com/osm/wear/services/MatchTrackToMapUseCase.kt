@@ -20,13 +20,12 @@ import javax.inject.Singleton
 import kotlin.math.*
 
 @Singleton
-class TrackToMapMatcherService @Inject constructor(
+class MatchTrackToMapUseCase @Inject constructor(
     @ApplicationContext private val context: Context,
     private val regionRepository: IRegionRepository
-) : ITrackToMapMatcherService {
-
+) {
     companion object {
-        private const val TAG = "TrackToMapMatcherService"
+        private const val TAG = "MatchTrackToMapUseCase"
         private const val BUFFER_M = 150.0
         private const val TILE_SIZE = 256
         private const val ZOOM_LEVEL: Byte = 14
@@ -39,12 +38,12 @@ class TrackToMapMatcherService @Inject constructor(
     private val cacheDir: File
         get() = File(context.filesDir, "road_cache").also { it.mkdirs() }
 
-    override fun clearCache() {
+    fun clearCache() {
         cacheDir.listFiles()?.forEach { it.delete() }
         Log.d(TAG, "Road cache cleared")
     }
 
-    override fun matchTrackToMap(
+    operator fun invoke(
         trackPoints: List<GpxPoint>,
         mode: NavigationMode
     ): List<NavigationWaypoint> {

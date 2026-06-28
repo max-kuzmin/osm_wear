@@ -7,7 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.osm.wear.presentation.navigation.OsmWearNavGraph
+import com.osm.wear.presentation.navigation.AppNavGraph
+import com.osm.wear.services.IUiRouter
 import com.osm.wear.presentation.theme.OsmWearTheme
 import com.osm.wear.repositories.IGpxRepository
 import com.osm.wear.services.INavigationTrackingService
@@ -25,6 +26,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var navigationTrackingService: INavigationTrackingService
 
+    @Inject
+    lateinit var uiNavigationManager: IUiRouter
+
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -39,43 +43,39 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        // Request permissions on startup
-        val permissions = mutableListOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        )
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        locationPermissionLauncher.launch(permissions.toTypedArray())
+        // Keep screen on for map display
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
             OsmWearTheme {
-                OsmWearNavGraph(navigationTrackingService)
+                AppNavGraph(navigationTrackingService, uiNavigationManager)
             }
         }
 
-        // Navigation is now handled by a Foreground Service,
-        // so the screen can be turned off to save battery.
-        // We no longer keep the screen on artificially.
-
-        handleIntent(intent)
+        requestPermissions()
+        handleGpxIntent(intent)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleIntent(intent)
+        handleGpxIntent(intent)
     }
 
-    private fun handleIntent(intent: android.content.Intent?) {
-        if (intent == null) return
-        val action = intent.action
-        val data = intent.data
-        if (action == android.content.Intent.ACTION_VIEW || action == android.content.Intent.ACTION_SEND) {
-            val uri = if (action == android.content.Intent.ACTION_SEND) {
-                androidx.core.content.IntentCompat.getParcelableExtra(
-                    intent,
+    private fun requestPermissions() {
+        locationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+    }
+
+    private fun handleGpxIntent(intent: android.content.Intent?) {
+        if (intent != null && intent.action == android.content.Intent.ACTION_VIEW) {
+            val data = intent.data
+            val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(
                     android.content.Intent.EXTRA_STREAM,
                     android.net.Uri::class.java
                 )
@@ -89,10 +89,8 @@ class MainActivity : ComponentActivity() {
                         gpxRepository.setActive(gpx.id)
                     }
                 }
-                navigationTrackingService.navigateTo(com.osm.wear.presentation.navigation.Routes.MAP)
+                uiNavigationManager.routeTo(com.osm.wear.models.enums.Routes.MAP.value)
             }
         }
     }
 }
-
-

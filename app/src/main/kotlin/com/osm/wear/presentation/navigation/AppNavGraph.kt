@@ -10,26 +10,19 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.osm.wear.presentation.screens.*
 import com.osm.wear.view_models.*
 import androidx.compose.runtime.LaunchedEffect
-import com.osm.wear.services.INavigationTrackingService
-
-object Routes {
-    const val MAP              = "map"
-    const val MAIN_MENU        = "main_menu"
-    const val REGIONS          = "regions"
-    const val GPX_TRACKS       = "gpx_tracks"
-    const val MARKERS          = "markers"
-    const val PREFERENCES      = "preferences"
-    const val SEARCH_ADDRESS   = "search_address"
-}
+import com.osm.wear.services.IUiRouter
+import com.osm.wear.models.enums.Routes
 
 @Composable
-fun OsmWearNavGraph(navService: INavigationTrackingService) {
+fun AppNavGraph(
+    uiNavigationManager: IUiRouter
+) {
     val navController = rememberSwipeDismissableNavController()
 
     LaunchedEffect(Unit) {
-        navService.navigationEvents.collect { route ->
-            if (route == Routes.MAP) {
-                navController.popBackStack(Routes.MAP, false)
+        uiNavigationManager.routingEvents.collect { route ->
+            if (route == Routes.MAP.value) {
+                navController.popBackStack(Routes.MAP.value, false)
             } else {
                 navController.navigate(route)
             }
@@ -41,17 +34,17 @@ fun OsmWearNavGraph(navService: INavigationTrackingService) {
 
     SwipeDismissableNavHost(
         navController = navController,
-        startDestination = Routes.MAP,
-        userSwipeEnabled = currentRoute != Routes.MAP
+        startDestination = Routes.MAP.value,
+        userSwipeEnabled = currentRoute != Routes.MAP.value
     ) {
-        composable(Routes.MAP) {
+        composable(Routes.MAP.value) {
             val mapVm: MapViewModel = hiltViewModel()
             MainMapScreen(
                 mapVm = mapVm,
-                onOpenMenu = { navController.navigate(Routes.MAIN_MENU) }
+                onOpenMenu = { navController.navigate(Routes.MAIN_MENU.value) }
             )
         }
-        composable(Routes.MAIN_MENU) {
+        composable(Routes.MAIN_MENU.value) {
             val menuVm: MainMenuViewModel = hiltViewModel()
             val context = androidx.compose.ui.platform.LocalContext.current
             MainMenuScreen(
@@ -61,27 +54,27 @@ fun OsmWearNavGraph(navService: INavigationTrackingService) {
                     if (error != null) {
                         android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
                     } else {
-                        navController.popBackStack(Routes.MAP, false)
+                        navController.popBackStack(Routes.MAP.value, false)
                     }
                 },
                 onStopNavigation = {
                     menuVm.stopNavigation()
                 },
-                onOpenGpxTracks = { navController.navigate(Routes.GPX_TRACKS) },
-                onOpenMarkers = { navController.navigate(Routes.MARKERS) },
-                onOpenPreferences = { navController.navigate(Routes.PREFERENCES) },
+                onOpenGpxTracks = { navController.navigate(Routes.GPX_TRACKS.value) },
+                onOpenMarkers = { navController.navigate(Routes.MARKERS.value) },
+                onOpenPreferences = { navController.navigate(Routes.PREFERENCES.value) },
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(Routes.REGIONS) {
+        composable(Routes.REGIONS.value) {
             val regionsVm: RegionsViewModel = hiltViewModel()
             RegionsScreen(
                 regionsVm = regionsVm,
-                onRegionSelected      = { navController.popBackStack(Routes.MAP, false) },
+                onRegionSelected      = { navController.popBackStack(Routes.MAP.value, false) },
                 onBack                = { navController.popBackStack() }
             )
         }
-        composable(Routes.GPX_TRACKS) {
+        composable(Routes.GPX_TRACKS.value) {
             val gpxVm: GpxTracksViewModel = hiltViewModel()
             val context = androidx.compose.ui.platform.LocalContext.current
             GpxTracksScreen(
@@ -89,32 +82,32 @@ fun OsmWearNavGraph(navService: INavigationTrackingService) {
                 onBack            = { navController.popBackStack() }
             )
         }
-        composable(Routes.MARKERS) {
+        composable(Routes.MARKERS.value) {
             val markersVm: MarkersViewModel = hiltViewModel()
             MarkersScreen(
                 markersVm = markersVm,
                 onOpenSearch = {
-                    navController.navigate(Routes.SEARCH_ADDRESS)
+                    navController.navigate(Routes.SEARCH_ADDRESS.value)
                 },
                 onNavigateToMap = {
-                    navController.popBackStack(Routes.MAP, false)
+                    navController.popBackStack(Routes.MAP.value, false)
                 },
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(Routes.PREFERENCES) {
+        composable(Routes.PREFERENCES.value) {
             val preferencesVm: PreferencesViewModel = hiltViewModel()
             PreferencesScreen(
                 settingsVm = preferencesVm,
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(Routes.SEARCH_ADDRESS) {
+        composable(Routes.SEARCH_ADDRESS.value) {
             val searchVm: SearchAddressViewModel = hiltViewModel()
             SearchAddressScreen(
                 searchVm = searchVm,
                 onAddressSelected = {
-                    navController.popBackStack(Routes.MAP, false)
+                    navController.popBackStack(Routes.MAP.value, false)
                 },
                 onBack = {
                     navController.popBackStack()

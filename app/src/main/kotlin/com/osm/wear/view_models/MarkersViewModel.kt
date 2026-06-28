@@ -11,7 +11,7 @@ import com.osm.wear.repositories.IGpxRepository
 import com.osm.wear.repositories.IMarkersRepository
 import com.osm.wear.repositories.IPreferencesRepository
 import com.osm.wear.repositories.IGeocodingRepository
-import com.osm.wear.services.INavigationTrackingService
+import com.osm.wear.services.BuildRouteToMarkerUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,9 +27,9 @@ class MarkersViewModel @Inject constructor(
     private val markersRepository: IMarkersRepository,
     private val cursorRepository: ICursorRepository,
     private val preferencesRepository: IPreferencesRepository,
-    private val navigationTrackingService: INavigationTrackingService,
     private val gpxRepo: IGpxRepository,
-    private val geocodingRepository: IGeocodingRepository
+    private val geocodingRepository: IGeocodingRepository,
+    private val buildRouteToMarkerUseCase: BuildRouteToMarkerUseCase
 ) : ViewModel() {
 
     private val _currentLocation = MutableStateFlow<UserLocation?>(null)
@@ -96,23 +96,20 @@ class MarkersViewModel @Inject constructor(
         onFailure: (String) -> Unit
     ) {
         viewModelScope.launch {
-            navigationTrackingService.buildRouteToPoint(
-                target = target,
-                currentLoc = currentLocation.value,
-                onGpxCreated = { gpx ->
-                    viewModelScope.launch {
-                        gpxRepo.saveGpxFile("Path Finder", gpx.trackPoints)
-                            .onSuccess { savedGpx ->
-                                gpxRepo.setActive(savedGpx.id)
-                                onRouteBuilt()
-                            }
-                            .onFailure { err ->
-                                onFailure(err.message ?: "Failed to save route")
-                            }
-                    }
-                },
-                onFailure = onFailure
-            )
+            buildRouteToMarkerUseCase(target, currentLocation.value)
+                .onSuccess { gpx ->
+                    gpxRepo.saveGpxFile("Path Finder", gpx.trackPoints)
+                        .onSuccess { savedGpx ->
+                            gpxRepo.setActive(savedGpx.id)
+                            onRouteBuilt()
+                        }
+                        .onFailure { err ->
+                            onFailure(err.message ?: "Failed to save route")
+                        }
+                }
+                .onFailure { err ->
+                    onFailure(err.message ?: "Routing failed. Check your internet connection.")
+                }
         }
     }
 

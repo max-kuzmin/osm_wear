@@ -20,8 +20,7 @@ import javax.inject.Inject
 class GpxTracksViewModel @Inject constructor(
     private val gpxRepo: IGpxRepository,
     private val checkGpxCoverageUseCase: CheckGpxCoverageUseCase,
-    private val scanGpxFoldersUseCase: ScanGpxFoldersUseCase,
-    private val navigationTrackingService: INavigationTrackingService
+    private val scanGpxFoldersUseCase: ScanGpxFoldersUseCase
 ) : ViewModel() {
 
     private val _isActiveGpxCovered = MutableStateFlow(false)
@@ -31,8 +30,6 @@ class GpxTracksViewModel @Inject constructor(
         gpxRepo.files.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val activeGpxFile: StateFlow<GpxFile?> = gpxRepo.activeGpxFile
-
-    val navigationState = navigationTrackingService.navigationState
 
     init {
         scanGpxFolders()

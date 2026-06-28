@@ -60,24 +60,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideTrackToMapMatcherService(
-        @ApplicationContext context: Context,
-        regionRepository: IRegionRepository
-    ): ITrackToMapMatcherService {
-        return TrackToMapMatcherService(context, regionRepository)
-    }
-
-    @Provides
-    @Singleton
-    fun provideNavigationService(
-        @ApplicationContext context: Context,
-        trackToMapMatcher: ITrackToMapMatcherService
-    ): INavigationService {
-        return NavigationService(context, trackToMapMatcher)
-    }
-
-    @Provides
-    @Singleton
     fun provideMarkersRepository(
         prefs: android.content.SharedPreferences
     ): IMarkersRepository {
@@ -92,21 +74,34 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideAlertsRepository(
+        @ApplicationContext context: Context,
+        prefs: android.content.SharedPreferences
+    ): IAlertsRepository {
+        return AlertsRepository(context, prefs)
+    }
+
+    @Provides
+    @Singleton
     fun provideNavigationTrackingService(
-        navigationService: INavigationService,
-        preferencesRepository: IPreferencesRepository,
-        regionRepository: IRegionRepository,
-        checkGpxCoverageUseCase: CheckGpxCoverageUseCase,
-        cursorRepository: ICursorRepository,
-        geocodingRepository: IGeocodingRepository
+        @ApplicationContext context: Context,
+        buildInitialNavigationStateUseCase: BuildInitialNavigationStateUseCase,
+        updateNavigationStateUseCase: UpdateNavigationStateUseCase,
+        alertsRepository: IAlertsRepository,
+        cursorRepository: ICursorRepository
     ): INavigationTrackingService {
         return NavigationTrackingService(
-            navigationService,
-            preferencesRepository,
-            regionRepository,
-            checkGpxCoverageUseCase,
-            cursorRepository,
-            geocodingRepository
+            context,
+            buildInitialNavigationStateUseCase,
+            updateNavigationStateUseCase,
+            alertsRepository,
+            cursorRepository
         )
+    }
+
+    @Provides
+    @Singleton
+    fun provideUiNavigationManager(): IUiRouter {
+        return UiRouter()
     }
 }

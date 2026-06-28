@@ -40,7 +40,6 @@ fun GpxTracksScreen(
 ) {
     val context = LocalContext.current
     val gpxFiles by gpxVm.gpxFiles.collectAsStateWithLifecycle()
-    val navState by gpxVm.navigationState.collectAsStateWithLifecycle()
 
     // Check if the active GPX track is covered by the downloaded map
     val activeGpx = gpxFiles.find { it.isActive }
