@@ -5,13 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.Bookmark
 import com.osm.wear.models.GpxPoint
 import com.osm.wear.repositories.IGeocodingRepository
-import com.osm.wear.repositories.GeocodeResult
 import com.osm.wear.repositories.IMarkersRepository
 import com.osm.wear.repositories.IPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,46 +22,38 @@ class SearchAddressViewModel @Inject constructor(
     private val preferencesRepository: IPreferencesRepository
 ) : ViewModel() {
 
-    private val _searchResults = MutableStateFlow<List<GeocodeResult>>(emptyList())
-    val searchResults: StateFlow<List<GeocodeResult>> = _searchResults.asStateFlow()
+    private val _uiState = MutableStateFlow(SearchUiState())
+    val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
-    private val _isSearching = MutableStateFlow(false)
-    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+    fun onIntent(intent: SearchIntent) {
+        when (intent) {
+            is SearchIntent.SearchAddresses -> searchAddresses(intent.query)
+            is SearchIntent.ClearSearchResults -> clearSearchResults()
+            is SearchIntent.SelectAddress -> selectAddress(intent.bookmark)
+        }
+    }
 
-    fun searchAddresses(query: String) {
+    private fun searchAddresses(query: String) {
         if (query.isBlank()) {
-            _searchResults.value = emptyList()
+            _uiState.update { it.copy(searchResults = emptyList()) }
             return
         }
-        _isSearching.value = true
+        _uiState.update { it.copy(isSearching = true) }
         viewModelScope.launch {
             try {
                 val results = geocodingRepository.searchAddress(query)
-                _searchResults.value = results
+                _uiState.update { it.copy(searchResults = results, isSearching = false) }
             } catch (e: Exception) {
-                _searchResults.value = emptyList()
-            } finally {
-                _isSearching.value = false
+                _uiState.update { it.copy(searchResults = emptyList(), isSearching = false) }
             }
         }
     }
 
-    fun clearSearchResults() {
-        _searchResults.value = emptyList()
+    private fun clearSearchResults() {
+        _uiState.update { it.copy(searchResults = emptyList()) }
     }
 
-    fun saveSearchBookmark(name: String, address: String?, lat: Double, lon: Double) {
-        markersRepository.addBookmark(
-            Bookmark(
-                name = name,
-                address = address,
-                lat = lat,
-                lon = lon
-            )
-        )
-    }
-
-    fun selectAddress(bookmark: Bookmark) {
+    private fun selectAddress(bookmark: Bookmark) {
         val pt = GpxPoint(bookmark.lat, bookmark.lon)
         markersRepository.setCurrentMarker(pt)
         preferencesRepository.setMapCenter(bookmark.lat, bookmark.lon)

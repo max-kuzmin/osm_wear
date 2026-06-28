@@ -1,6 +1,7 @@
 package com.osm.wear.presentation.screens
 
 import com.osm.wear.view_models.RegionsViewModel
+import com.osm.wear.view_models.RegionsIntent
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -22,9 +23,11 @@ fun RegionsScreen(
     onRegionSelected: () -> Unit,
     onBack: () -> Unit
 ) {
-    val downloadedRegions by regionsVm.downloadedRegions.collectAsStateWithLifecycle()
-    val downloadState     by regionsVm.downloadState.collectAsStateWithLifecycle()
-    val groupedRegions    by regionsVm.groupedRegions.collectAsStateWithLifecycle()
+    val uiState by regionsVm.uiState.collectAsStateWithLifecycle()
+    
+    val downloadedRegions = uiState.downloadedRegions
+    val downloadState = uiState.downloadState
+    val groupedRegions = uiState.groupedRegions
 
     val alreadyDownloadedIds = downloadedRegions.map { it.region.id }.toSet()
 
@@ -91,7 +94,7 @@ fun RegionsScreen(
             ) {
                 Button(
                     onClick = {
-                        regionsVm.setActiveRegion(dr.region)
+                        regionsVm.onIntent(RegionsIntent.SetActiveRegion(dr.region))
                         onRegionSelected()
                     },
                     modifier = Modifier.weight(1f),
@@ -119,7 +122,7 @@ fun RegionsScreen(
                 )
                 Spacer(Modifier.width(AppDimensions.SpacerWidth))
                 com.osm.wear.presentation.components.RemoveButton(
-                    onClick = { regionsVm.deleteRegion(dr.region) }
+                    onClick = { regionsVm.onIntent(RegionsIntent.DeleteRegion(dr.region)) }
                 )
             }
         }
@@ -150,7 +153,7 @@ fun RegionsScreen(
                          horizontalArrangement = Arrangement.spacedBy(AppDimensions.SpacerWidth)
                      ) {
                          Button(
-                             onClick = { if (!isBusy) regionsVm.downloadRegion(region) },
+                             onClick = { if (!isBusy) regionsVm.onIntent(RegionsIntent.DownloadRegion(region)) },
                              modifier = Modifier.weight(1f),
                              enabled = !isBusy,
                              colors = ButtonDefaults.buttonColors(
@@ -183,7 +186,7 @@ fun RegionsScreen(
                          
                          if (isDownloading) {
                              com.osm.wear.presentation.components.RemoveButton(
-                                 onClick = { regionsVm.cancelDownload() }
+                                 onClick = { regionsVm.onIntent(RegionsIntent.CancelDownload) }
                              )
                          }
                      }

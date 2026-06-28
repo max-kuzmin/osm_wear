@@ -9,28 +9,45 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
-import com.osm.wear.models.GpxFile
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.presentation.components.NavigationButton
 import com.osm.wear.presentation.theme.AppDimensions
+import com.osm.wear.view_models.MainMenuEffect
+import com.osm.wear.view_models.MainMenuIntent
 import com.osm.wear.view_models.MainMenuViewModel
 
 @Composable
 fun MainMenuScreen(
     menuVm: MainMenuViewModel,
-    onStartNavigation: (GpxFile) -> Unit,
-    onStopNavigation: () -> Unit,
+    onNavigationStarted: () -> Unit,
     onOpenGpxTracks: () -> Unit,
     onOpenMarkers: () -> Unit,
     onOpenPreferences: () -> Unit,
     onBack: () -> Unit
 ) {
-    val activeGpxFile by menuVm.activeGpxFile.collectAsStateWithLifecycle()
-    val navState by menuVm.navigationState.collectAsStateWithLifecycle()
+    val uiState by menuVm.uiState.collectAsStateWithLifecycle()
+    val activeGpxFile = uiState.activeGpxFile
+    val navState = uiState.navigationState
+    
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        menuVm.effect.collect { effect ->
+            when (effect) {
+                is MainMenuEffect.ShowMap -> {
+                    onNavigationStarted()
+                }
+                is MainMenuEffect.ShowToast -> {
+                    android.widget.Toast.makeText(context, effect.message, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     BackHandler { onBack() }
 
@@ -61,9 +78,11 @@ fun MainMenuScreen(
                 isActive = isActive,
                 enabled = hasTrack,
                 onStart = {
-                    activeGpxFile?.let { onStartNavigation(it) }
+                    activeGpxFile?.let { menuVm.onIntent(MainMenuIntent.StartNavigation(it, null)) }
                 },
-                onStop = onStopNavigation
+                onStop = {
+                    menuVm.onIntent(MainMenuIntent.StopNavigation)
+                }
             )
         }
 

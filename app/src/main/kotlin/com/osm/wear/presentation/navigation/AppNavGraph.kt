@@ -49,16 +49,8 @@ fun AppNavGraph(
             val context = androidx.compose.ui.platform.LocalContext.current
             MainMenuScreen(
                 menuVm = menuVm,
-                onStartNavigation = { gpx ->
-                    val error = menuVm.startNavigation(gpx, null)
-                    if (error != null) {
-                        android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
-                    } else {
-                        navController.popBackStack(Routes.MAP.value, false)
-                    }
-                },
-                onStopNavigation = {
-                    menuVm.stopNavigation()
+                onNavigationStarted = {
+                    navController.popBackStack(Routes.MAP.value, false)
                 },
                 onOpenGpxTracks = { navController.navigate(Routes.GPX_TRACKS.value) },
                 onOpenMarkers = { navController.navigate(Routes.MARKERS.value) },

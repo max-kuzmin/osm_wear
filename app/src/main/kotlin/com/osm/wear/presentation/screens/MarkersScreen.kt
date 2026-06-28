@@ -21,7 +21,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.*
 import com.osm.wear.presentation.theme.AppDimensions
-import com.osm.wear.models.Bookmark
 
 @Composable
 fun MarkersScreen(
@@ -31,8 +30,23 @@ fun MarkersScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val tappedPoint by markersVm.currentMarker.collectAsStateWithLifecycle()
-    val bookmarkDistances by markersVm.bookmarkDistances.collectAsStateWithLifecycle()
+    val uiState by markersVm.uiState.collectAsStateWithLifecycle()
+    
+    val tappedPoint = uiState.currentMarker
+    val bookmarkDistances = uiState.bookmarkDistances
+
+    LaunchedEffect(Unit) {
+        markersVm.effect.collect { effect ->
+            when (effect) {
+                is MarkersEffect.ShowMap -> {
+                    onNavigateToMap()
+                }
+                is MarkersEffect.ShowToast -> {
+                    Toast.makeText(context, effect.message, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     BackHandler { onBack() }
 
@@ -60,15 +74,7 @@ fun MarkersScreen(
             Button(
                 onClick = {
                     if (tappedPoint != null) {
-                        markersVm.buildRouteToPoint(
-                            tappedPoint!!,
-                            onRouteBuilt = {
-                                onNavigateToMap() // pop back to Map screen
-                            },
-                            onFailure = { error ->
-                                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-                            }
-                        )
+                        markersVm.onIntent(MarkersIntent.buildRouteTo(tappedPoint))
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -97,7 +103,7 @@ fun MarkersScreen(
                 Button(
                     onClick = {
                         if (tappedPoint != null) {
-                            markersVm.saveBookmarkFromMap(tappedPoint!!)
+                            markersVm.onIntent(MarkersIntent.SaveBookmark(tappedPoint))
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -158,7 +164,7 @@ fun MarkersScreen(
         if (bookmarkDistances.isNotEmpty()) {
             items(bookmarkDistances.size) { idx ->
                 val (bookmark, distance) = bookmarkDistances[idx]
-                val isSelected = tappedPoint != null && tappedPoint!!.lat == bookmark.lat && tappedPoint!!.lon == bookmark.lon
+                val isSelected = tappedPoint != null && tappedPoint.lat == bookmark.lat && tappedPoint.lon == bookmark.lon
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -167,7 +173,7 @@ fun MarkersScreen(
                 ) {
                     Button(
                         onClick = {
-                            markersVm.selectBookmark(bookmark)
+                            markersVm.onIntent(MarkersIntent.SelectBookmark(bookmark))
                             onNavigateToMap() // navigate to Map screen
                         },
                         modifier = Modifier.weight(1f),
@@ -228,7 +234,7 @@ fun MarkersScreen(
 
                     RemoveButton(
                         onClick = {
-                            markersVm.deleteBookmark(bookmark)
+                            markersVm.onIntent(MarkersIntent.DeleteBookmark(bookmark))
                         }
                     )
                 }

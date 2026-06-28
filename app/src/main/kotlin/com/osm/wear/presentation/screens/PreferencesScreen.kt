@@ -23,6 +23,7 @@ import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.enums.MapTheme
 import com.osm.wear.presentation.components.BackButton
 import com.osm.wear.presentation.theme.AppDimensions
+import com.osm.wear.view_models.PreferencesIntent
 import com.osm.wear.view_models.PreferencesViewModel
 
 @Composable
@@ -65,7 +66,7 @@ fun PreferencesScreen(
                         MapTheme.MOTORIDER -> MapTheme.OSMARENDER
                         MapTheme.OSMARENDER -> MapTheme.BIKER
                     }
-                    settingsVm.setMapTheme(nextTheme)
+                    settingsVm.onIntent(PreferencesIntent.SetMapTheme(nextTheme))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -107,7 +108,15 @@ fun PreferencesScreen(
                 NavigationMode.GPX_ONLY -> Icons.Default.LocationOn
             }
             Button(
-                onClick = { settingsVm.cycleNavigationMode() },
+                onClick = {
+                    val nextMode = when (settingsState.navigationMode) {
+                        NavigationMode.WALKING -> NavigationMode.CYCLING
+                        NavigationMode.CYCLING -> NavigationMode.DRIVING
+                        NavigationMode.DRIVING -> NavigationMode.GPX_ONLY
+                        NavigationMode.GPX_ONLY -> NavigationMode.WALKING
+                    }
+                    settingsVm.onIntent(PreferencesIntent.SetNavigationMode(nextMode))
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -140,7 +149,7 @@ fun PreferencesScreen(
                         GpsBatteryMode.BALANCED      -> GpsBatteryMode.LOW_POWER
                         GpsBatteryMode.LOW_POWER     -> GpsBatteryMode.HIGH_ACCURACY
                     }
-                    settingsVm.setGpsBatteryMode(nextMode)
+                    settingsVm.onIntent(PreferencesIntent.SetGpsBatteryMode(nextMode))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -175,7 +184,7 @@ fun PreferencesScreen(
                         NavigationAlertMode.VIBRATION  -> NavigationAlertMode.SILENT
                         NavigationAlertMode.SILENT     -> NavigationAlertMode.VOICE
                     }
-                    settingsVm.setNavigationAlertMode(nextMode)
+                    settingsVm.onIntent(PreferencesIntent.SetNavigationAlertMode(nextMode))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(

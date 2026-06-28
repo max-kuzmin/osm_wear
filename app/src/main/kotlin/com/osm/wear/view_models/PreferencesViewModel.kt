@@ -45,29 +45,32 @@ class PreferencesViewModel @Inject constructor(
         }
     }
 
-    fun setMapTheme(theme: MapTheme) {
+    fun onIntent(intent: PreferencesIntent) {
+        when (intent) {
+            is PreferencesIntent.SetMapTheme -> setMapTheme(intent.theme)
+            is PreferencesIntent.SetNavigationAlertMode -> setNavigationAlertMode(intent.mode)
+            is PreferencesIntent.SetGpsBatteryMode -> setGpsBatteryMode(intent.mode)
+            is PreferencesIntent.SetNavigationMode -> setNavigationMode(intent.mode)
+        }
+    }
+
+    private fun setMapTheme(theme: MapTheme) {
         _uiState.update { it.copy(mapTheme = theme) }
         preferencesRepository.setMapTheme(theme)
     }
 
-    fun setNavigationAlertMode(mode: NavigationAlertMode) {
+    private fun setNavigationAlertMode(mode: NavigationAlertMode) {
         _uiState.update { it.copy(navigationAlertMode = mode) }
         alertsRepository.setAlertMode(mode)
     }
 
-    fun setGpsBatteryMode(mode: GpsBatteryMode) {
+    private fun setGpsBatteryMode(mode: GpsBatteryMode) {
         _uiState.update { it.copy(gpsBatteryMode = mode) }
         preferencesRepository.setGpsBatteryMode(mode)
     }
 
-    fun cycleNavigationMode() {
-        val nextMode = when (_uiState.value.navigationMode) {
-            NavigationMode.WALKING -> NavigationMode.CYCLING
-            NavigationMode.CYCLING -> NavigationMode.DRIVING
-            NavigationMode.DRIVING -> NavigationMode.GPX_ONLY
-            NavigationMode.GPX_ONLY -> NavigationMode.WALKING
-        }
-        _uiState.update { it.copy(navigationMode = nextMode) }
-        preferencesRepository.setNavigationMode(nextMode)
+    private fun setNavigationMode(mode: NavigationMode) {
+        _uiState.update { it.copy(navigationMode = mode) }
+        preferencesRepository.setNavigationMode(mode)
     }
 }

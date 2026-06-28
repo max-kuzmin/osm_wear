@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.Bookmark
 import com.osm.wear.models.GpxPoint
-import com.osm.wear.models.UserLocation
 import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.repositories.ICursorRepository
 import com.osm.wear.repositories.IGpxRepository
@@ -13,12 +12,13 @@ import com.osm.wear.repositories.IPreferencesRepository
 import com.osm.wear.repositories.IGeocodingRepository
 import com.osm.wear.services.BuildRouteToMarkerUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -32,46 +32,54 @@ class MarkersViewModel @Inject constructor(
     private val buildRouteToMarkerUseCase: BuildRouteToMarkerUseCase
 ) : ViewModel() {
 
-    private val _currentLocation = MutableStateFlow<UserLocation?>(null)
-    val currentLocation: StateFlow<UserLocation?> = _currentLocation.asStateFlow()
+    private val _uiState = MutableStateFlow(MarkersUiState())
+    val uiState: StateFlow<MarkersUiState> = _uiState.asStateFlow()
 
-    val currentMarker: StateFlow<GpxPoint?> = markersRepository.currentMarker
-
-    val bookmarks: StateFlow<List<Bookmark>> = markersRepository.bookmarks
-
-    // Combine bookmarks and location to compute distance to markers
-    val bookmarkDistances: StateFlow<List<Pair<Bookmark, Double?>>> = combine(
-        markersRepository.bookmarks,
-        _currentLocation
-    ) { bList, loc ->
-        bList.map { b ->
-            val dist = loc?.let {
-                distanceMeters(it.latitude, it.longitude, b.lat, b.lon)
-            }
-            Pair(b, dist)
-        }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+    private val _effect = Channel<MarkersEffect>(Channel.BUFFERED)
+    val effect: Flow<MarkersEffect> = _effect.receiveAsFlow()
 
     init {
         viewModelScope.launch {
-            cursorRepository.locationFlow(GpsBatteryMode.BALANCED).collect { loc ->
-                _currentLocation.value = loc
+            combine(
+                cursorRepository.locationFlow(GpsBatteryMode.BALANCED),
+                markersRepository.currentMarker,
+                markersRepository.bookmarks
+            ) { loc, marker, bookmarks ->
+                val distances = bookmarks.map { b ->
+                    val dist = loc?.let {
+                        distanceMeters(it.latitude, it.longitude, b.lat, b.lon)
+                    }
+                    Pair(b, dist)
+                }
+                MarkersUiState(
+                    currentLocation = loc,
+                    currentMarker = marker,
+                    bookmarks = bookmarks,
+                    bookmarkDistances = distances
+                )
+            }.collect { state ->
+                _uiState.value = state
             }
         }
     }
 
-    fun selectBookmark(bookmark: Bookmark) {
+    fun onIntent(intent: MarkersIntent) {
+        when (intent) {
+            is MarkersIntent.SelectBookmark -> selectBookmark(intent.bookmark)
+            is MarkersIntent.SaveBookmark -> saveBookmarkFromMap(intent.point)
+            is MarkersIntent.DeleteBookmark -> deleteBookmark(intent.bookmark)
+            is MarkersIntent.buildRouteTo -> buildRouteTo(intent.target)
+        }
+    }
+
+    private fun selectBookmark(bookmark: Bookmark) {
         val pt = GpxPoint(bookmark.lat, bookmark.lon)
         markersRepository.setCurrentMarker(pt)
         preferencesRepository.setMapCenter(bookmark.lat, bookmark.lon)
         preferencesRepository.setMapFollowLocation(false)
     }
 
-    fun saveBookmarkFromMap(pt: GpxPoint) {
+    private fun saveBookmarkFromMap(pt: GpxPoint) {
         viewModelScope.launch {
             val res = geocodingRepository.reverseGeocode(pt.lat, pt.lon)
             val finalName = res?.name ?: "Point (%.4f, %.4f)".format(pt.lat, pt.lon)
@@ -86,29 +94,25 @@ class MarkersViewModel @Inject constructor(
         }
     }
 
-    fun deleteBookmark(bookmark: Bookmark) {
+    private fun deleteBookmark(bookmark: Bookmark) {
         markersRepository.removeBookmark(bookmark)
     }
 
-    fun buildRouteToPoint(
-        target: GpxPoint,
-        onRouteBuilt: () -> Unit,
-        onFailure: (String) -> Unit
-    ) {
+    private fun buildRouteTo(target: GpxPoint) {
         viewModelScope.launch {
-            buildRouteToMarkerUseCase(target, currentLocation.value)
+            buildRouteToMarkerUseCase(target, _uiState.value.currentLocation)
                 .onSuccess { gpx ->
                     gpxRepo.saveGpxFile("Path Finder", gpx.trackPoints)
                         .onSuccess { savedGpx ->
                             gpxRepo.setActive(savedGpx.id)
-                            onRouteBuilt()
+                            _effect.send(MarkersEffect.ShowMap)
                         }
                         .onFailure { err ->
-                            onFailure(err.message ?: "Failed to save route")
+                            _effect.send(MarkersEffect.ShowToast(err.message ?: "Failed to save route"))
                         }
                 }
                 .onFailure { err ->
-                    onFailure(err.message ?: "Routing failed. Check your internet connection.")
+                    _effect.send(MarkersEffect.ShowToast(err.message ?: "Routing failed. Check your internet connection."))
                 }
         }
     }
@@ -122,5 +126,10 @@ class MarkersViewModel @Inject constructor(
                 Math.sin(dLon / 2) * Math.sin(dLon / 2)
         val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
         return r * c
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        _effect.close()
     }
 }

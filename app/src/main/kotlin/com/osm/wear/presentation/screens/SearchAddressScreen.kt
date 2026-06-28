@@ -1,6 +1,7 @@
 package com.osm.wear.presentation.screens
 
 import com.osm.wear.view_models.SearchAddressViewModel
+import com.osm.wear.view_models.SearchIntent
 import com.osm.wear.models.Bookmark
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -28,11 +29,13 @@ fun SearchAddressScreen(
     onBack: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val searchResults by searchVm.searchResults.collectAsStateWithLifecycle()
-    val isSearching by searchVm.isSearching.collectAsStateWithLifecycle()
+    val uiState by searchVm.uiState.collectAsStateWithLifecycle()
+    
+    val searchResults = uiState.searchResults
+    val isSearching = uiState.isSearching
 
     BackHandler {
-        searchVm.clearSearchResults()
+        searchVm.onIntent(SearchIntent.ClearSearchResults)
         onBack()
     }
 
@@ -67,7 +70,7 @@ fun SearchAddressScreen(
                     value = searchQuery,
                     onValueChange = {
                         searchQuery = it
-                        searchVm.searchAddresses(it)
+                        searchVm.onIntent(SearchIntent.SearchAddresses(it))
                     },
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = LocalTextStyle.current.copy(
@@ -133,9 +136,8 @@ fun SearchAddressScreen(
                             lat = result.lat,
                             lon = result.lon
                         )
-                        searchVm.saveSearchBookmark(result.name, result.address, result.lat, result.lon)
-                        searchVm.selectAddress(bookmark)
-                        searchVm.clearSearchResults()
+                        searchVm.onIntent(SearchIntent.SelectAddress(bookmark))
+                        searchVm.onIntent(SearchIntent.ClearSearchResults)
                         onAddressSelected()
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -170,7 +172,7 @@ fun SearchAddressScreen(
 
         item {
             BackButton(onClick = {
-                searchVm.clearSearchResults()
+                searchVm.onIntent(SearchIntent.ClearSearchResults)
                 onBack()
             })
         }
