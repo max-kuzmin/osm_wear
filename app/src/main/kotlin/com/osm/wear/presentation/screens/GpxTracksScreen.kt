@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.Lifecycle
@@ -28,9 +30,7 @@ import androidx.wear.compose.material3.*
 
 import androidx.core.content.ContextCompat
 import com.osm.wear.presentation.components.BackButton
-import com.osm.wear.presentation.components.NavigationButton
 import com.osm.wear.models.GpxFile
-import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.presentation.theme.AppDimensions
 
 @Composable
@@ -39,13 +39,13 @@ fun GpxTracksScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val gpxFiles by gpxVm.gpxFiles.collectAsStateWithLifecycle()
+    val uiState by gpxVm.uiState.collectAsStateWithLifecycle()
+    
+    val gpxFiles = uiState.gpxFiles
+    val activeGpx = uiState.activeGpxFile
+    val isCovered = uiState.isActiveGpxCovered
+    val isSaving = uiState.isSaving
 
-    // Check if the active GPX track is covered by the downloaded map
-    val activeGpx = gpxFiles.find { it.isActive }
-    val isCovered by gpxVm.isActiveGpxCovered.collectAsStateWithLifecycle()
-
-    // Evaluate warning and start conditions dynamically
     val mapWarning = remember(activeGpx, isCovered) {
         when {
             activeGpx == null -> null
@@ -65,7 +65,7 @@ fun GpxTracksScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            gpxVm.scanGpxFolders()
+            gpxVm.onIntent(GpxIntent.ScanFolders)
         }
     }
 
@@ -108,12 +108,22 @@ fun GpxTracksScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                gpxVm.scanGpxFolders()
+                gpxVm.onIntent(GpxIntent.ScanFolders)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        gpxVm.effect.collect { effect ->
+            when (effect) {
+                is GpxEffect.ShowToast -> {
+                    android.widget.Toast.makeText(context, effect.message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
@@ -144,33 +154,38 @@ fun GpxTracksScreen(
                 onClick = {
                     activeGpx?.let { gpx ->
                         val nameToSave = if (gpx.id == "path_finder") "Saved Route" else gpx.name
-                        gpxVm.saveCurrentGpx(nameToSave, gpx.trackPoints) { success, error ->
-                            if (success) {
-                                android.widget.Toast.makeText(context, "Track saved successfully", android.widget.Toast.LENGTH_SHORT).show()
-                            } else {
-                                android.widget.Toast.makeText(context, "Save failed: $error", android.widget.Toast.LENGTH_LONG).show()
-                            }
-                        }
+                        gpxVm.onIntent(GpxIntent.SaveCurrent(nameToSave, gpx.trackPoints))
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = activeGpx != null,
+                enabled = activeGpx != null && !isSaving,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     contentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 icon = {
-                    Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Save,
-                        contentDescription = "Save current track",
-                        modifier = Modifier.size(AppDimensions.IconNormal)
-                    )
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(AppDimensions.IconNormal),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = "Save current track",
+                            modifier = Modifier.size(AppDimensions.IconNormal)
+                        )
+                    }
                 },
-                label = { Text("Save current", style = MaterialTheme.typography.labelMedium) }
+                label = {
+                    if (isSaving) {
+                        Text("Saving...", style = MaterialTheme.typography.labelMedium)
+                    } else {
+                        Text("Save current", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
             )
         }
-
-
 
         if (gpxFiles.isEmpty()) {
             item {
@@ -200,7 +215,7 @@ fun GpxTracksScreen(
             val gpx = gpxFiles[idx]
             Button(
                 onClick = {
-                    gpxVm.setActiveGpxFile(gpx)
+                    gpxVm.onIntent(GpxIntent.SetActive(gpx))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
@@ -236,5 +251,3 @@ fun GpxTracksScreen(
         }
     }
 }
-
-
