@@ -123,7 +123,7 @@ fun RegionsScreen(
                                 if (dr.region.id == freeId) "Free Trial (Expired)" else "Purchase Required"
                             }
                         } else {
-                            if (dr.isActive) "Active ✓" else ""
+                            if (dr.isActive) "Active" else ""
                         }
 
                         val priceText = prices[dr.region.id.replace("/", "_")] ?: "$1.00"

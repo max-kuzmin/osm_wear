@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ fun MainMenuScreen(
     onNavigationStarted: () -> Unit,
     onOpenGpxTracks: () -> Unit,
     onOpenMarkers: () -> Unit,
+    onOpenRegions: () -> Unit,
     onOpenPreferences: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -130,6 +132,33 @@ fun MainMenuScreen(
                     )
                 },
                 label = { Text("Markers", style = MaterialTheme.typography.labelMedium) }
+            )
+        }
+
+        // 4. Regions
+        item {
+            Button(
+                onClick = onOpenRegions,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Map,
+                        contentDescription = "Regions",
+                        modifier = Modifier.size(AppDimensions.IconNormal)
+                    )
+                },
+                label = { Text("Map Regions", style = MaterialTheme.typography.labelMedium) },
+                secondaryLabel = {
+                    Text(
+                        text = uiState.activeRegion?.name ?: "None selected",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
+                }
             )
         }
 

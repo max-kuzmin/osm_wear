@@ -54,6 +54,7 @@ fun AppNavGraph(
                 },
                 onOpenGpxTracks = { navController.navigate(Routes.GPX_TRACKS.value) },
                 onOpenMarkers = { navController.navigate(Routes.MARKERS.value) },
+                onOpenRegions = { navController.navigate(Routes.REGIONS.value) },
                 onOpenPreferences = { navController.navigate(Routes.PREFERENCES.value) },
                 onBack = { navController.popBackStack() }
             )

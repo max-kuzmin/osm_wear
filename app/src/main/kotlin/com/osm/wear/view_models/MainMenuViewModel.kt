@@ -19,12 +19,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 import com.osm.wear.repositories.ICursorRepository
+import com.osm.wear.repositories.IRegionRepository
 
 @HiltViewModel
 class MainMenuViewModel @Inject constructor(
     private val gpxRepository: IGpxRepository,
     private val navigationTrackingService: INavigationTrackingService,
-    private val cursorRepository: ICursorRepository
+    private val cursorRepository: ICursorRepository,
+    private val regionRepository: IRegionRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainMenuUiState())
@@ -37,9 +39,11 @@ class MainMenuViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 gpxRepository.activeGpxFile,
-                navigationTrackingService.navigationState
-            ) { activeGpx, navState ->
-                MainMenuUiState(activeGpx, navState)
+                navigationTrackingService.navigationState,
+                regionRepository.activeRegionId
+            ) { activeGpx, navState, activeRegionId ->
+                val activeRegion = activeRegionId?.let { id -> regionRepository.all.find { it.id == id } }
+                MainMenuUiState(activeGpx, navState, activeRegion)
             }.collect { state ->
                 _uiState.value = state
             }

@@ -62,7 +62,7 @@ class MapViewModel @Inject constructor(
                 if (regionId != null && file != null) {
                     if (!regionValidatorService.isRegionValid(regionId, purchasedIds)) {
                         regionRepository.setActiveRegionId(null)
-                        _effect.send(MapEffect.ShowToast("Please choose a map region in settings"))
+                        _effect.send(MapEffect.ShowToast("Choose a map region in preferences"))
                         _uiState.update { it.copy(activeMapFile = null) }
                     } else {
                         _uiState.update { it.copy(activeMapFile = file) }
@@ -74,7 +74,7 @@ class MapViewModel @Inject constructor(
                     // but the combine block runs when these flow emit.
                     // Let's only toast if there's no active file.
                     if (file == null) {
-                        _effect.send(MapEffect.ShowToast("Please choose a map region in settings"))
+                        _effect.send(MapEffect.ShowToast("Choose a map region in preferences"))
                     }
                 }
             }.collect { }
@@ -218,6 +218,8 @@ class MapViewModel @Inject constructor(
                         }
                         _effect.send(MapEffect.CenterMap(LatLong(loc.latitude, loc.longitude)))
                     }
+                } ?: run {
+                    _effect.send(MapEffect.ShowToast("Positioning..."))
                 }
             }
         }
