@@ -129,6 +129,25 @@ object AppModule {
         return AlertsRepository(deviceAlertsDataSource, prefs)
     }
 
+    @Provides
+    @Singleton
+    fun provideBillingRepository(
+        @ApplicationContext context: Context
+    ): IBillingRepository {
+        val repo = BillingRepository(context)
+        repo.connect()
+        return repo
+    }
+
+    @Provides
+    @Singleton
+    fun provideRegionValidatorService(
+        @ApplicationContext context: Context,
+        prefs: ILocalPreferencesDataSource
+    ): IRegionValidatorService {
+        return RegionValidatorService(context, prefs)
+    }
+
     // --- Services ---
 
     @Provides

@@ -11,7 +11,9 @@ import com.osm.wear.repositories.IGpxRepository
 import com.osm.wear.repositories.IRegionRepository
 import com.osm.wear.repositories.IMarkersRepository
 import com.osm.wear.repositories.IGeocodingRepository
+import com.osm.wear.repositories.IBillingRepository
 import com.osm.wear.services.INavigationTrackingService
+import com.osm.wear.services.IRegionValidatorService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -33,7 +35,9 @@ class MapViewModel @Inject constructor(
     private val navigationTrackingService: INavigationTrackingService,
     private val gpxRepository: IGpxRepository,
     private val regionRepository: IRegionRepository,
-    private val geocodingRepository: IGeocodingRepository
+    private val geocodingRepository: IGeocodingRepository,
+    private val billingRepository: IBillingRepository,
+    private val regionValidatorService: IRegionValidatorService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
@@ -50,9 +54,30 @@ class MapViewModel @Inject constructor(
 
     private fun observeRepositories() {
         viewModelScope.launch {
-            regionRepository.activeMapFile.collect { file ->
-                _uiState.update { it.copy(activeMapFile = file) }
-            }
+            kotlinx.coroutines.flow.combine(
+                regionRepository.activeRegionId,
+                regionRepository.activeMapFile,
+                billingRepository.purchasedProductIds
+            ) { regionId, file, purchasedIds ->
+                if (regionId != null && file != null) {
+                    if (!regionValidatorService.isRegionValid(regionId, purchasedIds)) {
+                        regionRepository.setActiveRegionId(null)
+                        _effect.send(MapEffect.ShowToast("Please choose a map region in settings"))
+                        _uiState.update { it.copy(activeMapFile = null) }
+                    } else {
+                        _uiState.update { it.copy(activeMapFile = file) }
+                    }
+                } else {
+                    _uiState.update { it.copy(activeMapFile = null) }
+                    
+                    // Delay check slightly to prevent toast spam on very first open before things load,
+                    // but the combine block runs when these flow emit.
+                    // Let's only toast if there's no active file.
+                    if (file == null) {
+                        _effect.send(MapEffect.ShowToast("Please choose a map region in settings"))
+                    }
+                }
+            }.collect { }
         }
         viewModelScope.launch {
             gpxRepository.activeGpxFile.collect { file ->

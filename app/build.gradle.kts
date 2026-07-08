@@ -108,6 +108,9 @@ dependencies {
     // WorkManager (background downloads)
     implementation(libs.androidx.work.runtime.ktx)
 
+    // Billing
+    implementation(libs.billing.ktx)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

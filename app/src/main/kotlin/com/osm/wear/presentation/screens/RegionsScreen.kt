@@ -2,6 +2,7 @@ package com.osm.wear.presentation.screens
 
 import com.osm.wear.view_models.RegionsViewModel
 import com.osm.wear.view_models.RegionsIntent
+import android.app.Activity
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -23,11 +24,17 @@ fun RegionsScreen(
     onRegionSelected: () -> Unit,
     onBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val uiState by regionsVm.uiState.collectAsStateWithLifecycle()
     
     val downloadedRegions = uiState.downloadedRegions
     val downloadState = uiState.downloadState
     val groupedRegions = uiState.groupedRegions
+    val validIds = uiState.validRegionIds
+    val freeId = uiState.freeRegionId
+    val isExpired = uiState.isFreeTrialExpired
+    val isMonetizationEnabled = uiState.isMonetizationEnabled
+    val prices = uiState.productPrices
 
     val alreadyDownloadedIds = downloadedRegions.map { it.region.id }.toSet()
 
@@ -94,8 +101,12 @@ fun RegionsScreen(
             ) {
                 Button(
                     onClick = {
-                        regionsVm.onIntent(RegionsIntent.SetActiveRegion(dr.region))
-                        onRegionSelected()
+                        if (isMonetizationEnabled && !validIds.contains(dr.region.id)) {
+                            regionsVm.launchBillingFlow(context as Activity, dr.region.id)
+                        } else {
+                            regionsVm.onIntent(RegionsIntent.SetActiveRegion(dr.region))
+                            onRegionSelected()
+                        }
                     },
                     modifier = Modifier.weight(1f),
                     label = {
@@ -105,8 +116,21 @@ fun RegionsScreen(
                         )
                     },
                     secondaryLabel = {
+                        val statusText = if (isMonetizationEnabled) {
+                            if (validIds.contains(dr.region.id)) {
+                                if (dr.region.id == freeId) "Free Trial (Active)" else "Active"
+                            } else {
+                                if (dr.region.id == freeId) "Free Trial (Expired)" else "Purchase Required"
+                            }
+                        } else {
+                            if (dr.isActive) "Active ✓" else ""
+                        }
+
+                        val priceText = prices[dr.region.id.replace("/", "_")] ?: "$1.00"
+                        val finalSecondary = if (isMonetizationEnabled && !validIds.contains(dr.region.id)) "Buy $priceText" else statusText
+
                         Text(
-                            text = "${dr.fileSizeMb} MB${if (dr.isActive) " ✓" else ""}",
+                            text = "${dr.fileSizeMb} MB | $finalSecondary",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (dr.isActive) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f) 
                                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
@@ -152,8 +176,24 @@ fun RegionsScreen(
                          verticalAlignment = Alignment.CenterVertically,
                          horizontalArrangement = Arrangement.spacedBy(AppDimensions.SpacerWidth)
                      ) {
+                         val isFreeAvailable = isMonetizationEnabled && freeId == null && !isExpired
+                         val isPurchasable = isMonetizationEnabled && !validIds.contains(region.id)
+                         val priceText = prices[region.id.replace("/", "_")] ?: "$1.00"
+
                          Button(
-                             onClick = { if (!isBusy) regionsVm.onIntent(RegionsIntent.DownloadRegion(region)) },
+                             onClick = { 
+                                 if (!isBusy) {
+                                     if (isPurchasable) {
+                                         if (isFreeAvailable) {
+                                             regionsVm.onIntent(RegionsIntent.ClaimFreeRegion(region))
+                                         } else {
+                                             regionsVm.launchBillingFlow(context as Activity, region.id)
+                                         }
+                                     } else {
+                                         regionsVm.onIntent(RegionsIntent.DownloadRegion(region))
+                                     }
+                                 }
+                             },
                              modifier = Modifier.weight(1f),
                              enabled = !isBusy,
                              colors = ButtonDefaults.buttonColors(
@@ -175,8 +215,13 @@ fun RegionsScreen(
                                          color = MaterialTheme.colorScheme.primary
                                      )
                                  } else {
+                                     val actionText = if (isPurchasable) {
+                                         if (isFreeAvailable) "Get Free (7 Days)" else "Buy $priceText"
+                                     } else {
+                                         "Download"
+                                     }
                                      Text(
-                                         text = "~${region.fileSizeMb} MB",
+                                         text = "~${region.fileSizeMb} MB | $actionText",
                                          style = MaterialTheme.typography.labelSmall,
                                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                                      )

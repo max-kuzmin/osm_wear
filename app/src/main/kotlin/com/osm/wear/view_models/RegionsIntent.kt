@@ -8,4 +8,6 @@ sealed class RegionsIntent {
     data class DeleteRegion(val region: MapRegion) : RegionsIntent()
     data class DownloadRegion(val region: MapRegion) : RegionsIntent()
     data object CancelDownload : RegionsIntent()
+    data class InitiatePurchase(val region: MapRegion) : RegionsIntent()
+    data class ClaimFreeRegion(val region: MapRegion) : RegionsIntent()
 }
