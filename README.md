@@ -30,7 +30,7 @@ A native **Wear OS** application for **Samsung Galaxy Watch 7** (and compatible 
 | Navigation | Wear Compose Navigation (`SwipeDismissableNavHost`) |
 | Map Rendering | [Mapsforge 0.28](https://github.com/mapsforge/mapsforge) (`mapsforge-map-android`) |
 | Map Data | [download.mapsforge.org](https://download.mapsforge.org/maps/v5/) — free OSM-based `.map` files |
-| Route Architecture | Native RFC 7946 GeoJSON route parser & serializer (pure JVM) |
+| Route Architecture | Native RFC 7946 GeoJSON route parser & serializer |
 | GPS | Android `FusedLocationProviderClient` (Wear OS standalone GPS) |
 | Network | OkHttp 4.12 (map downloads with resume support) |
 | Persistence | AndroidX DataStore Preferences |
@@ -53,7 +53,7 @@ app/src/main/kotlin/com/osm/wear/
 │   ├── RemoteRegionDataSource.kt        # Mapsforge server map catalog & download
 │   ├── RemoteGeocodingDataSource.kt     # Reverse geocoding & OSRM routing
 │   ├── geojson/                         # RFC 7946 GeoJSON route parser & serializer
-│   │   └── GeoJsonRouteParser.kt        # Pure JVM zero-dependency route parser
+│   │   └── GeoJsonRouteParser.kt        # RFC 7946 route parser and serializer
 │   └── osrm/                            # OSRM turn-by-turn routing & step parsing
 │       └── OsrmStepParser.kt            # Native OSRM GeoJSON step & maneuver parser
 ├── repositories/                        # Repository layer (interfaces & implementations)

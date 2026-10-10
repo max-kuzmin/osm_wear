@@ -424,13 +424,5 @@ class UpdateNavigationStateUseCase @Inject constructor(
         alertsRepository.announce(message)
     }
 
-    private fun haversineM(a: GeoPoint, b: GeoPoint): Double {
-        val r    = 6_371_000.0
-        val dLat = Math.toRadians(b.lat - a.lat)
-        val dLon = Math.toRadians(b.lon - a.lon)
-        val h    = sin(dLat / 2).pow(2) +
-                cos(Math.toRadians(a.lat)) * cos(Math.toRadians(b.lat)) * sin(dLon / 2).pow(2)
-        val clampedH = h.coerceIn(0.0, 1.0)
-        return r * 2 * atan2(sqrt(clampedH), sqrt(1.0 - clampedH))
-    }
+    private fun haversineM(a: GeoPoint, b: GeoPoint): Double = a.distanceTo(b)
 }

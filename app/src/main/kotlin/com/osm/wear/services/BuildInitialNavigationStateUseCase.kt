@@ -7,12 +7,10 @@ import com.osm.wear.models.NavigationRoute
 import com.osm.wear.models.NavigationState
 import com.osm.wear.models.RouteFile
 import com.osm.wear.models.RouteStep
-import com.osm.wear.repositories.IPreferencesRepository
 import com.osm.wear.repositories.IRegionRepository
 import javax.inject.Inject
 
 class BuildInitialNavigationStateUseCase @Inject constructor(
-    private val preferencesRepository: IPreferencesRepository,
     private val regionRepository: IRegionRepository
 ) {
     operator fun invoke(routeFile: RouteFile): Result<NavigationState> {
