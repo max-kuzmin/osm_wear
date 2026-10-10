@@ -33,3 +33,5 @@ lint-results/
 
 # Logs
 *.log
+/.agents/
+/.gradle_home/

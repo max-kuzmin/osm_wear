@@ -57,7 +57,7 @@ fun MainMapScreen(
     val location = uiState.currentLocation
     val navState = uiState.navigationState
     val activeMapFile = uiState.activeMapFile
-    val activeGpxFile = uiState.activeGpxFile
+    val activeRouteFile = uiState.activeRouteFile
     
     val pointMarkColor = MapLayerColors.DOT_MARK_FILL
 
@@ -109,7 +109,7 @@ fun MainMapScreen(
     val animBearing = remember { Animatable(0f) }
 
     // Update GPS dot and centering when location changes
-    LaunchedEffect(location, navState?.currentWaypointIndex) {
+    LaunchedEffect(location, navState?.currentStepIndex) {
         val loc = location ?: return@LaunchedEffect
 
         // Target values
@@ -117,10 +117,10 @@ fun MainMapScreen(
         val targetLon = loc.longitude.toFloat()
         
         val nav = navState
-        var targetBearing = if (nav != null && nav.isActive && nav.waypoints.isNotEmpty() && !nav.isOffTrack) {
-            val idx = nav.currentWaypointIndex
-            if (idx >= 0 && idx < nav.waypoints.size) {
-                nav.waypoints[idx].bearingToNext
+        var targetBearing = if (nav != null && nav.isActive && nav.hasSteps && !nav.isOffTrack) {
+            val step = nav.activeStep
+            if (step != null && step.maneuver.bearingBefore != 0f) {
+                step.maneuver.bearingBefore
             } else {
                 loc.bearing
             }
@@ -180,29 +180,23 @@ fun MainMapScreen(
         }
     }
 
-    // Update GPX layer dynamically based on GPX changes and navigation progress
-    LaunchedEffect(activeGpxFile, navState?.currentWaypointIndex, location) {
+    // Update track layer dynamically based on active route changes and navigation progress
+    LaunchedEffect(activeRouteFile, navState?.currentStepIndex, location) {
         val mv = mapViewRef.value ?: return@LaunchedEffect
-        val gpx = activeGpxFile
+        val route = activeRouteFile
         val nav = navState
         
-        val pts = if (nav != null && nav.isActive) {
-            val rawPoints = gpx?.trackPoints ?: emptyList()
-            val currentWp = nav.waypoints.getOrNull(nav.currentWaypointIndex)
-            val nextWp = (currentWp?.rawIndex ?: nav.currentWaypointIndex) + 1
-            if (nextWp < rawPoints.size) {
-                val remaining = rawPoints.drop(nextWp).map { LatLong(it.lat, it.lon) }
-                val userLocation = location
-                if (userLocation != null) {
-                    listOf(LatLong(userLocation.latitude, userLocation.longitude)) + remaining
-                } else {
-                    remaining
-                }
+        val pts = if (nav != null && nav.isActive && nav.hasSteps) {
+            val remainingSteps = nav.steps.drop(nav.currentStepIndex)
+            val remainingPoints = remainingSteps.flatMap { it.polyline }
+            val userLocation = location
+            if (userLocation != null && remainingPoints.isNotEmpty()) {
+                listOf(LatLong(userLocation.latitude, userLocation.longitude)) + remainingPoints.map { LatLong(it.lat, it.lon) }
             } else {
-                emptyList()
+                remainingPoints.map { LatLong(it.lat, it.lon) }
             }
         } else {
-            gpx?.trackPoints?.map { LatLong(it.lat, it.lon) } ?: emptyList()
+            route?.points?.map { LatLong(it.lat, it.lon) } ?: emptyList()
         }
 
         if (trackLayer.value == null) {
@@ -319,8 +313,8 @@ fun MainMapScreen(
                     reloadTileLayer(ctx, mv, f, uiState.mapTheme, tileLayerRef)
                 }
 
-                activeGpxFile?.let { gpx ->
-                    val pts = gpx.trackPoints.map { LatLong(it.lat, it.lon) }
+                activeRouteFile?.let { route ->
+                    val pts = route.points.map { LatLong(it.lat, it.lon) }
                     val layer = TrackMarkersLayer(pts, mv)
                     mv.layerManager.layers.add(layer)
                     trackLayer.value = layer
@@ -539,51 +533,12 @@ fun MainMapScreen(
         }
 
         val currentNavState = navState
-        if (currentNavState != null && currentNavState.isActive && currentNavState.waypoints.isNotEmpty()) {
+        if (currentNavState != null && currentNavState.isActive && currentNavState.hasSteps) {
             NavigationOverlay(
                 navState = currentNavState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = AppDimensions.NavOverlayPaddingBottom)
-            )
-        }
-    }
-}
-
-@Composable
-private fun NavigationOverlay(navState: NavigationState, modifier: Modifier = Modifier) {
-    val distM = navState.distanceToNextTurnM
-    val distText = if (distM >= 1000f) "%.1f km".format(distM / 1000f) else "${distM.toInt()} m"
-
-    Row(
-        modifier = modifier
-            .background(
-                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = MapUiAlpha),
-                shape = CircleShape
-            )
-            .padding(
-                horizontal = AppDimensions.NavOverlayPaddingHorizontal,
-                vertical = AppDimensions.NavOverlayPaddingVertical
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(AppDimensions.NavOverlaySpacing)
-    ) {
-        Icon(
-            imageVector = Icons.Default.ArrowUpward,
-            contentDescription = "Turn direction",
-            modifier = Modifier.size(AppDimensions.NavOverlayIconSize).rotate(navState.bearingToNextTurn),
-            tint = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = distText, 
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        if (navState.isOffTrack) {
-            Text(
-                text = "⚠",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.error
             )
         }
     }

@@ -3,10 +3,10 @@ package com.osm.wear.repositories
 import com.osm.wear.models.enums.MapTheme
 import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.enums.GpsBatteryMode
-import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.GeoPoint
 
 interface IPreferencesRepository {
-    fun getMapCenter(): GpxPoint
+    fun getMapCenter(): GeoPoint
     fun getMapZoomLevel(): Int
     fun getMapFollowLocation(): Boolean
     fun getMapTheme(): MapTheme

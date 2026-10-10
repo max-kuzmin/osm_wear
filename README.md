@@ -1,6 +1,6 @@
 # OSM Wear
 
-A native **Wear OS** application for **Samsung Galaxy Watch 7** (and compatible Wear OS 3+ devices) that provides offline OpenStreetMap navigation, GPX track management, real-time GPS location tracking, GPX track recording, and turn-by-turn navigation guidance.
+A native **Wear OS** application for **Samsung Galaxy Watch 7** (and compatible Wear OS 3+ devices) that provides offline OpenStreetMap navigation, GeoJSON route track management, real-time GPS location tracking, and synchronized turn-by-turn navigation guidance.
 
 ---
 
@@ -13,10 +13,9 @@ A native **Wear OS** application for **Samsung Galaxy Watch 7** (and compatible 
 | **Zoom Controls** | On-screen +/− buttons; rotary crown input supported natively by Wear OS |
 | **GPS Location** | Real-time blue-dot location marker using the watch's built-in GPS (standalone, no phone required) |
 | **Battery-Efficient GPS** | Three GPS modes — High Accuracy (1 s), Balanced (5 s, 10 m), Low Power (30 s, 50 m) — to match use-case and battery life |
-| **GPX Tracks** | Import `.gpx` files from the watch storage, display tracks as coloured polylines on the map |
-| **GPX Manager** | Toggle track visibility, view distance statistics, and delete tracks |
-| **GPX Recording** | Record a new GPX track from live GPS with **pause / resume** support; auto-saved on stop and immediately available in the GPX manager |
-| **Turn-by-Turn Navigation** | Follow any imported GPX track with a dedicated navigation screen showing direction arrow, distance to next turn, remaining distance, and off-track warning |
+| **GeoJSON Tracks** | Import `.geojson` and `.json` files from watch storage or system intents, displaying routes on the map |
+| **Track Manager** | View distance statistics, select active tracks, save computed routes, and delete tracks |
+| **Turn-by-Turn Navigation** | Follow any route with dedicated navigation guidance showing direction arrow, distance to next turn, and synchronized voice alerts |
 | **Vibration Alarms** | Watch vibrates with a double pulse before each turn and a long pulse on arrival |
 | **Dark UI** | Optimised for AMOLED displays — dark background saves battery on round watch faces |
 
@@ -31,7 +30,7 @@ A native **Wear OS** application for **Samsung Galaxy Watch 7** (and compatible 
 | Navigation | Wear Compose Navigation (`SwipeDismissableNavHost`) |
 | Map Rendering | [Mapsforge 0.28](https://github.com/mapsforge/mapsforge) (`mapsforge-map-android`) |
 | Map Data | [download.mapsforge.org](https://download.mapsforge.org/maps/v5/) — free OSM-based `.map` files |
-| GPX Parsing | [android-gpx-parser 2.3.1](https://github.com/ticofab/android-gpx-parser) |
+| Route Architecture | Native RFC 7946 GeoJSON route parser & serializer (pure JVM) |
 | GPS | Android `FusedLocationProviderClient` (Wear OS standalone GPS) |
 | Network | OkHttp 4.12 (map downloads with resume support) |
 | Persistence | AndroidX DataStore Preferences |
@@ -43,39 +42,60 @@ A native **Wear OS** application for **Samsung Galaxy Watch 7** (and compatible 
 
 ## Project Structure
 
-```
 app/src/main/kotlin/com/osm/wear/
-├── OsmWearApp.kt                        # Application class (Mapsforge init)
-├── domain/model/
-│   └── Models.kt                        # MapRegion, GpxTrack, UserLocation,
-│                                        #   GpsBatteryMode, RecordingSession,
-│                                        #   NavigationState, TurnDirection, …
-├── data/
-│   ├── map/
-│   │   ├── MapRegionCatalog.kt          # 30+ downloadable regions with real URLs
-│   │   └── MapDownloadManager.kt        # OkHttp downloader with resume + progress
-│   ├── gpx/
-│   │   └── GpxRepository.kt            # GPX import, parsing, storage, visibility
-│   ├── location/
-│   │   └── LocationRepository.kt        # FusedLocationProviderClient flow
-│   │                                    #   with battery-mode-aware intervals
-│   ├── recording/
-│   │   └── TrackRecorder.kt             # Live GPX recording with pause/resume
-│   └── navigation/
-│       └── NavigationEngine.kt          # Turn detection, bearing, off-track calc
+├── OsmWearApp.kt                        # Application class (Hilt / Mapsforge init)
+├── AppConfig.kt                         # App configuration constants
+├── data_sources/                        # Device hardware and local/remote data sources
+│   ├── DeviceAlertsDataSource.kt        # TTS, vibrator & system notification alerts
+│   ├── DeviceLocationDataSource.kt      # FusedLocationProviderClient GPS tracking
+│   ├── LocalFileDataSource.kt           # GeoJSON route and map file system I/O
+│   ├── LocalPreferencesDataSource.kt    # SharedPreferences / DataStore
+│   ├── RemoteRegionDataSource.kt        # Mapsforge server map catalog & download
+│   ├── RemoteGeocodingDataSource.kt     # Reverse geocoding & OSRM routing
+│   ├── geojson/                         # RFC 7946 GeoJSON route parser & serializer
+│   │   └── GeoJsonRouteParser.kt        # Pure JVM zero-dependency route parser
+│   └── osrm/                            # OSRM turn-by-turn routing & step parsing
+│       └── OsrmStepParser.kt            # Native OSRM GeoJSON step & maneuver parser
+├── repositories/                        # Repository layer (interfaces & implementations)
+│   ├── AlertsRepository.kt              # Navigation alerts & speech mode coordination
+│   ├── BillingRepository.kt             # Play Billing / in-app subscriptions
+│   ├── CursorRepository.kt             # Location and heading provider
+│   ├── GeocodingRepository.kt          # Nominatim / offline address lookup & OSRM routing
+│   ├── RouteRepository.kt              # GeoJSON track import, parsing, listing, removal
+│   ├── MarkersRepository.kt            # Saved waypoints / map bookmarks
+│   ├── PreferencesRepository.kt        # User preferences (GPS mode, theme, rotation)
+│   └── RegionRepository.kt             # Downloaded .map regions management
+├── services/                            # Domain use cases and background services
+│   ├── BuildInitialNavigationStateUseCase.kt # Step-based navigation state builder
+│   ├── BuildRouteToMarkerUseCase.kt     # Native discrete step route generation to marker
+│   ├── NavigationTrackingService.kt     # GPS stream coordinator for navigation
+│   ├── NavigationForegroundService.kt   # Android foreground service with WakeLock
+│   ├── RegionValidatorService.kt        # Map region entitlement & file check
+│   ├── ScanTracksFoldersUseCase.kt      # Scans /Download/ for GeoJSON tracks
+│   ├── UpdateNavigationStateUseCase.kt  # Discrete step tracking, voice & alarm engine
+│   └── UiRouter.kt                      # In-app navigation router
+├── models/                              # Domain data classes and enums
+│   ├── Bookmark.kt, DownloadedRegion.kt, DownloadState.kt, GeoPoint.kt, RouteFile.kt
+│   ├── Maneuver.kt                      # RouteStep, Maneuver, ManeuverType, NavigationRoute
+│   ├── NavigationState.kt, UserLocation.kt
+│   └── enums/                           # GpsBatteryMode, MapRotationMode, MapTheme, NavigationMode, ...
+├── view_models/                         # MVI ViewModels, Intents, Effects & UiStates
+│   ├── TracksViewModel.kt, MainMenuViewModel.kt, MapViewModel.kt
+│   ├── MarkersViewModel.kt, PreferencesViewModel.kt, RegionsViewModel.kt, SearchAddressViewModel.kt
 └── presentation/
-    ├── MainActivity.kt                  # Entry point, permission request
-    ├── theme/Theme.kt                   # Wear OS Material3 dark theme
-    ├── navigation/Navigation.kt         # SwipeDismissableNavHost — 6 routes
+    ├── MainActivity.kt                  # Entry point, permission requests, NavHost
+    ├── components/                      # BackButton, NavigationButton, RemoveButton
+    ├── navigation/AppNavGraph.kt        # Wear Compose navigation graph
+    ├── map/layers/                      # Mapsforge custom layers (LocationArrowLayer, MarkerLayer, ...)
+    ├── theme/                           # Color, Dimen, Theme, Type
     └── screens/
-        ├── MapViewModel.kt              # Shared ViewModel (map, GPS, GPX,
-        │                                #   downloads, recording, navigation)
-        ├── MapScreen.kt                 # Mapsforge MapView + GPS dot + GPX polylines
-        ├── DownloadScreen.kt            # Region browser + download progress
-        ├── GpxScreen.kt                 # GPX file manager + Navigate button
-        ├── RecordScreen.kt              # Live track recording with pause/resume
-        ├── NavigationScreen.kt          # Turn-by-turn guidance with vibration
-        └── MenuScreen.kt               # Main swipe menu
+        ├── MainMapScreen.kt             # Mapsforge MapView + GPS dot + turn guidance overlay
+        ├── MainMenuScreen.kt            # Main wearable menu
+        ├── TracksScreen.kt              # Tracks manager + Navigate button
+        ├── MarkersScreen.kt             # Saved bookmarks list
+        ├── PreferencesScreen.kt         # GPS mode, rotation, and theme settings
+        ├── RegionsScreen.kt             # Offline map downloader & regional picker
+        └── SearchAddressScreen.kt       # Address search & pin placement
 ```
 
 ---
@@ -175,39 +195,27 @@ Maps are stored in the app's private storage (`/data/data/com.osm.wear/files/map
 
 ---
 
-## GPX Track Import
+## Track Import (GeoJSON)
 
-1. Transfer your `.gpx` file to the watch (via **Galaxy Wearable** app, ADB, or cloud sync)
-2. Open **OSM Wear → Menu → GPX Tracks → +**
-3. Select the file from the system file picker
-4. The track appears as an orange polyline on the map
-
----
-
-## GPX Track Recording
-
-1. Open **Menu → Record Track**
-2. Tap **Start Recording** — the watch switches GPS to High Accuracy mode
-3. Tap **Pause** to temporarily stop recording without losing the track
-4. Tap **Resume** to continue
-5. Tap **Stop & Save** — the track is saved as a `.gpx` file and immediately available in the GPX manager
-
-Recorded files are stored at `/data/data/com.osm.wear/files/recordings/`.
+1. Transfer your `.geojson` or `.json` file to the watch `/Download/` directory (or via ADB, cloud sync, or share intent)
+2. Open **OSM Wear → Menu → Tracks**
+3. Tracks from `/Download/` are automatically scanned and listed
+4. Tap a track to select it, then tap **Start Navigation** from the main menu
 
 ---
 
 ## Turn-by-Turn Navigation
 
-1. Open **Menu → GPX Tracks**
-2. Select a track and tap **Navigate**
-3. The navigation screen shows:
-   - **Direction arrow** pointing toward the next waypoint (rotates with your heading)
-   - **Distance to next turn** (metres or km)
-   - **Turn instruction** (Turn left / Turn right / Sharp left / U-turn / …)
-   - **Remaining distance** to the end of the track
-   - **Off-track warning** if you deviate more than 50 m from the route
-4. The watch **vibrates** with a double pulse ~30 m before each turn and a long pulse on arrival
-5. Tap **Stop Nav** to end navigation
+1. Open **Menu → Tracks** (or tap on the map to set a marker and compute a route).
+2. Select a track, then return to the main menu and tap **Start Navigation**.
+3. Turn-by-turn guidance runs with background tracking and WakeLock:
+   - **Direction arrow** on map overlay shows upcoming turn maneuver (left/right/straight).
+   - **Distance to next turn** (metres or km) calculated along route waypoints.
+   - **Natural voice announcements** (e.g. *"In 300 meters, turn left onto Main St"*, *"In 1 kilometer, turn right"*), suppressing repetitive phrases and guaranteeing no *"In now..."* utterances.
+   - **Turn alarm & haptic feedback** vibrating with a distinct pulse pattern ~30 m before each turn and upon arrival.
+   - **Remaining distance** to destination.
+   - **Off-track warning** (`⚠`) when deviating from the route.
+4. Tap **Stop Nav** or reach destination to end guidance cleanly.
 
 ---
 
@@ -229,7 +237,7 @@ The app automatically switches to **High Accuracy** during recording and navigat
 
 Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licensed under [ODbL](https://opendatacommons.org/licenses/odbl/).
 Map rendering by [Mapsforge](https://github.com/mapsforge/mapsforge), Apache 2.0 license.
-GPX parsing by [android-gpx-parser](https://github.com/ticofab/android-gpx-parser), Apache 2.0 license.
+Route architecture built on native RFC 7946 GeoJSON specification with discrete step maneuvers.
 
 ---
 

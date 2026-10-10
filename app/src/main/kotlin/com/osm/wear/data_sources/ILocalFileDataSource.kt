@@ -7,7 +7,8 @@ import java.io.InputStream
 import java.io.OutputStream
 
 interface ILocalFileDataSource {
-    fun getGpxDirectory(): File
+    /** Target directory for all native GeoJSON route tracks. */
+    fun getTracksDirectory(): File
     fun getRegionDirectory(): File
     fun openInputStream(uri: Uri): InputStream?
     fun openOutputStream(file: File): OutputStream

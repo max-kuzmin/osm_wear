@@ -3,7 +3,7 @@ package com.osm.wear.view_models
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.Bookmark
-import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.GeoPoint
 import com.osm.wear.repositories.IGeocodingRepository
 import com.osm.wear.repositories.IMarkersRepository
 import com.osm.wear.repositories.IPreferencesRepository
@@ -109,7 +109,7 @@ class SearchAddressViewModel @Inject constructor(
     }
 
     private fun selectAddress(bookmark: Bookmark) {
-        val pt = GpxPoint(bookmark.lat, bookmark.lon)
+        val pt = GeoPoint(bookmark.lat, bookmark.lon)
         markersRepository.setCurrentMarker(pt)
         preferencesRepository.setMapCenter(bookmark.lat, bookmark.lon)
         preferencesRepository.setMapFollowLocation(false)

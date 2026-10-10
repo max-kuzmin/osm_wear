@@ -11,8 +11,8 @@ class LocalFileDataSource(
     private val context: Context
 ) : ILocalFileDataSource {
 
-    override fun getGpxDirectory(): File {
-        return File(context.filesDir, "gpx").also { it.mkdirs() }
+    override fun getTracksDirectory(): File {
+        return File(context.filesDir, "tracks").also { it.mkdirs() }
     }
 
     override fun getRegionDirectory(): File {

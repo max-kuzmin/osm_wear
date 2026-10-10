@@ -2,15 +2,15 @@ package com.osm.wear.services
 
 import android.content.Context
 import android.os.Environment
-import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.repositories.IRouteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
-class ScanGpxFoldersUseCase @Inject constructor(
+class ScanTracksFoldersUseCase @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
-    private val gpxRepo: IGpxRepository
+    private val routeRepo: IRouteRepository
 ) {
     suspend operator fun invoke() = withContext(Dispatchers.IO) {
         val foundFiles = mutableListOf<File>()
@@ -19,13 +19,15 @@ class ScanGpxFoldersUseCase @Inject constructor(
             scanDirectory(downloads, foundFiles)
         }
         foundFiles.forEach { file ->
-            gpxRepo.importFromFile(file)
+            routeRepo.importFromFile(file)
         }
         val foundNames = foundFiles.map { it.name }.toSet()
-        val internalFiles = File(context.filesDir, "gpx").listFiles()?.filter { it.extension == "gpx" } ?: emptyList()
+        val internalFiles = File(context.filesDir, "tracks").listFiles()?.filter {
+            it.extension.equals("geojson", ignoreCase = true) || it.extension.equals("json", ignoreCase = true)
+        } ?: emptyList()
         internalFiles.forEach { internalFile ->
-            if (!foundNames.contains(internalFile.name)) {
-                gpxRepo.deleteFile(internalFile.name)
+            if (!foundNames.contains(internalFile.name) && internalFile.nameWithoutExtension != "path_finder") {
+                routeRepo.deleteRoute(internalFile.name)
             }
         }
     }
@@ -41,8 +43,11 @@ class ScanGpxFoldersUseCase @Inject constructor(
         for (file in files) {
             if (file.isDirectory) {
                 scanDirectory(file, result)
-            } else if (file.extension.lowercase() == "gpx") {
-                result.add(file)
+            } else {
+                val ext = file.extension.lowercase()
+                if (ext == "geojson" || ext == "json") {
+                    result.add(file)
+                }
             }
         }
     }

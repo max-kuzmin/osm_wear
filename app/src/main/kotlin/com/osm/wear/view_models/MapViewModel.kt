@@ -4,10 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.models.enums.MapRotationMode
-import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.GeoPoint
 import com.osm.wear.repositories.ICursorRepository
 import com.osm.wear.repositories.IPreferencesRepository
-import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.repositories.IRouteRepository
 import com.osm.wear.repositories.IRegionRepository
 import com.osm.wear.repositories.IMarkersRepository
 import com.osm.wear.repositories.IGeocodingRepository
@@ -33,7 +33,7 @@ class MapViewModel @Inject constructor(
     private val preferencesRepository: IPreferencesRepository,
     private val markersRepository: IMarkersRepository,
     private val navigationTrackingService: INavigationTrackingService,
-    private val gpxRepository: IGpxRepository,
+    private val routeRepository: IRouteRepository,
     private val regionRepository: IRegionRepository,
     private val geocodingRepository: IGeocodingRepository,
     private val billingRepository: IBillingRepository,
@@ -80,8 +80,8 @@ class MapViewModel @Inject constructor(
             }.collect { }
         }
         viewModelScope.launch {
-            gpxRepository.activeGpxFile.collect { file ->
-                _uiState.update { it.copy(activeGpxFile = file) }
+            routeRepository.activeRoute.collect { file ->
+                _uiState.update { it.copy(activeRouteFile = file) }
             }
         }
         viewModelScope.launch {
@@ -258,11 +258,11 @@ class MapViewModel @Inject constructor(
     }
 
     private fun onMapTapped(lat: Double, lon: Double) {
-        val pt = GpxPoint(lat, lon)
+        val pt = GeoPoint(lat, lon)
         markersRepository.setCurrentMarker(pt)
     }
 
-    private suspend fun resolveAddressForPoint(pt: GpxPoint, overrideName: String? = null) {
+    private suspend fun resolveAddressForPoint(pt: GeoPoint, overrideName: String? = null) {
         try {
             _uiState.update { it.copy(isResolvingAddress = true) }
             val result = geocodingRepository.reverseGeocode(pt.lat, pt.lon)

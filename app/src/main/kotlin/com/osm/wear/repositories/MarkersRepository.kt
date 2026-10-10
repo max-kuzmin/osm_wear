@@ -2,7 +2,7 @@ package com.osm.wear.repositories
 
 import android.content.SharedPreferences
 import com.osm.wear.models.Bookmark
-import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.GeoPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,8 +16,8 @@ class MarkersRepository(
     private val _bookmarks = MutableStateFlow<List<Bookmark>>(emptyList())
     override val bookmarks: StateFlow<List<Bookmark>> = _bookmarks.asStateFlow()
 
-    private val _currentMarker = MutableStateFlow<GpxPoint?>(null)
-    override val currentMarker: StateFlow<GpxPoint?> = _currentMarker.asStateFlow()
+    private val _currentMarker = MutableStateFlow<GeoPoint?>(null)
+    override val currentMarker: StateFlow<GeoPoint?> = _currentMarker.asStateFlow()
 
     init {
         loadBookmarks()
@@ -83,18 +83,18 @@ class MarkersRepository(
         saveBookmarks(current)
     }
 
-    override fun getCurrentMarker(): GpxPoint? {
+    override fun getCurrentMarker(): GeoPoint? {
         val hasMarker = prefs.getBoolean("has_current_marker", false)
         return if (hasMarker) {
             val tLat = prefs.getFloat("current_marker_lat", 0f).toDouble()
             val tLon = prefs.getFloat("current_marker_lon", 0f).toDouble()
-            GpxPoint(tLat, tLon)
+            GeoPoint(tLat, tLon)
         } else {
             null
         }
     }
 
-    override fun setCurrentMarker(point: GpxPoint?) {
+    override fun setCurrentMarker(point: GeoPoint?) {
         _currentMarker.value = point
         if (point != null) {
             prefs.putBoolean("has_current_marker", true)

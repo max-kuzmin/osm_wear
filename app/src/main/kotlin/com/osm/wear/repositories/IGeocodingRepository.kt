@@ -1,6 +1,7 @@
 package com.osm.wear.repositories
 
-import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.GeoPoint
+import com.osm.wear.models.NavigationRoute
 import com.osm.wear.models.enums.NavigationMode
 
 import org.mapsforge.core.model.BoundingBox
@@ -14,7 +15,14 @@ interface IGeocodingRepository {
         endLat: Double,
         endLon: Double,
         mode: NavigationMode
-    ): List<GpxPoint>
+    ): List<GeoPoint>
+    suspend fun fetchNavigationRoute(
+        startLat: Double,
+        startLon: Double,
+        endLat: Double,
+        endLon: Double,
+        mode: NavigationMode
+    ): NavigationRoute?
 }
 
 data class GeocodeResult(

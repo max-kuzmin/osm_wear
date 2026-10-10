@@ -26,14 +26,14 @@ import com.osm.wear.view_models.MainMenuViewModel
 fun MainMenuScreen(
     menuVm: MainMenuViewModel,
     onNavigationStarted: () -> Unit,
-    onOpenGpxTracks: () -> Unit,
+    onOpenTracks: () -> Unit,
     onOpenMarkers: () -> Unit,
     onOpenRegions: () -> Unit,
     onOpenPreferences: () -> Unit,
     onBack: () -> Unit
 ) {
     val uiState by menuVm.uiState.collectAsStateWithLifecycle()
-    val activeGpxFile = uiState.activeGpxFile
+    val activeRoute = uiState.activeRoute
     val navState = uiState.navigationState
     
     val context = LocalContext.current
@@ -72,15 +72,15 @@ fun MainMenuScreen(
             )
         }
 
-        // 1. Start/stop navigation (active if activeGpxFile != null)
+        // 1. Start/stop navigation (active if activeRoute != null)
         item {
             val isActive = navState?.isActive == true
-            val hasTrack = activeGpxFile != null
+            val hasTrack = activeRoute != null
             NavigationButton(
                 isActive = isActive,
                 enabled = hasTrack,
                 onStart = {
-                    activeGpxFile?.let { menuVm.onIntent(MainMenuIntent.StartNavigation(it, null)) }
+                    activeRoute?.let { menuVm.onIntent(MainMenuIntent.StartNavigation(it, null)) }
                 },
                 onStop = {
                     menuVm.onIntent(MainMenuIntent.StopNavigation)
@@ -88,10 +88,10 @@ fun MainMenuScreen(
             )
         }
 
-        // 2. GPX Tracks
+        // 2. Tracks
         item {
             Button(
-                onClick = onOpenGpxTracks,
+                onClick = onOpenTracks,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -100,14 +100,14 @@ fun MainMenuScreen(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Route,
-                        contentDescription = "GPX Tracks",
+                        contentDescription = "Tracks",
                         modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("GPX Tracks", style = MaterialTheme.typography.labelMedium) },
+                label = { Text("Tracks", style = MaterialTheme.typography.labelMedium) },
                 secondaryLabel = {
                     Text(
-                        text = activeGpxFile?.name ?: "None selected",
+                        text = activeRoute?.name ?: "None selected",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )

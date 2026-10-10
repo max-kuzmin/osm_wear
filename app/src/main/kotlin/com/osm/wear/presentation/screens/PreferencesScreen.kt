@@ -105,15 +105,13 @@ fun PreferencesScreen(
                 NavigationMode.WALKING -> Icons.Default.DirectionsWalk
                 NavigationMode.CYCLING -> Icons.Default.DirectionsBike
                 NavigationMode.DRIVING -> Icons.Default.DirectionsCar
-                NavigationMode.GPX_ONLY -> Icons.Default.LocationOn
             }
             Button(
                 onClick = {
                     val nextMode = when (settingsState.navigationMode) {
                         NavigationMode.WALKING -> NavigationMode.CYCLING
                         NavigationMode.CYCLING -> NavigationMode.DRIVING
-                        NavigationMode.DRIVING -> NavigationMode.GPX_ONLY
-                        NavigationMode.GPX_ONLY -> NavigationMode.WALKING
+                        NavigationMode.DRIVING -> NavigationMode.WALKING
                     }
                     settingsVm.onIntent(PreferencesIntent.SetNavigationMode(nextMode))
                 },
@@ -140,7 +138,7 @@ fun PreferencesScreen(
             )
         }
 
-        // 3. GPX Power Mode (GPS battery mode)
+        // 3. GPS Power Mode (GPS battery mode)
         item {
             Button(
                 onClick = {
@@ -159,11 +157,11 @@ fun PreferencesScreen(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.GpsFixed,
-                        contentDescription = "GPX Power Mode",
+                        contentDescription = "GPS Power Mode",
                         modifier = Modifier.size(AppDimensions.IconNormal)
                     )
                 },
-                label = { Text("GPX Power Mode", style = MaterialTheme.typography.labelMedium) },
+                label = { Text("GPS Power Mode", style = MaterialTheme.typography.labelMedium) },
                 secondaryLabel = {
                     Text(
                         text = settingsState.gpsBatteryMode.label,

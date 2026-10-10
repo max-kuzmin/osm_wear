@@ -36,6 +36,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 
     buildFeatures {
         compose = true
@@ -96,9 +99,6 @@ dependencies {
     implementation(libs.mapsforge.themes)
     implementation(libs.androidsvg)
 
-    // GPX Parser
-    implementation(libs.android.gpx.parser)
-
     // Network (map downloads)
     implementation(libs.okhttp)
 
@@ -113,6 +113,10 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
+    testImplementation(libs.json)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

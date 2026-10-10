@@ -3,13 +3,13 @@ package com.osm.wear.view_models
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.osm.wear.models.Bookmark
-import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.GeoPoint
 import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.repositories.ICursorRepository
-import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.repositories.IGeocodingRepository
+import com.osm.wear.repositories.IRouteRepository
 import com.osm.wear.repositories.IMarkersRepository
 import com.osm.wear.repositories.IPreferencesRepository
-import com.osm.wear.repositories.IGeocodingRepository
 import com.osm.wear.services.BuildRouteToMarkerUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -27,7 +27,7 @@ class MarkersViewModel @Inject constructor(
     private val markersRepository: IMarkersRepository,
     private val cursorRepository: ICursorRepository,
     private val preferencesRepository: IPreferencesRepository,
-    private val gpxRepo: IGpxRepository,
+    private val routeRepo: IRouteRepository,
     private val geocodingRepository: IGeocodingRepository,
     private val buildRouteToMarkerUseCase: BuildRouteToMarkerUseCase
 ) : ViewModel() {
@@ -73,13 +73,13 @@ class MarkersViewModel @Inject constructor(
     }
 
     private fun selectBookmark(bookmark: Bookmark) {
-        val pt = GpxPoint(bookmark.lat, bookmark.lon)
+        val pt = GeoPoint(bookmark.lat, bookmark.lon)
         markersRepository.setCurrentMarker(pt)
         preferencesRepository.setMapCenter(bookmark.lat, bookmark.lon)
         preferencesRepository.setMapFollowLocation(false)
     }
 
-    private fun saveBookmarkFromMap(pt: GpxPoint) {
+    private fun saveBookmarkFromMap(pt: GeoPoint) {
         viewModelScope.launch {
             val res = geocodingRepository.reverseGeocode(pt.lat, pt.lon)
             val finalName = res?.name ?: "Point (%.4f, %.4f)".format(pt.lat, pt.lon)
@@ -98,17 +98,17 @@ class MarkersViewModel @Inject constructor(
         markersRepository.removeBookmark(bookmark)
     }
 
-    private fun buildRouteTo(target: GpxPoint) {
+    private fun buildRouteTo(target: GeoPoint) {
         if (!cursorRepository.isGpsEnabled()) {
             viewModelScope.launch { _effect.send(MarkersEffect.ShowToast("GPS is disabled")) }
             return
         }
         viewModelScope.launch {
             buildRouteToMarkerUseCase(target, _uiState.value.currentLocation)
-                .onSuccess { gpx ->
-                    gpxRepo.saveGpxFile("Path Finder", gpx.trackPoints)
-                        .onSuccess { savedGpx ->
-                            gpxRepo.setActive(savedGpx.id)
+                .onSuccess { navRoute ->
+                    routeRepo.saveRoute("Path Finder", navRoute)
+                        .onSuccess { savedRouteFile ->
+                            routeRepo.setActive(savedRouteFile.id)
                             _effect.send(MarkersEffect.ShowMap)
                         }
                         .onFailure { err ->

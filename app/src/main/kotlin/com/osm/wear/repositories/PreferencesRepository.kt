@@ -4,7 +4,7 @@ import android.content.SharedPreferences
 import com.osm.wear.models.enums.MapTheme
 import com.osm.wear.models.enums.NavigationMode
 import com.osm.wear.models.enums.GpsBatteryMode
-import com.osm.wear.models.GpxPoint
+import com.osm.wear.models.GeoPoint
 
 import com.osm.wear.data_sources.ILocalPreferencesDataSource
 
@@ -12,10 +12,10 @@ class PreferencesRepository(
     private val prefs: ILocalPreferencesDataSource
 ) : IPreferencesRepository {
 
-    override fun getMapCenter(): GpxPoint {
+    override fun getMapCenter(): GeoPoint {
         val lat = prefs.getFloat("map_center_lat", 0.0f).toDouble()
         val lon = prefs.getFloat("map_center_lon", 0.0f).toDouble()
-        return GpxPoint(lat, lon)
+        return GeoPoint(lat, lon)
     }
 
     override fun setMapCenter(lat: Double, lon: Double) {

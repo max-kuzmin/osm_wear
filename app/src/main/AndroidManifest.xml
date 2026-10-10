@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Storage for map files and GPX -->
+    <!-- Storage for map files and tracks -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
@@ -65,7 +65,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- VIEW Intent Filters for GPX -->
+            <!-- VIEW Intent Filters for GeoJSON Route Tracks -->
             <intent-filter tools:ignore="AppLinkUrlError">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -73,8 +73,8 @@
                 
                 <data android:scheme="content" />
                 <data android:scheme="file" />
-                <data android:mimeType="application/gpx+xml" />
-                <data android:mimeType="application/gpx" />
+                <data android:mimeType="application/geo+json" />
+                <data android:mimeType="application/json" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
 
@@ -87,19 +87,23 @@
                 <data android:scheme="file" />
                 <data android:mimeType="*/*" />
                 <data android:host="*" />
-                <data android:pathPattern=".*\\.gpx" />
-                <data android:pathPattern=".*\\.GPX" />
-                <data android:pathSuffix=".gpx" />
-                <data android:pathSuffix=".GPX" />
+                <data android:pathPattern=".*\\.geojson" />
+                <data android:pathPattern=".*\\.GEOJSON" />
+                <data android:pathPattern=".*\\.json" />
+                <data android:pathPattern=".*\\.JSON" />
+                <data android:pathSuffix=".geojson" />
+                <data android:pathSuffix=".GEOJSON" />
+                <data android:pathSuffix=".json" />
+                <data android:pathSuffix=".JSON" />
             </intent-filter>
 
-            <!-- SEND Intent Filters for GPX sharing -->
+            <!-- SEND Intent Filters for GeoJSON Track Sharing -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 
-                <data android:mimeType="application/gpx+xml" />
-                <data android:mimeType="application/gpx" />
+                <data android:mimeType="application/geo+json" />
+                <data android:mimeType="application/json" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>

@@ -52,7 +52,7 @@ fun AppNavGraph(
                 onNavigationStarted = {
                     navController.popBackStack(Routes.MAP.value, false)
                 },
-                onOpenGpxTracks = { navController.navigate(Routes.GPX_TRACKS.value) },
+                onOpenTracks = { navController.navigate(Routes.TRACKS.value) },
                 onOpenMarkers = { navController.navigate(Routes.MARKERS.value) },
                 onOpenRegions = { navController.navigate(Routes.REGIONS.value) },
                 onOpenPreferences = { navController.navigate(Routes.PREFERENCES.value) },
@@ -67,12 +67,11 @@ fun AppNavGraph(
                 onBack                = { navController.popBackStack() }
             )
         }
-        composable(Routes.GPX_TRACKS.value) {
-            val gpxVm: GpxTracksViewModel = hiltViewModel()
-            val context = androidx.compose.ui.platform.LocalContext.current
-            GpxTracksScreen(
-                gpxVm = gpxVm,
-                onBack            = { navController.popBackStack() }
+        composable(Routes.TRACKS.value) {
+            val tracksVm: TracksViewModel = hiltViewModel()
+            TracksScreen(
+                tracksVm = tracksVm,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Routes.MARKERS.value) {

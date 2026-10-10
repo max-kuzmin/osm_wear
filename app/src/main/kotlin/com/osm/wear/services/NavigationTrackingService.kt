@@ -3,8 +3,8 @@ package com.osm.wear.services
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
-import com.osm.wear.models.GpxFile
 import com.osm.wear.models.NavigationState
+import com.osm.wear.models.RouteFile
 import com.osm.wear.models.UserLocation
 import com.osm.wear.models.enums.GpsBatteryMode
 import com.osm.wear.repositories.IAlertsRepository
@@ -37,10 +37,10 @@ class NavigationTrackingService @Inject constructor(
     private var locationJob: Job? = null
 
     override fun startNavigation(
-        gpx: GpxFile,
+        route: RouteFile,
         initialLocation: UserLocation?
     ): String? {
-        val result = buildInitialNavigationStateUseCase(gpx)
+        val result = buildInitialNavigationStateUseCase(route)
         if (result.isFailure) {
             return result.exceptionOrNull()?.message ?: "Failed to build navigation state"
         }
@@ -64,11 +64,13 @@ class NavigationTrackingService @Inject constructor(
         return null // success
     }
 
-    override fun stopNavigation() {
+    override fun stopNavigation(announce: Boolean) {
         stopLocationTracking()
         _navigationState.value = null
         
-        alertsRepository.announce("Navigation stopped")
+        if (announce) {
+            alertsRepository.announce("Navigation stopped")
+        }
         
         // Stop Android Foreground Service directly
         val serviceIntent = Intent(context, NavigationForegroundService::class.java)
@@ -80,7 +82,7 @@ class NavigationTrackingService @Inject constructor(
             val updated = updateNavigationStateUseCase(nav, loc)
             _navigationState.value = updated
             if (!updated.isActive) {
-                stopNavigation()
+                stopNavigation(announce = false)
             }
         }
     }

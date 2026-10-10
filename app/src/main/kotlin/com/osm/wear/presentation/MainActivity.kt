@@ -10,7 +10,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.osm.wear.presentation.navigation.AppNavGraph
 import com.osm.wear.services.IUiRouter
 import com.osm.wear.presentation.theme.OsmWearTheme
-import com.osm.wear.repositories.IGpxRepository
+import com.osm.wear.repositories.IRouteRepository
 import com.osm.wear.services.INavigationTrackingService
 import javax.inject.Inject
 import dagger.hilt.android.AndroidEntryPoint
@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     @Inject
-    lateinit var gpxRepository: IGpxRepository
+    lateinit var routeRepository: IRouteRepository
 
     @Inject
     lateinit var uiNavigationManager: IUiRouter
@@ -50,13 +50,13 @@ class MainActivity : ComponentActivity() {
         }
 
         requestPermissions()
-        handleGpxIntent(intent)
+        handleRouteIntent(intent)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleGpxIntent(intent)
+        handleRouteIntent(intent)
     }
 
     private fun requestPermissions() {
@@ -68,22 +68,23 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun handleGpxIntent(intent: android.content.Intent?) {
-        if (intent != null && intent.action == android.content.Intent.ACTION_VIEW) {
+    private fun handleRouteIntent(intent: android.content.Intent?) {
+        if (intent != null && (intent.action == android.content.Intent.ACTION_VIEW || intent.action == android.content.Intent.ACTION_SEND)) {
             val data = intent.data
-            val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val uri = data ?: if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(
                     android.content.Intent.EXTRA_STREAM,
                     android.net.Uri::class.java
                 )
             } else {
-                data
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(android.content.Intent.EXTRA_STREAM)
             }
             if (uri != null) {
-                android.util.Log.d("MainActivity", "Handling intent to import GPX from: $uri")
+                android.util.Log.d("MainActivity", "Handling intent to import track from: $uri")
                 lifecycleScope.launch {
-                    gpxRepository.importFromUri(uri).onSuccess { gpx ->
-                        gpxRepository.setActive(gpx.id)
+                    routeRepository.importFromUri(uri).onSuccess { route ->
+                        routeRepository.setActive(route.id)
                     }
                 }
                 uiNavigationManager.routeTo(com.osm.wear.models.enums.Routes.MAP.value)

@@ -87,11 +87,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideGpxRepository(
+    fun provideRouteRepository(
         localFileDataSource: ILocalFileDataSource,
         prefs: ILocalPreferencesDataSource
-    ): IGpxRepository {
-        return GpxRepository(localFileDataSource, prefs)
+    ): IRouteRepository {
+        return RouteRepository(localFileDataSource, prefs)
     }
 
     @Provides

@@ -3,16 +3,16 @@
     <string name="app_name">OSM Wear</string>
     <string name="title_map">Map</string>
     <string name="title_download">Download Maps</string>
-    <string name="title_gpx">GPX Tracks</string>
+    <string name="title_tracks">Tracks</string>
     <string name="action_zoom_in">Zoom In</string>
     <string name="action_zoom_out">Zoom Out</string>
     <string name="action_my_location">My Location</string>
     <string name="action_download">Download</string>
     <string name="action_delete">Delete</string>
-    <string name="action_import">Import GPX</string>
+    <string name="action_import">Import Track</string>
     <string name="status_downloading">Downloading…</string>
     <string name="status_no_maps">No offline maps.\nDownload a region first.</string>
-    <string name="status_no_gpx">No GPX tracks.\nImport a GPX file.</string>
+    <string name="status_no_tracks">No saved tracks.\nImport a GeoJSON file.</string>
     <string name="status_gps_searching">Searching for GPS…</string>
     <string name="permission_location_rationale">Location permission is required to show your current position on the map.</string>
 
@@ -33,7 +33,7 @@
     <string name="off_track">Off track</string>
     <string name="remaining">Remaining</string>
     <string name="no_navigation">No navigation active</string>
-    <string name="select_gpx_hint">Select a GPX track and tap Navigate</string>
+    <string name="select_track_hint">Select a track and tap Navigate</string>
 
     <!-- GPS Modes -->
     <string name="gps_high_accuracy">High Accuracy</string>
